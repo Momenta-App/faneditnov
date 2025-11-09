@@ -1,0 +1,20 @@
+[
+  {
+    "url": "https://www.tiktok.com/@test/video/1234567890",
+    "snapshot_id": "test_manual_webhook",
+    "post_id": "1234567890",
+    "profile_id": "test_creator",
+    "display_name": "Test Creator",
+    "username": "testcreator",
+    "description": "Test video for webhook debugging",
+    "play_count": 1000,
+    "like_count": 100,
+    "share_count": 10,
+    "comment_count": 5,
+    "create_time": 1699000000,
+    "music_id": "music123",
+    "music_title": "Test Music",
+    "music_author": "Test Artist"
+  }
+]
+

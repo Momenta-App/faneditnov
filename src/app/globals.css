@@ -1,0 +1,839 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   Design Tokens - Light Theme (default) - Apple Design Language
+   ============================================================================ */
+:root {
+  /* Color Tokens - Light Theme (Apple-inspired) */
+  --color-background: #ffffff; /* Pure white - Apple standard */
+  --color-surface: #e5e5ea; /* iOS Gray 5 - Darker for better contrast */
+  --color-border: #c6c6c8; /* iOS Gray 4 - Apple separator */
+  --color-border-hover: #8e8e93; /* iOS Gray 3 - Apple tertiary label */
+  
+  --color-text-primary: #000000; /* Pure black - Apple primary label */
+  --color-text-muted: #3a3a3c; /* iOS Gray 2 - Apple secondary label */
+  --color-text-muted-light: #8e8e93; /* iOS Gray 3 - Apple tertiary label */
+  
+  --color-primary: #1E90FF; /* Bright DodgerBlue for high visibility */
+  --color-primary-hover: #1873CC; /* Slightly darker for hover */
+  --color-primary-light: #5AC8FA; /* Light blue for accents */
+  
+  --color-success: #34C759; /* iOS Green - Apple system green */
+  --color-warning: #FF9500; /* iOS Orange - Apple system orange */
+  --color-danger: #FF3B30; /* iOS Red - Apple system red */
+  --color-info: #007AFF; /* iOS Blue - Apple system blue */
+  
+  /* Focus Ring */
+  --focus-ring: #007AFF; /* iOS Blue */
+  
+  /* Legacy aliases for backward compatibility (will be removed in migration) */
+  --brand-primary: var(--color-primary);
+  --brand-primary-hover: var(--color-primary-hover);
+  --brand-primary-light: var(--color-primary-light);
+  --background: var(--color-background);
+  --foreground: var(--color-text-primary);
+  --card-bg: var(--color-surface);
+  --border: var(--color-border);
+  --muted: var(--color-text-muted);
+  --muted-light: var(--color-text-muted-light);
+  --success: var(--color-success);
+  --warning: var(--color-warning);
+  --error: var(--color-danger);
+  --info: var(--color-info);
+  
+  /* Spacing Scale (8px base) */
+  --spacing-0: 0px;
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+  --spacing-20: 80px;
+  --spacing-24: 96px;
+  
+  /* Typography Scale */
+  --font-size-h1: 3rem; /* 48px */
+  --font-size-h2: 2.25rem; /* 36px */
+  --font-size-h3: 1.875rem; /* 30px */
+  --font-size-h4: 1.5rem; /* 24px */
+  --font-size-h5: 1.25rem; /* 20px */
+  --font-size-h6: 1rem; /* 16px */
+  --font-size-body: 1rem; /* 16px */
+  --font-size-small: 0.875rem; /* 14px */
+  --font-size-code: 0.875rem; /* 14px */
+  
+  --line-height-h1: 1.1;
+  --line-height-h2: 1.2;
+  --line-height-h3: 1.3;
+  --line-height-h4: 1.4;
+  --line-height-h5: 1.5;
+  --line-height-h6: 1.6;
+  --line-height-body: 1.6;
+  --line-height-small: 1.5;
+  --line-height-code: 1.5;
+  
+  /* Border Radius */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+  
+  /* Border Widths */
+  --border-width: 1px;
+  --border-width-thick: 2px;
+  
+  /* Z-Index Layers */
+  --z-base: 0;
+  --z-sticky: 40;
+  --z-header: 50;
+  --z-backdrop: 1000;
+  --z-modal: 1050;
+  --z-dropdown: 1100;
+  --z-tooltip: 1200;
+  
+  /* Shadows - Apple-inspired subtle shadows */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.03);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.08);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.12), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.15), 0 8px 10px -6px rgb(0 0 0 / 0.12);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.2);
+}
+
+/* ============================================================================
+   Design Tokens - Dark Theme - Apple Design Language
+   ============================================================================ */
+[data-theme="dark"] {
+  /* Color Tokens - Dark Theme (Apple-inspired) */
+  --color-background: #121212; /* Slightly lighter than pure black for better contrast */
+  --color-surface: #1c1c1e; /* iOS Dark Gray 6 - Apple secondary background */
+  --color-border: #38383a; /* iOS Dark Gray 3 - Apple separator */
+  --color-border-hover: #636366; /* iOS Dark Gray 2 - Apple tertiary label */
+  
+  --color-text-primary: #ffffff; /* Pure white - Apple primary label */
+  --color-text-muted: #98989d; /* iOS Dark Gray 1 - Apple secondary label */
+  --color-text-muted-light: #636366; /* iOS Dark Gray 2 - Apple tertiary label */
+  
+  --color-primary: #0A84FF; /* iOS Dark Blue - Apple system blue for dark mode */
+  --color-primary-hover: #409CFF; /* Lighter blue for hover */
+  --color-primary-light: #64D2FF; /* Light blue for accents */
+  
+  --color-success: #30D158; /* iOS Dark Green - Apple system green for dark mode */
+  --color-warning: #FF9F0A; /* iOS Dark Orange - Apple system orange for dark mode */
+  --color-danger: #FF453A; /* iOS Dark Red - Apple system red for dark mode */
+  --color-info: #0A84FF; /* iOS Dark Blue - Apple system blue for dark mode */
+  
+  /* Focus Ring */
+  --focus-ring: #0A84FF; /* iOS Dark Blue */
+  
+  /* Legacy aliases updated for dark theme */
+  --brand-primary: var(--color-primary);
+  --brand-primary-hover: var(--color-primary-hover);
+  --brand-primary-light: var(--color-primary-light);
+  --background: var(--color-background);
+  --foreground: var(--color-text-primary);
+  --card-bg: var(--color-surface);
+  --border: var(--color-border);
+  --muted: var(--color-text-muted);
+  --muted-light: var(--color-text-muted-light);
+  
+  /* Shadows adjusted for dark theme - Apple uses subtle glows */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.6), 0 1px 2px -1px rgb(0 0 0 / 0.5);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.7), 0 2px 4px -2px rgb(0 0 0 / 0.6);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.7), 0 4px 6px -4px rgb(0 0 0 / 0.6);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.8), 0 8px 10px -6px rgb(0 0 0 / 0.7);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.9);
+}
+
+/* Auto-apply dark theme based on system preference if no localStorage override */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --color-background: #121212;
+    --color-surface: #1c1c1e;
+    --color-border: #38383a;
+    --color-border-hover: #636366;
+    --color-text-primary: #ffffff;
+    --color-text-muted: #98989d;
+    --color-text-muted-light: #636366;
+    --color-primary: #0A84FF;
+    --color-primary-hover: #409CFF;
+    --color-primary-light: #64D2FF;
+    --focus-ring: #0A84FF;
+    --background: var(--color-background);
+    --foreground: var(--color-text-primary);
+    --card-bg: var(--color-surface);
+    --border: var(--color-border);
+    --muted: var(--color-text-muted);
+    --muted-light: var(--color-text-muted-light);
+    --brand-primary: var(--color-primary);
+    --brand-primary-hover: var(--color-primary-hover);
+    --brand-primary-light: var(--color-primary-light);
+  }
+}
+
+/* Box-sizing for all elements - this is good to keep */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Targeted CSS reset - only reset specific elements that need it */
+/* Remove default margin from block-level elements */
+body, h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd {
+  margin: 0;
+}
+
+/* Remove list styles where we'll add them back when needed */
+ul[role='list'], ol[role='list'] {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Base button styles with proper spacing */
+button {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  padding: var(--spacing-2) var(--spacing-4);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: all 0.2s ease;
+}
+
+/* Base form element styles with proper spacing */
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  padding: var(--spacing-2) var(--spacing-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  transition: all 0.2s ease;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgb(0 122 255 / 0.1);
+}
+
+[data-theme="dark"] input:focus, 
+[data-theme="dark"] textarea:focus, 
+[data-theme="dark"] select:focus {
+  box-shadow: 0 0 0 3px rgb(10 132 255 / 0.2);
+}
+
+html {
+  scroll-behavior: smooth;
+  background: var(--color-background);
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: var(--line-height-body);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Typography - Professional Hierarchy */
+h1 {
+  font-size: var(--font-size-h1);
+  line-height: var(--line-height-h1);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  line-height: var(--line-height-h2);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+h3 {
+  font-size: var(--font-size-h3);
+  line-height: var(--line-height-h3);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+h4 {
+  font-size: var(--font-size-h4);
+  line-height: var(--line-height-h4);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+h5 {
+  font-size: var(--font-size-h5);
+  line-height: var(--line-height-h5);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+h6 {
+  font-size: var(--font-size-h6);
+  line-height: var(--line-height-h6);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Focus styles - Accessibility */
+*:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+/* Skip link */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--color-primary);
+  color: white;
+  padding: var(--spacing-2) var(--spacing-4);
+  text-decoration: none;
+  z-index: 100;
+  border-radius: 0 0 var(--radius-xs) 0;
+  font-weight: 500;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Standardized Container System */
+.container-base {
+  padding-left: max(1.25rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1.25rem, env(safe-area-inset-right, 0px));
+}
+
+@media (min-width: 640px) {
+  .container-base {
+    padding-left: max(2rem, env(safe-area-inset-left, 0px));
+    padding-right: max(2rem, env(safe-area-inset-right, 0px));
+  }
+}
+
+@media (min-width: 1024px) {
+  .container-base {
+    padding-left: max(2.5rem, env(safe-area-inset-left, 0px));
+    padding-right: max(2.5rem, env(safe-area-inset-right, 0px));
+  }
+}
+
+/* Legacy container-page alias for backward compatibility */
+.container-page {
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: max(1.25rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1.25rem, env(safe-area-inset-right, 0px));
+}
+
+@media (min-width: 640px) {
+  .container-page {
+    padding-left: max(2rem, env(safe-area-inset-left, 0px));
+    padding-right: max(2rem, env(safe-area-inset-right, 0px));
+  }
+}
+
+@media (min-width: 1024px) {
+  .container-page {
+    padding-left: max(2.5rem, env(safe-area-inset-left, 0px));
+    padding-right: max(2.5rem, env(safe-area-inset-right, 0px));
+  }
+}
+
+/* Card Styles - Professional Elevation */
+.card-base {
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: var(--border-width) solid var(--color-border);
+}
+
+.card-elevated {
+  box-shadow: var(--shadow-md);
+}
+
+.card-interactive {
+  cursor: pointer;
+}
+
+.card-interactive:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-4px);
+  border-color: var(--color-border-hover);
+}
+
+.card-interactive:active {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Professional Focus Ring */
+.focus-ring {
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.focus-ring:focus {
+  outline: var(--border-width-thick) solid var(--focus-ring);
+  outline-offset: var(--spacing-1);
+  box-shadow: 0 0 0 var(--spacing-1) rgb(37 99 235 / 0.1); /* blue-600 with opacity */
+}
+
+[data-theme="dark"] .focus-ring:focus {
+  box-shadow: 0 0 0 var(--spacing-1) rgb(59 130 246 / 0.2); /* blue-500 with opacity for dark */
+}
+
+/* Text Utilities */
+.text-balance {
+  text-wrap: balance;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Video Modal Styles */
+.video-embed-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* TikTok embed styling */
+.video-embed-container .tiktok-embed {
+  border: none !important;
+  margin: 0 !important;
+  max-width: 100% !important;
+  min-width: 100% !important;
+  width: 100% !important;
+  display: block !important;
+  visibility: visible !important;
+  /* Override TikTok's inline styles */
+  min-height: auto !important;
+}
+
+/* Don't hide the section - TikTok needs it to convert to iframe */
+/* The TikTok embed script will handle the conversion */
+
+/* Keep only the iframe/embed */
+.video-embed-container .tiktok-embed iframe {
+  border: none !important;
+  border-radius: 12px !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 100% !important;
+  min-height: 100% !important;
+  display: block !important;
+  visibility: visible !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* Hide any additional UI elements that TikTok adds */
+.video-embed-container .tiktok-embed::before,
+.video-embed-container .tiktok-embed::after {
+  display: none !important;
+}
+
+/* Override TikTok's default max-width */
+.video-embed-container .tiktok-embed {
+  max-width: 100% !important;
+  min-width: 100% !important;
+  width: 100% !important;
+}
+
+/* TikTok iframe styling - hide white background and make larger */
+.tiktok-iframe {
+  background: black !important;
+  border: none !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Remove white background from TikTok iframe */
+iframe[src*="tiktok.com/embed"] {
+  background-color: black !important;
+  border: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Ensure modal container has black background */
+.motion\:div > div > div {
+  background: black !important;
+}
+
+/* Full-bleed bar pattern */
+.bar {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  /* Vertical padding lives on the wrapper, horizontal padding comes from container */
+}
+
+.bar::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 auto; /* tie to bar height only */
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  background: var(--bar-bg, var(--color-surface));
+  z-index: -1; /* must sit behind content */
+}
+
+/* Density variants */
+.bar--tight {
+  padding-block: 0.5rem;
+}
+
+.bar--roomy {
+  padding-block: 1rem;
+}
+
+/* ============================================================================
+   Premium Component Styles - Elevated Design System
+   ============================================================================ */
+
+/* Premium Header Container */
+.premium-header-container {
+  position: relative;
+  margin: 0;
+  padding: 0;
+}
+
+/* Premium gradient background animation */
+.premium-gradient-bg {
+  animation: subtleGradientShift 15s ease-in-out infinite;
+}
+
+@keyframes subtleGradientShift {
+  0%, 100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.02);
+  }
+}
+
+/* Premium accent overlay animation */
+.premium-accent-overlay {
+  animation: accentPulse 3s ease-in-out infinite;
+}
+
+@keyframes accentPulse {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Premium Title - Enhanced typography */
+.premium-title {
+  animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.05);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Premium Description */
+.premium-description {
+  animation: fadeInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Premium CTA Button */
+.premium-cta-button {
+  position: relative;
+  overflow: hidden;
+  animation: fadeInUp 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.premium-cta-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.premium-cta-button:hover::before {
+  left: 100%;
+}
+
+/* Premium Filter Card */
+.premium-filter-card {
+  animation: slideInFromBottom 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.premium-filter-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12) !important;
+}
+
+@keyframes slideInFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Premium Filter Bar */
+.premium-filter-bar {
+  animation: fadeIn 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Premium Pill Group */
+.premium-pill-group {
+  animation: fadeInScale 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Premium Pill Button - Enhanced interaction */
+.premium-pill-button {
+  position: relative;
+  white-space: nowrap;
+}
+
+.premium-pill-button::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: var(--color-primary);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateX(-50%);
+}
+
+.premium-pill-button:active {
+  transform: translateY(1px) !important;
+}
+
+/* Dark mode enhancements */
+[data-theme="dark"] .premium-gradient-bg {
+  background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-background) 100%);
+}
+
+[data-theme="dark"] .premium-title {
+  text-shadow: 0 2px 20px rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .premium-filter-card:hover {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Responsive adjustments for mobile */
+@media (max-width: 640px) {
+  .premium-title {
+    font-size: 2.5rem !important;
+  }
+  
+  .premium-description {
+    font-size: 1.125rem !important;
+  }
+  
+  .premium-pill-button {
+    padding: 8px 16px !important;
+    font-size: 13px !important;
+  }
+}
+
+/* Premium Search Input */
+.premium-search-input::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.6;
+}
+
+.premium-search-input:hover {
+  border-color: var(--color-border-hover);
+}
+
+/* Accessibility - Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .premium-gradient-bg,
+  .premium-accent-overlay,
+  .premium-title,
+  .premium-description,
+  .premium-cta-button,
+  .premium-filter-card,
+  .premium-filter-bar,
+  .premium-pill-group {
+    animation: none !important;
+  }
+  
+  .premium-pill-button,
+  .premium-search-input {
+    transition: background 0.1s ease, color 0.1s ease !important;
+  }
+}
+
+/* Upload Page Animations */
+@keyframes bounce-subtle {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-bounce-subtle {
+  animation: bounce-subtle 2s ease-in-out infinite;
+}
+
+/* Gradient text support */
+.bg-clip-text {
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ============================================================================
+   Stats Section Positioning - Ensure stats are always visible
+   ============================================================================ */
+
+/* Rule: Stats sections must always be visible without scrolling
+   Applied to: Community pages, Hashtag pages, Sound pages, Creator pages
+   
+   This ensures consistent spacing and visibility across all detail pages:
+   - Reduced hero/header top padding (pt-4 to pt-8 on mobile, pt-6 to pt-12 on desktop)
+   - Reduced hero/header bottom padding (pb-4 to pb-6 on mobile, pb-6 to pb-8 on desktop)
+   - Stats sections should have minimal top margin (0 to -16 for overlapping hero)
+   - Stats sections should be positioned in viewport on page load
+*/
+
+.stats-section-visible {
+  /* Ensure stats are positioned high enough to be visible */
+  position: relative;
+  z-index: 20;
+  margin-top: -4rem; /* Pull up to overlap with hero for premium effect */
+}
+
+@media (max-width: 640px) {
+  .stats-section-visible {
+    margin-top: -3rem; /* Less overlap on mobile for better visibility */
+  }
+}
+
+/* Header padding guidelines for pages with stats */
+.page-header-with-stats {
+  padding-top: 2rem; /* 32px / 8rem on mobile */
+  padding-bottom: 6rem; /* 96px / 24rem - room for stats overlay */
+}
+
+@media (min-width: 640px) {
+  .page-header-with-stats {
+    padding-top: 3rem; /* 48px / 12rem on tablet */
+    padding-bottom: 7rem; /* 112px / 28rem */
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-header-with-stats {
+    padding-top: 4rem; /* 64px / 16rem on desktop */
+    padding-bottom: 8rem; /* 128px / 32rem */
+  }
+}

@@ -152,9 +152,22 @@ BEGIN
         
       ELSIF v_platform = 'instagram' THEN
         -- Instagram structure
+        -- Prefer shortcode over numeric post_id for embeds
+        -- Extract shortcode from URL if not in payload: /p/{shortcode} or /reel/{shortcode}
+        DECLARE
+          v_url_shortcode TEXT;
+        BEGIN
+          -- Try to extract shortcode from URL
+          v_url_shortcode := (regexp_match(v_video_url, 'instagram\.com\/(p|reel)\/([A-Za-z0-9_-]+)'))[2];
+        EXCEPTION
+          WHEN OTHERS THEN
+            v_url_shortcode := NULL;
+        END;
+        
         v_post_id := COALESCE(
-          v_element->>'post_id',
-          v_element->>'shortcode',
+          v_element->>'shortcode',  -- Prefer shortcode first (for embeds)
+          v_url_shortcode,          -- Extract from URL if available
+          v_element->>'post_id',     -- Fallback to numeric post_id
           v_element->>'id'
         );
         
@@ -619,8 +632,11 @@ BEGIN
             COALESCE(
               v_element->'author'->'avatar'->'url_list'->>0,
               v_element->'author'->>'avatar_url',
+              v_element->'author'->>'avatarLarger',
               v_element->'profile'->'avatar'->'url_list'->>0,
-              v_element->>'profile_avatar'
+              v_element->'profile'->>'avatar',
+              v_element->>'profile_avatar',
+              ''
             )
           WHEN v_platform = 'youtube' THEN
             COALESCE(
@@ -638,6 +654,9 @@ BEGIN
             COALESCE(
               v_element->'author'->'avatar'->'url_list'->>0,
               v_element->'author'->>'avatar_url',
+              v_element->'author'->>'avatarLarger',
+              v_element->'profile'->>'avatar',
+              v_element->>'profile_avatar',
               ''
             )
         END,
@@ -709,13 +728,23 @@ BEGIN
               COALESCE(
                 v_element->'music'->>'song',
                 v_element->'music'->>'title',
-                v_element->'music'->>'music_title'
+                v_element->'music'->>'music_title',
+                'Unknown'
+              )
+            WHEN v_platform = 'instagram' THEN
+              COALESCE(
+                v_element->'music'->>'title',
+                v_element->'music'->>'music_title',
+                v_element->>'original_sound',
+                v_sound_id,  -- Use sound_id as fallback for Instagram
+                'Unknown'
               )
             ELSE
               COALESCE(
                 v_element->'music'->>'title',
                 v_element->'music'->>'music_title',
-                v_element->>'original_sound'
+                v_element->>'original_sound',
+                'Unknown'
               )
           END,
           -- Extract sound author based on platform
@@ -785,7 +814,7 @@ BEGIN
       INSERT INTO videos_hot (
         video_id, post_id, creator_id, url, caption, description,
         created_at, views_count, likes_count, comments_count,
-        shares_count, duration_seconds, video_url, cover_url
+        shares_count, duration_seconds, video_url, cover_url, platform
       )
       VALUES (
         v_post_id,
@@ -871,13 +900,17 @@ BEGIN
               v_element->'author'->>'cover_url',
               ''
             )
-        END
+        END,
+        -- Store platform
+        v_platform
       )
       ON CONFLICT (video_id) DO UPDATE SET
         views_count = EXCLUDED.views_count,
         likes_count = EXCLUDED.likes_count,
         comments_count = EXCLUDED.comments_count,
         shares_count = EXCLUDED.shares_count,
+        cover_url = EXCLUDED.cover_url,
+        platform = EXCLUDED.platform,
         last_seen_at = NOW(),
         updated_at = NOW();
 
@@ -922,7 +955,11 @@ BEGIN
       IF v_sound_id IS NOT NULL THEN
         BEGIN
           INSERT INTO sounds_cold (sound_id, full_json, music_details)
-          VALUES (v_sound_id, v_element->'music', v_element->'music')
+          VALUES (
+            v_sound_id, 
+            COALESCE(v_element->'music', '{}'::JSONB), 
+            COALESCE(v_element->'music', '{}'::JSONB)
+          )
           ON CONFLICT (sound_id) DO UPDATE SET
             full_json = EXCLUDED.full_json,
             updated_at = NOW();

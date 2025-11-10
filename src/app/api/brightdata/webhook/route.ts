@@ -51,14 +51,16 @@ async function processImagesInPayload(payload: any[]): Promise<any[]> {
   for (const record of payload) {
     try {
       // Process video cover
-      const coverUrl = record.preview_image || record.cover_url;
+      const coverUrl = record.preview_image || record.cover_url || record.thumbnail;
       if (coverUrl && !isSupabaseUrl(coverUrl)) {
         const videoId = record.post_id || record.id || record.video_id;
         if (videoId) {
           const result = await downloadAndStoreImage(coverUrl, 'video-cover', videoId);
           if (result.success && result.supabaseUrl) {
+            // Update all possible cover field paths that the ingestion function checks
             if (record.preview_image) record.preview_image = result.supabaseUrl;
             if (record.cover_url) record.cover_url = result.supabaseUrl;
+            if (record.thumbnail) record.thumbnail = result.supabaseUrl;
             processedCount++;
             console.log(`✓ Migrated video cover for ${videoId}`);
           } else {
@@ -69,15 +71,27 @@ async function processImagesInPayload(payload: any[]): Promise<any[]> {
       }
 
       // Process creator avatar
-      const avatarUrl = record.profile_avatar || record.profile?.avatar || record.author?.avatarLarger;
+      const avatarUrl = record.profile_avatar || record.profile?.avatar || record.author?.avatarLarger || record.author?.avatar?.url_list?.[0] || record.author?.avatar_url || record.author?.profile_pic_url || record.profile?.profile_pic_url || record.profile_pic_url;
       if (avatarUrl && !isSupabaseUrl(avatarUrl)) {
         const creatorId = record.profile_id || record.author?.id || record.profile?.id;
         if (creatorId) {
           const result = await downloadAndStoreImage(avatarUrl, 'creator-avatar', creatorId);
           if (result.success && result.supabaseUrl) {
+            // Update all possible avatar field paths that the ingestion function checks
             if (record.profile_avatar) record.profile_avatar = result.supabaseUrl;
             if (record.profile?.avatar) record.profile.avatar = result.supabaseUrl;
             if (record.author?.avatarLarger) record.author.avatarLarger = result.supabaseUrl;
+            if (record.author?.avatar_url) record.author.avatar_url = result.supabaseUrl;
+            if (record.author?.profile_pic_url) record.author.profile_pic_url = result.supabaseUrl;
+            if (record.profile?.profile_pic_url) record.profile.profile_pic_url = result.supabaseUrl;
+            if (record.profile_pic_url) record.profile_pic_url = result.supabaseUrl;
+            // Update nested avatar.url_list if it exists
+            if (record.author?.avatar?.url_list && Array.isArray(record.author.avatar.url_list) && record.author.avatar.url_list.length > 0) {
+              record.author.avatar.url_list[0] = result.supabaseUrl;
+            }
+            if (record.profile?.avatar?.url_list && Array.isArray(record.profile.avatar.url_list) && record.profile.avatar.url_list.length > 0) {
+              record.profile.avatar.url_list[0] = result.supabaseUrl;
+            }
             processedCount++;
             console.log(`✓ Migrated creator avatar for ${creatorId}`);
           } else {

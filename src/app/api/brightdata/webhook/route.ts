@@ -57,10 +57,11 @@ async function processImagesInPayload(payload: any[]): Promise<any[]> {
         if (videoId) {
           const result = await downloadAndStoreImage(coverUrl, 'video-cover', videoId);
           if (result.success && result.supabaseUrl) {
-            // Update all possible cover field paths that the ingestion function checks
-            if (record.preview_image) record.preview_image = result.supabaseUrl;
-            if (record.cover_url) record.cover_url = result.supabaseUrl;
-            if (record.thumbnail) record.thumbnail = result.supabaseUrl;
+            // Always update ALL possible cover field paths that the ingestion function checks
+            // This ensures the ingestion function can find the URL regardless of which field it checks first
+            record.preview_image = result.supabaseUrl;
+            record.cover_url = result.supabaseUrl;
+            record.thumbnail = result.supabaseUrl;
             processedCount++;
             console.log(`✓ Migrated video cover for ${videoId}`);
           } else {

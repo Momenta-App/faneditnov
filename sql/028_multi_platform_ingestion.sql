@@ -899,6 +899,7 @@ BEGIN
             COALESCE(
               v_element->>'preview_image',
               v_element->>'cover_url',
+              v_element->>'thumbnail',  -- Instagram uses thumbnail field
               v_element->'author'->>'cover_url',
               ''
             )

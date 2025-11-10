@@ -1,0 +1,67 @@
+DATABASE MIGRATION ORDER
+========================
+
+Run these SQL files in Supabase SQL Editor in this exact order:
+
+PHASE 1: CORE SCHEMA
+--------------------
+1.  sql/006_hot_tables.sql
+2.  sql/007_cold_tables.sql
+3.  sql/010_fact_tables.sql
+4.  sql/009_timeseries.sql
+5.  sql/008_leaderboards.sql
+
+PHASE 2: COMMUNITIES (MUST RUN BEFORE AUTH)
+-------------------------------------------
+6.  sql/017_communities.sql
+
+PHASE 3: AUTHENTICATION
+-----------------------
+7.  sql/018_profiles_and_auth.sql
+8.  sql/031_fix_profile_trigger_error_handling.sql
+
+PHASE 4: VIDEO PROCESSING
+-------------------------
+9.  sql/014_rejected_videos.sql
+10. sql/023_rejected_videos_enhancement.sql
+11. sql/024_submission_metadata.sql
+
+PHASE 5: INGESTION FUNCTION (CHOOSE ONE)
+----------------------------------------
+12. sql/023_admin_bypass_validation.sql
+    OR
+    sql/028_multi_platform_ingestion.sql  (RECOMMENDED for Instagram + YouTube)
+
+PHASE 6: AGGREGATIONS
+--------------------
+13. sql/013_add_play_counts.sql
+14. sql/012_aggregation.sql
+15. sql/015_add_missing_tables_columns.sql
+16. sql/019_impact_score.sql
+
+PHASE 7: DAILY AGGREGATIONS (OPTIONAL)
+--------------------------------------
+17. sql/020_daily_aggregation_tables.sql
+18. sql/021_daily_aggregation_functions.sql
+19. sql/022_backfill_daily_stats.sql
+
+PHASE 8: COMMUNITY ENHANCEMENTS (OPTIONAL)
+------------------------------------------
+20. sql/024_community_membership_edit_flag.sql
+21. sql/025_community_rejected_video_functions.sql
+
+PHASE 9: ADDITIONAL FEATURES
+----------------------------
+22. sql/016_sound_functions.sql
+23. sql/027_homepage_cache.sql
+24. sql/028_creator_contacts.sql
+25. sql/029_brand_contact_rate_limiting.sql
+26. sql/030_auth_rate_limiting.sql
+27. sql/025_fix_aggregation_error_handling.sql
+
+STORAGE SETUP (AFTER CREATING BUCKET IN DASHBOARD)
+--------------------------------------------------
+28. sql/026_image_storage_setup.sql
+
+TOTAL: 28 files (27 migrations + 1 storage setup)
+

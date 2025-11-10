@@ -1,6 +1,6 @@
 -- ============================================================================
 -- IMAGE STORAGE SETUP - RLS POLICIES ONLY
--- Note: The bucket must be created via Supabase Dashboard or SQL Editor first
+-- Note: The bucket must be created via Supabase Dashboard first
 -- ============================================================================
 
 -- INSTRUCTIONS:
@@ -8,6 +8,10 @@
 -- 2. Create bucket: "brightdata-results"
 -- 3. Set as PUBLIC bucket
 -- 4. Then run this SQL to set up policies
+--
+-- ALTERNATIVE: If you get permission errors, create policies via Dashboard:
+--   Storage → Policies → Select bucket → New Policy
+--   See detailed instructions below in comments
 
 -- ============================================================================
 -- STORAGE POLICIES
@@ -63,4 +67,5 @@ BEGIN
     (SELECT COUNT(*) FROM pg_policies WHERE tablename = 'objects' AND policyname LIKE '%brightdata-results%');
 END $$;
 
-COMMENT ON SCHEMA storage IS 'Storage schema for file uploads. brightdata-results bucket stores TikTok images (covers, avatars)';
+-- Note: COMMENT ON SCHEMA requires schema ownership, which is not available in Supabase
+-- The storage schema is managed by Supabase and doesn't need a comment

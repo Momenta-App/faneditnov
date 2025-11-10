@@ -236,7 +236,7 @@ export async function POST(request: NextRequest) {
 
     // Build the trigger URL with webhook parameters
     // Use dynamic app URL from environment to support dev/prod environments
-    // Priority: NEXT_PUBLIC_APP_URL > VERCEL_URL > dev URL fallback
+    // Priority: NEXT_PUBLIC_APP_URL > VERCEL_URL > production URL fallback
     let appUrl = process.env.NEXT_PUBLIC_APP_URL;
     
     if (!appUrl) {
@@ -245,17 +245,24 @@ export async function POST(request: NextRequest) {
         // VERCEL_URL doesn't include protocol, so add https://
         appUrl = `https://${process.env.VERCEL_URL}`;
       } else {
-        // For local/dev environments, default to dev URL
-        appUrl = 'https://fanedit-dev.vercel.app';
+        // For production, default to sportsclips.io
+        appUrl = 'https://www.sportsclips.io';
       }
     }
     
-    // CRITICAL: Ensure production uses www.fanedit.com (not fanedit.com)
-    // fanedit.com redirects to www.fanedit.com, but webhooks don't follow redirects properly
+    // CRITICAL: Ensure production uses www.sportsclips.io (not sportsclips.io)
+    // sportsclips.io may redirect to www.sportsclips.io, but webhooks don't follow redirects properly
     // This ensures BrightData can POST directly to the correct URL
-    if (appUrl === 'https://fanedit.com' || appUrl === 'https://fanedit.com/') {
-      appUrl = 'https://www.fanedit.com';
+    if (appUrl === 'https://sportsclips.io' || appUrl === 'https://sportsclips.io/') {
+      appUrl = 'https://www.sportsclips.io';
       console.log('🔍 DEBUG - Fixed production URL to use www subdomain:', appUrl);
+    }
+    
+    // Also handle legacy fanedit.com domains and redirect to new domain
+    if (appUrl === 'https://fanedit.com' || appUrl === 'https://fanedit.com/' || 
+        appUrl === 'https://www.fanedit.com' || appUrl === 'https://www.fanedit.com/') {
+      appUrl = 'https://www.sportsclips.io';
+      console.log('🔍 DEBUG - Redirected legacy domain to new domain:', appUrl);
     }
     
     // Remove trailing slash to avoid double slashes in webhook URL

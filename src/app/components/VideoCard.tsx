@@ -69,9 +69,16 @@ export function VideoCard({ video, rank, homepageVariant = false, ranked = false
           }}
         >
           <img
-            src={video.thumbnail}
+            src={video.thumbnail || `https://ui-avatars.com/api/?name=${encodeURIComponent(video.title)}&background=6366f1&color=fff&size=400`}
             alt={video.title}
             className="w-full aspect-[3/4] object-cover transition-transform duration-200 group-hover:scale-105 rounded-t-[var(--radius-xl)]"
+            onError={(e) => {
+              // Fallback to placeholder if image fails to load
+              const target = e.target as HTMLImageElement;
+              if (!target.src.includes('ui-avatars.com')) {
+                target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(video.title)}&background=6366f1&color=fff&size=400`;
+              }
+            }}
           />
           {/* Rank overlay (top-left) */}
           {rank && (

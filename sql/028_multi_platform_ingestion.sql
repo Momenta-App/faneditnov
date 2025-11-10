@@ -106,9 +106,9 @@ BEGIN
           -- Extract from URL: https://www.youtube.com/shorts/VIDEO_ID
           CASE 
             WHEN v_video_url LIKE '%youtube.com/shorts/%' THEN
-              SUBSTRING(v_video_url FROM 'youtube\.com/shorts/([^/?]+)')
+              (regexp_match(v_video_url, 'youtube\.com/shorts/([^/?]+)'))[1]
             WHEN v_video_url LIKE '%youtu.be/%' THEN
-              SUBSTRING(v_video_url FROM 'youtu\.be/([^/?]+)')
+              (regexp_match(v_video_url, 'youtu\.be/([^/?]+)'))[1]
             ELSE NULL
           END
         );
@@ -122,10 +122,14 @@ BEGIN
           -- Extract from URL if available
           CASE 
             WHEN v_video_url LIKE '%youtube.com/@%' THEN
-              SUBSTRING(v_video_url FROM 'youtube\.com/@([^/]+)')
+              (regexp_match(v_video_url, 'youtube\.com/@([^/]+)'))[1]
             ELSE NULL
           END
         );
+        
+        -- Debug logging for YouTube extraction
+        RAISE NOTICE 'YouTube extraction - URL: %, post_id: %, creator_id: %, youtuber field: %', 
+          v_video_url, v_post_id, v_creator_id, v_element->>'youtuber';
         
         -- YouTube music structure: {artist, song}
         v_sound_id := COALESCE(

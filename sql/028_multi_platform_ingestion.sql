@@ -1337,6 +1337,21 @@ BEGIN
     END;
   END LOOP;
   
+  -- =======================================================================
+  -- UPDATE AGGREGATIONS
+  -- Update video counts, likes totals, view counts, and impact scores for creators, sounds, and hashtags
+  -- =======================================================================
+  RAISE NOTICE 'Updating aggregations...';
+  BEGIN
+    PERFORM update_aggregations();
+    RAISE NOTICE 'Aggregation update complete';
+  EXCEPTION
+    WHEN undefined_function THEN
+      RAISE WARNING 'update_aggregations() function not found. Creator stats may not be updated.';
+    WHEN OTHERS THEN
+      RAISE WARNING 'Error updating aggregations: %', SQLERRM;
+  END;
+  
   -- Return results
   v_results := jsonb_build_object(
     'processed', v_processed_count,

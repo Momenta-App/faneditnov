@@ -18,8 +18,6 @@ export function Header() {
     { name: 'Videos', href: '/edits' },
     { name: 'Creators', href: '/creators' },
     { name: 'Hashtags', href: '/hashtags' },
-    { name: 'Sounds', href: '/sounds' },
-    { name: 'Communities', href: '/communities' },
     { name: 'Upload', href: '/upload' },
   ];
 

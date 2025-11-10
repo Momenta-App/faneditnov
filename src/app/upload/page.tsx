@@ -298,7 +298,19 @@ function SingleUploadForm({ skipValidation }: { skipValidation: boolean }) {
             `Daily limit reached. You can upload ${data.details?.limit || 'N/A'} videos per day. Resets at midnight UTC.`
           );
         } else {
-          setError(data.error || data.details || 'Failed to submit video. Please try again.');
+          // Log the full error response for debugging
+          console.error('❌ API Error Response:', {
+            error: data.error,
+            details: data.details,
+            errors: data.errors,
+            code: data.code,
+            fullResponse: data
+          });
+          // Show the most specific error message available
+          const errorMessage = data.errors && data.errors.length > 0 
+            ? data.errors[0] 
+            : data.details || data.error || 'Failed to submit video. Please try again.';
+          setError(errorMessage);
         }
         setStatus('failed');
         return;

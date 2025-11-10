@@ -1,6 +1,8 @@
 /**
  * Multi-Platform URL Utility Functions
  * Supports TikTok, Instagram, and YouTube Shorts URLs
+ * 
+ * @module url-utils
  */
 
 export type Platform = 'tiktok' | 'instagram' | 'youtube' | 'unknown';

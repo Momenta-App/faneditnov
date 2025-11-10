@@ -7,7 +7,7 @@ import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Tabs, TabList, Tab, TabPanels, TabPanel } from '../components/Tabs';
 import { BulkUploadPanel } from '../components/BulkUploadPanel';
-import { standardizeTikTokUrl } from '@/lib/url-utils';
+import { standardizeUrl, detectPlatform } from '@/lib/url-utils';
 import { supabaseClient } from '@/lib/supabase-client';
 
 export default function UploadPage() {
@@ -235,8 +235,10 @@ function SingleUploadForm({ skipValidation }: { skipValidation: boolean }) {
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     
-    if (value.includes('tiktok.com')) {
-      const standardized = standardizeTikTokUrl(value);
+    // Auto-standardize URLs for supported platforms
+    const platform = detectPlatform(value);
+    if (platform !== 'unknown') {
+      const standardized = standardizeUrl(value);
       setUrl(standardized);
     } else {
       setUrl(value);
@@ -259,7 +261,7 @@ function SingleUploadForm({ skipValidation }: { skipValidation: boolean }) {
     setResult(null);
 
     try {
-      const standardizedUrl = url.includes('tiktok.com') ? standardizeTikTokUrl(url.trim()) : url.trim();
+      const standardizedUrl = standardizeUrl(url.trim());
       console.log('📝 Standardized URL:', standardizedUrl);
       
       const { data: sessionData } = await supabaseClient.auth.getSession();
@@ -349,14 +351,14 @@ function SingleUploadForm({ skipValidation }: { skipValidation: boolean }) {
                 <div>
                   <label htmlFor="url" className="block text-sm font-semibold mb-2" 
                     style={{ color: 'var(--color-text-primary)' }}>
-                    TikTok Video URL
+                    Video URL
                   </label>
                   <input
                     id="url"
                     type="url"
                     value={url}
                     onChange={handleUrlChange}
-                    placeholder="https://www.tiktok.com/@username/video/1234567890"
+                    placeholder="TikTok: https://www.tiktok.com/@user/video/1234567890, Instagram: https://www.instagram.com/p/ABC123, or YouTube Shorts: https://www.youtube.com/shorts/XYZ789"
                     className="w-full px-4 py-3 border-2 rounded-xl focus-ring text-sm"
                     style={{ 
                       background: 'var(--color-background)', 
@@ -368,7 +370,7 @@ function SingleUploadForm({ skipValidation }: { skipValidation: boolean }) {
                     disabled={status === 'pending' || !user}
                   />
                   <p className="mt-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    Paste the full URL of your TikTok video
+                    Paste the full URL of your TikTok video, Instagram post/reel, or YouTube Short
                   </p>
                 </div>
 
@@ -452,10 +454,10 @@ function SingleUploadForm({ skipValidation }: { skipValidation: boolean }) {
                     </div>
                     <div>
                       <h3 className="text-sm font-bold mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                        TikTok Videos Only
+                        Supported Platforms
                       </h3>
                       <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                        We only accept TikTok video URLs. YouTube, Instagram, and other platforms are not supported.
+                        We accept TikTok videos, Instagram posts/reels, and YouTube Shorts. Regular YouTube videos are not supported.
                       </p>
                     </div>
                   </div>

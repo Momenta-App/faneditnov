@@ -46,6 +46,7 @@ DECLARE
   v_platform TEXT;
   v_hashtags_json JSONB;
   v_hashtag_obj JSONB;
+  v_url_shortcode TEXT;
 BEGIN
   -- Log start of ingestion
   RAISE NOTICE 'Starting ingestion for snapshot: % (skip_validation: %)', p_snapshot_id, p_skip_validation;
@@ -154,11 +155,12 @@ BEGIN
         -- Instagram structure
         -- Prefer shortcode over numeric post_id for embeds
         -- Extract shortcode from URL if not in payload: /p/{shortcode} or /reel/{shortcode}
-        DECLARE
-          v_url_shortcode TEXT;
+        v_url_shortcode := NULL;
         BEGIN
           -- Try to extract shortcode from URL
-          v_url_shortcode := (regexp_match(v_video_url, 'instagram\.com\/(p|reel)\/([A-Za-z0-9_-]+)'))[2];
+          IF v_video_url IS NOT NULL THEN
+            v_url_shortcode := (regexp_match(v_video_url, 'instagram\.com\/(p|reel)\/([A-Za-z0-9_-]+)'))[2];
+          END IF;
         EXCEPTION
           WHEN OTHERS THEN
             v_url_shortcode := NULL;

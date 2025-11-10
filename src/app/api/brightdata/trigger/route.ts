@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, handleAuthError } from '@/lib/auth-utils';
 import { checkVideoSubmissionQuota, recordVideoSubmission } from '@/lib/quota-utils';
 import { supabaseAdmin } from '@/lib/supabase';
+import { detectPlatform, isValidUrl, standardizeUrl } from '@/lib/url-utils';
 
 export const runtime = 'nodejs';
 
@@ -9,7 +10,25 @@ export const runtime = 'nodejs';
 const BRIGHT_DATA_API_KEY = process.env.BRIGHT_DATA_API_KEY;
 const BRIGHT_DATA_CUSTOMER_ID = process.env.BRIGHT_DATA_CUSTOMER_ID;
 const BRIGHT_DATA_TIKTOK_POST_SCRAPER_ID = process.env.BRIGHT_DATA_TIKTOK_POST_SCRAPER_ID;
+const BRIGHT_DATA_INSTAGRAM_POST_SCRAPER_ID = process.env.BRIGHT_DATA_INSTAGRAM_POST_SCRAPER_ID;
+const BRIGHT_DATA_YOUTUBE_SHORTS_SCRAPER_ID = process.env.BRIGHT_DATA_YOUTUBE_SHORTS_SCRAPER_ID;
 const BRIGHT_DATA_MOCK_MODE = process.env.BRIGHT_DATA_MOCK_MODE;
+
+/**
+ * Gets the appropriate scraper ID based on the platform
+ */
+function getScraperId(platform: string): string | null {
+  switch (platform) {
+    case 'tiktok':
+      return BRIGHT_DATA_TIKTOK_POST_SCRAPER_ID || null;
+    case 'instagram':
+      return BRIGHT_DATA_INSTAGRAM_POST_SCRAPER_ID || null;
+    case 'youtube':
+      return BRIGHT_DATA_YOUTUBE_SHORTS_SCRAPER_ID || null;
+    default:
+      return null;
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,12 +82,102 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate TikTok URLs
-    const invalidUrls = urls.filter(url => !url.includes('tiktok.com'));
-    if (invalidUrls.length > 0) {
+    // Standardize and validate URLs
+    const standardizedUrls: string[] = [];
+    const validationErrors: string[] = [];
+    
+    for (const url of urls) {
+      try {
+        console.log('🔍 Validating URL:', url);
+        const platform = detectPlatform(url.trim());
+        console.log('🔍 Platform detected:', platform);
+        
+        const standardized = standardizeUrl(url.trim());
+        console.log('🔍 Standardized URL:', standardized);
+        
+        const isValid = isValidUrl(standardized);
+        console.log('🔍 Is valid:', isValid);
+        
+        if (isValid) {
+          standardizedUrls.push(standardized);
+        } else {
+          console.log('❌ URL failed validation:', url);
+          validationErrors.push(`${url} is not a valid TikTok, Instagram, or YouTube Shorts URL`);
+        }
+      } catch (error) {
+        // Handle errors from standardizeUrl (e.g., regular YouTube videos)
+        const errorMessage = error instanceof Error ? error.message : 'Invalid URL format';
+        console.error('❌ Error standardizing URL:', url, errorMessage);
+        validationErrors.push(`${url}: ${errorMessage}`);
+      }
+    }
+    
+    if (validationErrors.length > 0) {
       return NextResponse.json(
-        { error: 'All URLs must be valid TikTok URLs', code: 'VALIDATION_ERROR' },
+        { 
+          error: 'Invalid URLs detected', 
+          code: 'VALIDATION_ERROR',
+          details: 'All URLs must be valid TikTok, Instagram posts/reels, or YouTube Shorts URLs. Regular YouTube videos are not accepted.',
+          errors: validationErrors.slice(0, 5) // Return first 5 errors
+        },
         { status: 400 }
+      );
+    }
+    
+    if (standardizedUrls.length === 0) {
+      return NextResponse.json(
+        { 
+          error: 'No valid URLs', 
+          code: 'VALIDATION_ERROR',
+          details: 'All provided URLs were invalid. Only TikTok, Instagram posts/reels, and YouTube Shorts are accepted.'
+        },
+        { status: 400 }
+      );
+    }
+
+    // Check that all URLs are from the same platform (for now, require same platform per batch)
+    const platforms = standardizedUrls.map(url => detectPlatform(url));
+    const uniquePlatforms = [...new Set(platforms)];
+    
+    if (uniquePlatforms.length > 1) {
+      return NextResponse.json(
+        { 
+          error: 'Mixed platforms not allowed', 
+          code: 'VALIDATION_ERROR',
+          details: 'All URLs in a batch must be from the same platform (TikTok, Instagram, or YouTube)'
+        },
+        { status: 400 }
+      );
+    }
+
+    const platform = uniquePlatforms[0];
+    if (platform === 'unknown') {
+      return NextResponse.json(
+        { 
+          error: 'Unsupported platform', 
+          code: 'VALIDATION_ERROR',
+          details: 'Only TikTok, Instagram posts/reels, and YouTube Shorts URLs are supported. Regular YouTube videos are not accepted.'
+        },
+        { status: 400 }
+      );
+    }
+
+    // Get the appropriate scraper ID
+    const scraperId = getScraperId(platform);
+    if (!scraperId) {
+      const scraperEnvVar = platform === 'tiktok' 
+        ? 'BRIGHT_DATA_TIKTOK_POST_SCRAPER_ID'
+        : platform === 'instagram'
+        ? 'BRIGHT_DATA_INSTAGRAM_POST_SCRAPER_ID'
+        : 'BRIGHT_DATA_YOUTUBE_SHORTS_SCRAPER_ID';
+      
+      return NextResponse.json(
+        { 
+          error: `${platform} scraper not configured`, 
+          code: 'CONFIGURATION_ERROR',
+          details: `${scraperEnvVar} environment variable is required`
+        },
+        { status: 500 }
       );
     }
 
@@ -89,7 +198,7 @@ export async function POST(request: NextRequest) {
       .from('submission_metadata')
       .insert({
         snapshot_id: placeholderSnapshotId,
-        video_urls: urls, // Store URLs for lookup since snapshot_id may change
+        video_urls: standardizedUrls, // Store standardized URLs for lookup since snapshot_id may change
         skip_validation,
         submitted_by: user.id
       });
@@ -114,12 +223,13 @@ export async function POST(request: NextRequest) {
         snapshot_id: mockSnapshotId,
         status: 'queued',
         mock: true,
-        urls: urls
+        urls: standardizedUrls,
+        platform
       });
     }
 
     // Real BrightData API call
-    const brightDataPayload = urls.map(url => ({
+    const brightDataPayload = standardizedUrls.map(url => ({
       url,
       country: ''
     }));
@@ -152,7 +262,10 @@ export async function POST(request: NextRequest) {
     appUrl = appUrl.replace(/\/+$/, '');
     
     const webhookUrl = encodeURIComponent(`${appUrl}/api/brightdata/webhook`);
-    const triggerUrl = `https://api.brightdata.com/datasets/v3/trigger?dataset_id=${BRIGHT_DATA_TIKTOK_POST_SCRAPER_ID}&endpoint=${webhookUrl}&notify=${webhookUrl}&format=json&uncompressed_webhook=true&include_errors=true`;
+    const triggerUrl = `https://api.brightdata.com/datasets/v3/trigger?dataset_id=${scraperId}&endpoint=${webhookUrl}&notify=${webhookUrl}&format=json&uncompressed_webhook=true&include_errors=true`;
+    
+    console.log('🔍 DEBUG - Platform detected:', platform);
+    console.log('🔍 DEBUG - Using scraper ID:', scraperId);
     
     console.log('🔍 DEBUG - Environment check:', {
       NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
@@ -240,8 +353,14 @@ export async function GET() {
   return NextResponse.json({
     message: 'BrightData Trigger API',
     mockMode: BRIGHT_DATA_MOCK_MODE,
+    supportedPlatforms: ['tiktok', 'instagram', 'youtube'],
     endpoints: {
-      'POST /api/brightdata/trigger': 'Trigger BrightData dataset with TikTok URLs',
+      'POST /api/brightdata/trigger': 'Trigger BrightData dataset with TikTok, Instagram posts/reels, or YouTube Shorts URLs (regular YouTube videos not accepted)',
+    },
+    configuration: {
+      tiktok: !!BRIGHT_DATA_TIKTOK_POST_SCRAPER_ID,
+      instagram: !!BRIGHT_DATA_INSTAGRAM_POST_SCRAPER_ID,
+      youtube: !!BRIGHT_DATA_YOUTUBE_SHORTS_SCRAPER_ID,
     },
   });
 }

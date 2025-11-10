@@ -102,6 +102,12 @@ BEGIN
       JOIN videos_hot v ON v.video_id = vhf.video_id
       WHERE vhf.hashtag = h.hashtag
     ),
+    total_impact_score = (
+      SELECT COALESCE(SUM(v.impact_score), 0)
+      FROM video_hashtag_facts vhf
+      JOIN videos_hot v ON v.video_id = vhf.video_id
+      WHERE vhf.hashtag = h.hashtag
+    ),
     trend_score = (
       CASE 
         WHEN EXTRACT(EPOCH FROM (NOW() - last_seen_at)) < 3600 THEN views_total * 10.0 -- Recent activity

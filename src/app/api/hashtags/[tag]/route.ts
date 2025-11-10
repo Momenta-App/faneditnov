@@ -15,7 +15,7 @@ export async function GET(
     // Try to get the hashtag from hashtags_hot table
     const { data: hashtagData, error: hashtagError } = await supabaseAdmin
       .from('hashtags_hot')
-      .select('hashtag, hashtag_norm, views_total, videos_count, creators_count')
+      .select('hashtag, hashtag_norm, views_total, videos_count, creators_count, total_impact_score')
       .eq('hashtag', normalizedTag)
       .single();
 
@@ -34,7 +34,7 @@ export async function GET(
           views: hashtagData.views_total || 0,
           videos: hashtagData.videos_count || 0,
           creators: hashtagData.creators_count || 0,
-          impact: 0, // We can calculate this if needed
+          impact: hashtagData.total_impact_score || 0,
           trending: false,
           description: `${hashtagData.videos_count || 0} videos by ${hashtagData.creators_count || 0} creators`,
         }

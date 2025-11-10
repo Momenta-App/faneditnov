@@ -237,59 +237,70 @@ BEGIN
       v_has_edit_hashtag := FALSE;
       
       -- Extract hashtags based on platform
-      IF v_platform = 'tiktok' THEN
-        -- TikTok hashtags: array of strings
-        IF v_element->'hashtags' IS NOT NULL AND v_element->'hashtags' != 'null'::JSONB THEN
-          FOR v_hashtag_check IN 
-            SELECT value::TEXT 
-            FROM jsonb_array_elements_text(COALESCE(v_element->'hashtags', '[]'::JSONB))
-          LOOP
-            v_hashtag_check := LOWER(REPLACE(v_hashtag_check, '#', ''));
+      v_hashtags_json := v_element->'hashtags';
+      IF v_hashtags_json IS NOT NULL AND v_hashtags_json != 'null'::JSONB THEN
+        IF v_platform = 'tiktok' OR v_platform = 'instagram' THEN
+          -- TikTok and Instagram hashtags: array of strings (but could be string)
+          IF jsonb_typeof(v_hashtags_json) = 'array' THEN
+            FOR v_hashtag_check IN 
+              SELECT value::TEXT 
+              FROM jsonb_array_elements_text(v_hashtags_json)
+            LOOP
+              v_hashtag_check := LOWER(REPLACE(v_hashtag_check, '#', ''));
+              IF v_hashtag_check LIKE '%edit%' THEN
+                v_has_edit_hashtag := TRUE;
+                EXIT;
+              END IF;
+            END LOOP;
+          ELSIF jsonb_typeof(v_hashtags_json) = 'string' THEN
+            v_hashtag_check := LOWER(REPLACE(COALESCE(v_hashtags_json::TEXT, ''), '#', ''));
             IF v_hashtag_check LIKE '%edit%' THEN
               v_has_edit_hashtag := TRUE;
-              EXIT;
             END IF;
-          END LOOP;
-        END IF;
-      ELSIF v_platform = 'youtube' THEN
-        -- YouTube hashtags: array of objects with "hashtag" property
-        v_hashtags_json := COALESCE(v_element->'hashtags', '[]'::JSONB);
-        IF jsonb_typeof(v_hashtags_json) = 'array' THEN
-          FOR v_hashtag_obj IN SELECT * FROM jsonb_array_elements(v_hashtags_json)
-          LOOP
-            v_hashtag_check := LOWER(REPLACE(COALESCE(v_hashtag_obj->>'hashtag', ''), '#', ''));
-            IF v_hashtag_check LIKE '%edit%' THEN
-              v_has_edit_hashtag := TRUE;
-              EXIT;
-            END IF;
-          END LOOP;
-        END IF;
-      ELSIF v_platform = 'instagram' THEN
-        -- Instagram hashtags: could be null, array of strings, or different format
-        IF v_element->'hashtags' IS NOT NULL AND v_element->'hashtags' != 'null'::JSONB THEN
-          FOR v_hashtag_check IN 
-            SELECT value::TEXT 
-            FROM jsonb_array_elements_text(COALESCE(v_element->'hashtags', '[]'::JSONB))
-          LOOP
-            v_hashtag_check := LOWER(REPLACE(v_hashtag_check, '#', ''));
-            IF v_hashtag_check LIKE '%edit%' THEN
-              v_has_edit_hashtag := TRUE;
-              EXIT;
-            END IF;
-          END LOOP;
-        END IF;
-      ELSE
-        -- Fallback: try to extract hashtags as array of strings
-        FOR v_hashtag_check IN 
-          SELECT value::TEXT 
-          FROM jsonb_array_elements_text(COALESCE(v_element->'hashtags', '[]'::JSONB))
-        LOOP
-          v_hashtag_check := LOWER(REPLACE(v_hashtag_check, '#', ''));
-          IF v_hashtag_check LIKE '%edit%' THEN
-            v_has_edit_hashtag := TRUE;
-            EXIT;
           END IF;
-        END LOOP;
+        ELSIF v_platform = 'youtube' THEN
+          -- YouTube hashtags: array of objects with "hashtag" property, or array of strings, or string
+          IF jsonb_typeof(v_hashtags_json) = 'array' THEN
+            FOR v_hashtag_obj IN SELECT * FROM jsonb_array_elements(v_hashtags_json)
+            LOOP
+              IF jsonb_typeof(v_hashtag_obj) = 'object' AND v_hashtag_obj ? 'hashtag' THEN
+                v_hashtag_check := LOWER(REPLACE(COALESCE(v_hashtag_obj->>'hashtag', ''), '#', ''));
+              ELSIF jsonb_typeof(v_hashtag_obj) = 'string' THEN
+                v_hashtag_check := LOWER(REPLACE(COALESCE(v_hashtag_obj::TEXT, ''), '#', ''));
+              ELSE
+                CONTINUE;
+              END IF;
+              IF v_hashtag_check LIKE '%edit%' THEN
+                v_has_edit_hashtag := TRUE;
+                EXIT;
+              END IF;
+            END LOOP;
+          ELSIF jsonb_typeof(v_hashtags_json) = 'string' THEN
+            v_hashtag_check := LOWER(REPLACE(COALESCE(v_hashtags_json::TEXT, ''), '#', ''));
+            IF v_hashtag_check LIKE '%edit%' THEN
+              v_has_edit_hashtag := TRUE;
+            END IF;
+          END IF;
+        ELSE
+          -- Fallback: try to extract hashtags as array of strings or string
+          IF jsonb_typeof(v_hashtags_json) = 'array' THEN
+            FOR v_hashtag_check IN 
+              SELECT value::TEXT 
+              FROM jsonb_array_elements_text(v_hashtags_json)
+            LOOP
+              v_hashtag_check := LOWER(REPLACE(v_hashtag_check, '#', ''));
+              IF v_hashtag_check LIKE '%edit%' THEN
+                v_has_edit_hashtag := TRUE;
+                EXIT;
+              END IF;
+            END LOOP;
+          ELSIF jsonb_typeof(v_hashtags_json) = 'string' THEN
+            v_hashtag_check := LOWER(REPLACE(COALESCE(v_hashtags_json::TEXT, ''), '#', ''));
+            IF v_hashtag_check LIKE '%edit%' THEN
+              v_has_edit_hashtag := TRUE;
+            END IF;
+          END IF;
+        END IF;
       END IF;
       
       -- If no "edit" hashtag found, reject and skip processing (unless validation is skipped)
@@ -310,18 +321,43 @@ BEGIN
           v_community RECORD;
         BEGIN
           -- Extract hashtags array based on platform
-          IF v_platform = 'youtube' THEN
-            SELECT ARRAY(
-              SELECT LOWER(REPLACE(COALESCE(obj->>'hashtag', ''), '#', ''))
-              FROM jsonb_array_elements(COALESCE(v_element->'hashtags', '[]'::JSONB)) obj
-              WHERE obj->>'hashtag' IS NOT NULL
-            ) INTO v_hashtags_array;
+          v_hashtags_json := v_element->'hashtags';
+          IF v_hashtags_json IS NOT NULL AND v_hashtags_json != 'null'::JSONB THEN
+            IF v_platform = 'youtube' THEN
+              IF jsonb_typeof(v_hashtags_json) = 'array' THEN
+                SELECT ARRAY(
+                  SELECT LOWER(REPLACE(COALESCE(
+                    CASE 
+                      WHEN jsonb_typeof(obj) = 'object' AND obj ? 'hashtag' THEN obj->>'hashtag'
+                      WHEN jsonb_typeof(obj) = 'string' THEN obj::TEXT
+                      ELSE NULL
+                    END, ''), '#', ''))
+                  FROM jsonb_array_elements(v_hashtags_json) obj
+                  WHERE (
+                    (jsonb_typeof(obj) = 'object' AND obj->>'hashtag' IS NOT NULL) OR
+                    (jsonb_typeof(obj) = 'string')
+                  )
+                ) INTO v_hashtags_array;
+              ELSIF jsonb_typeof(v_hashtags_json) = 'string' THEN
+                v_hashtags_array := ARRAY[LOWER(REPLACE(COALESCE(v_hashtags_json::TEXT, ''), '#', ''))];
+              ELSE
+                v_hashtags_array := ARRAY[]::TEXT[];
+              END IF;
+            ELSE
+              -- TikTok and Instagram: array of strings (but could be string)
+              IF jsonb_typeof(v_hashtags_json) = 'array' THEN
+                SELECT ARRAY(
+                  SELECT LOWER(REPLACE(value::TEXT, '#', ''))
+                  FROM jsonb_array_elements_text(v_hashtags_json)
+                ) INTO v_hashtags_array;
+              ELSIF jsonb_typeof(v_hashtags_json) = 'string' THEN
+                v_hashtags_array := ARRAY[LOWER(REPLACE(COALESCE(v_hashtags_json::TEXT, ''), '#', ''))];
+              ELSE
+                v_hashtags_array := ARRAY[]::TEXT[];
+              END IF;
+            END IF;
           ELSE
-            -- TikTok and Instagram: array of strings
-            SELECT ARRAY(
-              SELECT LOWER(REPLACE(value::TEXT, '#', ''))
-              FROM jsonb_array_elements_text(COALESCE(v_element->'hashtags', '[]'::JSONB))
-            ) INTO v_hashtags_array;
+            v_hashtags_array := ARRAY[]::TEXT[];
           END IF;
           
           -- Extract metrics based on platform
@@ -952,13 +988,64 @@ BEGIN
       -- PROCESS HASHTAGS WITH DELTA-BASED UPDATES - Platform-aware
       -- =======================================================================
       IF v_platform = 'youtube' THEN
-        -- YouTube hashtags: array of objects with "hashtag" property
-        v_hashtags_json := COALESCE(v_element->'hashtags', '[]'::JSONB);
-        IF jsonb_typeof(v_hashtags_json) = 'array' THEN
-          FOR v_hashtag_obj IN SELECT * FROM jsonb_array_elements(v_hashtags_json)
-          LOOP
-            v_hashtag := LOWER(REPLACE(COALESCE(v_hashtag_obj->>'hashtag', ''), '#', ''));
-            IF v_hashtag != '' THEN
+        -- YouTube hashtags: could be array of objects, array of strings, or string
+        v_hashtags_json := v_element->'hashtags';
+        IF v_hashtags_json IS NOT NULL AND v_hashtags_json != 'null'::JSONB THEN
+          IF jsonb_typeof(v_hashtags_json) = 'array' THEN
+            -- Try array of objects first (has "hashtag" property)
+            FOR v_hashtag_obj IN SELECT * FROM jsonb_array_elements(v_hashtags_json)
+            LOOP
+              -- Check if it's an object with "hashtag" property
+              IF jsonb_typeof(v_hashtag_obj) = 'object' AND v_hashtag_obj ? 'hashtag' THEN
+                v_hashtag := LOWER(REPLACE(COALESCE(v_hashtag_obj->>'hashtag', ''), '#', ''));
+              ELSIF jsonb_typeof(v_hashtag_obj) = 'string' THEN
+                -- It's an array of strings
+                v_hashtag := LOWER(REPLACE(COALESCE(v_hashtag_obj::TEXT, ''), '#', ''));
+              ELSE
+                CONTINUE;
+              END IF;
+              
+              IF v_hashtag != '' AND v_hashtag != 'null' THEN
+                INSERT INTO hashtags_hot (hashtag, hashtag_norm, updated_at)
+                VALUES (v_hashtag, v_hashtag, NOW())
+                ON CONFLICT (hashtag) DO UPDATE SET
+                  last_seen_at = NOW(),
+                  updated_at = NOW();
+
+                BEGIN
+                  INSERT INTO hashtags_cold (hashtag, raw_data)
+                  VALUES (v_hashtag, v_element)
+                  ON CONFLICT (hashtag) DO UPDATE SET
+                    updated_at = NOW();
+                EXCEPTION
+                  WHEN undefined_table THEN NULL;
+                END;
+
+                INSERT INTO video_hashtag_facts (video_id, hashtag, snapshot_at, views_at_snapshot, likes_at_snapshot)
+                VALUES (
+                  v_post_id,
+                  v_hashtag,
+                  NOW(),
+                  v_new_play_count,
+                  v_new_likes
+                )
+                ON CONFLICT (video_id, hashtag) DO UPDATE SET
+                  snapshot_at = NOW(),
+                  views_at_snapshot = EXCLUDED.views_at_snapshot,
+                  likes_at_snapshot = EXCLUDED.likes_at_snapshot;
+
+                IF v_delta > 0 THEN
+                  UPDATE hashtags_hot
+                  SET views_total = COALESCE(views_total, 0) + v_delta,
+                      updated_at = NOW()
+                  WHERE hashtag = v_hashtag;
+                END IF;
+              END IF;
+            END LOOP;
+          ELSIF jsonb_typeof(v_hashtags_json) = 'string' THEN
+            -- Single string hashtag
+            v_hashtag := LOWER(REPLACE(COALESCE(v_hashtags_json::TEXT, ''), '#', ''));
+            IF v_hashtag != '' AND v_hashtag != 'null' THEN
               INSERT INTO hashtags_hot (hashtag, hashtag_norm, updated_at)
               VALUES (v_hashtag, v_hashtag, NOW())
               ON CONFLICT (hashtag) DO UPDATE SET
@@ -994,77 +1081,151 @@ BEGIN
                 WHERE hashtag = v_hashtag;
               END IF;
             END IF;
-          END LOOP;
+          END IF;
         END IF;
       ELSE
-        -- TikTok and Instagram: array of strings
-        FOR v_hashtag IN 
-          SELECT value::TEXT 
-          FROM jsonb_array_elements_text(COALESCE(v_element->'hashtags', '[]'::JSONB))
-        LOOP
-          v_hashtag := LOWER(REPLACE(v_hashtag, '#', ''));
-          
-          INSERT INTO hashtags_hot (hashtag, hashtag_norm, updated_at)
-          VALUES (v_hashtag, v_hashtag, NOW())
-          ON CONFLICT (hashtag) DO UPDATE SET
-            last_seen_at = NOW(),
-            updated_at = NOW();
+        -- TikTok and Instagram: array of strings (but could also be string or null)
+        v_hashtags_json := v_element->'hashtags';
+        IF v_hashtags_json IS NOT NULL AND v_hashtags_json != 'null'::JSONB THEN
+          IF jsonb_typeof(v_hashtags_json) = 'array' THEN
+            FOR v_hashtag IN 
+              SELECT value::TEXT 
+              FROM jsonb_array_elements_text(v_hashtags_json)
+            LOOP
+              v_hashtag := LOWER(REPLACE(v_hashtag, '#', ''));
+              IF v_hashtag != '' AND v_hashtag != 'null' THEN
+                INSERT INTO hashtags_hot (hashtag, hashtag_norm, updated_at)
+                VALUES (v_hashtag, v_hashtag, NOW())
+                ON CONFLICT (hashtag) DO UPDATE SET
+                  last_seen_at = NOW(),
+                  updated_at = NOW();
 
-          BEGIN
-            INSERT INTO hashtags_cold (hashtag, raw_data)
-            VALUES (v_hashtag, v_element)
-            ON CONFLICT (hashtag) DO UPDATE SET
-              updated_at = NOW();
-          EXCEPTION
-            WHEN undefined_table THEN NULL;
-          END;
+                BEGIN
+                  INSERT INTO hashtags_cold (hashtag, raw_data)
+                  VALUES (v_hashtag, v_element)
+                  ON CONFLICT (hashtag) DO UPDATE SET
+                    updated_at = NOW();
+                EXCEPTION
+                  WHEN undefined_table THEN NULL;
+                END;
 
-          INSERT INTO video_hashtag_facts (video_id, hashtag, snapshot_at, views_at_snapshot, likes_at_snapshot)
-          VALUES (
-            v_post_id,
-            v_hashtag,
-            NOW(),
-            v_new_play_count,
-            v_new_likes
-          )
-          ON CONFLICT (video_id, hashtag) DO UPDATE SET
-            snapshot_at = NOW(),
-            views_at_snapshot = EXCLUDED.views_at_snapshot,
-            likes_at_snapshot = EXCLUDED.likes_at_snapshot;
+                INSERT INTO video_hashtag_facts (video_id, hashtag, snapshot_at, views_at_snapshot, likes_at_snapshot)
+                VALUES (
+                  v_post_id,
+                  v_hashtag,
+                  NOW(),
+                  v_new_play_count,
+                  v_new_likes
+                )
+                ON CONFLICT (video_id, hashtag) DO UPDATE SET
+                  snapshot_at = NOW(),
+                  views_at_snapshot = EXCLUDED.views_at_snapshot,
+                  likes_at_snapshot = EXCLUDED.likes_at_snapshot;
 
-          IF v_delta > 0 THEN
-            UPDATE hashtags_hot
-            SET views_total = COALESCE(views_total, 0) + v_delta,
-                updated_at = NOW()
-            WHERE hashtag = v_hashtag;
+                IF v_delta > 0 THEN
+                  UPDATE hashtags_hot
+                  SET views_total = COALESCE(views_total, 0) + v_delta,
+                      updated_at = NOW()
+                  WHERE hashtag = v_hashtag;
+                END IF;
+              END IF;
+            END LOOP;
+          ELSIF jsonb_typeof(v_hashtags_json) = 'string' THEN
+            -- Single string hashtag
+            v_hashtag := LOWER(REPLACE(COALESCE(v_hashtags_json::TEXT, ''), '#', ''));
+            IF v_hashtag != '' AND v_hashtag != 'null' THEN
+              INSERT INTO hashtags_hot (hashtag, hashtag_norm, updated_at)
+              VALUES (v_hashtag, v_hashtag, NOW())
+              ON CONFLICT (hashtag) DO UPDATE SET
+                last_seen_at = NOW(),
+                updated_at = NOW();
+
+              BEGIN
+                INSERT INTO hashtags_cold (hashtag, raw_data)
+                VALUES (v_hashtag, v_element)
+                ON CONFLICT (hashtag) DO UPDATE SET
+                  updated_at = NOW();
+              EXCEPTION
+                WHEN undefined_table THEN NULL;
+              END;
+
+              INSERT INTO video_hashtag_facts (video_id, hashtag, snapshot_at, views_at_snapshot, likes_at_snapshot)
+              VALUES (
+                v_post_id,
+                v_hashtag,
+                NOW(),
+                v_new_play_count,
+                v_new_likes
+              )
+              ON CONFLICT (video_id, hashtag) DO UPDATE SET
+                snapshot_at = NOW(),
+                views_at_snapshot = EXCLUDED.views_at_snapshot,
+                likes_at_snapshot = EXCLUDED.likes_at_snapshot;
+
+              IF v_delta > 0 THEN
+                UPDATE hashtags_hot
+                SET views_total = COALESCE(views_total, 0) + v_delta,
+                    updated_at = NOW()
+                WHERE hashtag = v_hashtag;
+              END IF;
+            END IF;
           END IF;
-        END LOOP;
+        END IF;
       END IF;
 
       -- =======================================================================
       -- UPDATE COMMUNITY MEMBERSHIPS FOR ACCEPTED VIDEOS
       -- =======================================================================
       BEGIN
-        IF v_platform = 'youtube' THEN
-          FOR v_hashtag_obj IN SELECT * FROM jsonb_array_elements(COALESCE(v_element->'hashtags', '[]'::JSONB))
-          LOOP
-            v_hashtag := LOWER(REPLACE(COALESCE(v_hashtag_obj->>'hashtag', ''), '#', ''));
-            IF v_hashtag != '' THEN
-              PERFORM update_community_video_membership(c.id, v_post_id)
-              FROM communities c
-              WHERE v_hashtag = ANY(c.linked_hashtags);
+        v_hashtags_json := v_element->'hashtags';
+        IF v_hashtags_json IS NOT NULL AND v_hashtags_json != 'null'::JSONB THEN
+          IF v_platform = 'youtube' THEN
+            IF jsonb_typeof(v_hashtags_json) = 'array' THEN
+              FOR v_hashtag_obj IN SELECT * FROM jsonb_array_elements(v_hashtags_json)
+              LOOP
+                IF jsonb_typeof(v_hashtag_obj) = 'object' AND v_hashtag_obj ? 'hashtag' THEN
+                  v_hashtag := LOWER(REPLACE(COALESCE(v_hashtag_obj->>'hashtag', ''), '#', ''));
+                ELSIF jsonb_typeof(v_hashtag_obj) = 'string' THEN
+                  v_hashtag := LOWER(REPLACE(COALESCE(v_hashtag_obj::TEXT, ''), '#', ''));
+                ELSE
+                  CONTINUE;
+                END IF;
+                IF v_hashtag != '' AND v_hashtag != 'null' THEN
+                  PERFORM update_community_video_membership(c.id, v_post_id)
+                  FROM communities c
+                  WHERE v_hashtag = ANY(c.linked_hashtags);
+                END IF;
+              END LOOP;
+            ELSIF jsonb_typeof(v_hashtags_json) = 'string' THEN
+              v_hashtag := LOWER(REPLACE(COALESCE(v_hashtags_json::TEXT, ''), '#', ''));
+              IF v_hashtag != '' AND v_hashtag != 'null' THEN
+                PERFORM update_community_video_membership(c.id, v_post_id)
+                FROM communities c
+                WHERE v_hashtag = ANY(c.linked_hashtags);
+              END IF;
             END IF;
-          END LOOP;
-        ELSE
-          FOR v_hashtag IN 
-            SELECT value::TEXT 
-            FROM jsonb_array_elements_text(COALESCE(v_element->'hashtags', '[]'::JSONB))
-          LOOP
-            v_hashtag := LOWER(REPLACE(v_hashtag, '#', ''));
-            PERFORM update_community_video_membership(c.id, v_post_id)
-            FROM communities c
-            WHERE v_hashtag = ANY(c.linked_hashtags);
-          END LOOP;
+          ELSE
+            IF jsonb_typeof(v_hashtags_json) = 'array' THEN
+              FOR v_hashtag IN 
+                SELECT value::TEXT 
+                FROM jsonb_array_elements_text(v_hashtags_json)
+              LOOP
+                v_hashtag := LOWER(REPLACE(v_hashtag, '#', ''));
+                IF v_hashtag != '' AND v_hashtag != 'null' THEN
+                  PERFORM update_community_video_membership(c.id, v_post_id)
+                  FROM communities c
+                  WHERE v_hashtag = ANY(c.linked_hashtags);
+                END IF;
+              END LOOP;
+            ELSIF jsonb_typeof(v_hashtags_json) = 'string' THEN
+              v_hashtag := LOWER(REPLACE(COALESCE(v_hashtags_json::TEXT, ''), '#', ''));
+              IF v_hashtag != '' AND v_hashtag != 'null' THEN
+                PERFORM update_community_video_membership(c.id, v_post_id)
+                FROM communities c
+                WHERE v_hashtag = ANY(c.linked_hashtags);
+              END IF;
+            END IF;
+          END IF;
         END IF;
         
         -- Update community totals for all affected communities

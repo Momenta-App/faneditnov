@@ -262,6 +262,3 @@ export function hasEditHashtag(hashtag: string | string[]): boolean {
   });
 }
 
-// Explicit re-exports to ensure Next.js recognizes them
-export { detectPlatform, standardizeUrl, isValidUrl };
-

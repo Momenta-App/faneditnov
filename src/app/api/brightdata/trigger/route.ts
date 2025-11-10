@@ -230,8 +230,7 @@ export async function POST(request: NextRequest) {
 
     // Real BrightData API call
     const brightDataPayload = standardizedUrls.map(url => ({
-      url,
-      country: ''
+      url
     }));
 
     // Build the trigger URL with webhook parameters
@@ -248,6 +247,13 @@ export async function POST(request: NextRequest) {
         // For production, default to sportsclips.io
         appUrl = 'https://www.sportsclips.io';
       }
+    }
+    
+    // CRITICAL: Ensure URL has protocol (https://)
+    // Handle cases where NEXT_PUBLIC_APP_URL might be set without protocol
+    if (appUrl && !appUrl.startsWith('http://') && !appUrl.startsWith('https://')) {
+      appUrl = `https://${appUrl}`;
+      console.log('🔍 DEBUG - Added https:// protocol to URL:', appUrl);
     }
     
     // CRITICAL: Ensure production uses www.sportsclips.io (not sportsclips.io)
@@ -371,3 +377,4 @@ export async function GET() {
     },
   });
 }
+

@@ -509,14 +509,620 @@ BEGIN
         v_new_shares := COALESCE((v_element->>'share_count')::INTEGER, 0);
       END IF;
 
-      -- Continue with existing logic for creators, videos, sounds, hashtags...
-      -- (The rest of the function remains the same, but uses the extracted values above)
-      
-      -- For now, we'll add a placeholder comment indicating where the rest of the logic goes
-      -- You'll need to copy the rest of the ingestion logic from sql/023_admin_bypass_validation.sql
-      -- and update field references to use the platform-aware extracted values
-      
-      RAISE NOTICE 'Processing video % (platform: %)', v_post_id, v_platform;
+      -- =======================================================================
+      -- UPSERT CREATOR (HOT) - Platform-aware field extraction
+      -- =======================================================================
+      INSERT INTO creators_hot (
+        creator_id, username, display_name, avatar_url, verified,
+        followers_count, bio, updated_at
+      )
+      VALUES (
+        v_creator_id,
+        -- Extract username based on platform
+        CASE 
+          WHEN v_platform = 'tiktok' THEN
+            COALESCE(
+              v_element->'author'->>'unique_id',
+              v_element->'profile'->>'unique_id',
+              v_element->>'author_username',
+              v_element->>'profile_username',
+              v_element->>'account_id'
+            )
+          WHEN v_platform = 'youtube' THEN
+            COALESCE(
+              v_element->>'youtuber',
+              v_element->>'channel_name',
+              v_element->>'youtuber_id',
+              v_creator_id
+            )
+          WHEN v_platform = 'instagram' THEN
+            COALESCE(
+              v_element->>'user_posted',
+              v_element->'author'->>'username',
+              v_element->'profile'->>'username',
+              v_creator_id
+            )
+          ELSE
+            COALESCE(
+              v_element->'author'->>'unique_id',
+              v_element->'profile'->>'unique_id',
+              v_element->>'author_username',
+              v_creator_id
+            )
+        END,
+        -- Extract display name based on platform
+        CASE 
+          WHEN v_platform = 'tiktok' THEN
+            COALESCE(
+              v_element->'author'->>'nickname',
+              v_element->'profile'->>'nickname',
+              v_element->>'author_display_name'
+            )
+          WHEN v_platform = 'youtube' THEN
+            COALESCE(
+              v_element->>'channel_name',
+              v_element->>'youtuber',
+              v_creator_id
+            )
+          WHEN v_platform = 'instagram' THEN
+            COALESCE(
+              v_element->'author'->>'full_name',
+              v_element->'profile'->>'full_name',
+              v_element->>'user_posted'
+            )
+          ELSE
+            COALESCE(
+              v_element->'author'->>'nickname',
+              v_element->'profile'->>'nickname',
+              v_creator_id
+            )
+        END,
+        -- Extract avatar URL based on platform
+        CASE 
+          WHEN v_platform = 'tiktok' THEN
+            COALESCE(
+              v_element->'author'->'avatar'->'url_list'->>0,
+              v_element->'author'->>'avatar_url',
+              v_element->'profile'->'avatar'->'url_list'->>0,
+              v_element->>'profile_avatar'
+            )
+          WHEN v_platform = 'youtube' THEN
+            COALESCE(
+              v_element->>'channel_avatar',
+              v_element->>'youtuber_avatar',
+              ''
+            )
+          WHEN v_platform = 'instagram' THEN
+            COALESCE(
+              v_element->'author'->>'profile_pic_url',
+              v_element->'profile'->>'profile_pic_url',
+              ''
+            )
+          ELSE
+            COALESCE(
+              v_element->'author'->'avatar'->'url_list'->>0,
+              v_element->'author'->>'avatar_url',
+              ''
+            )
+        END,
+        -- Extract verified status
+        COALESCE(
+          (v_element->'author'->>'verified')::BOOLEAN,
+          (v_element->>'is_verified')::BOOLEAN,
+          (v_element->>'verified')::BOOLEAN,
+          FALSE
+        ),
+        -- Extract followers count based on platform
+        CASE 
+          WHEN v_platform = 'tiktok' THEN
+            COALESCE(
+              (v_element->'author_stats'->>'follower_count')::INTEGER,
+              (v_element->>'profile_followers')::INTEGER,
+              0
+            )
+          WHEN v_platform = 'youtube' THEN
+            COALESCE(
+              (v_element->>'channel_subscribers')::INTEGER,
+              (v_element->>'subscribers')::INTEGER,
+              0
+            )
+          WHEN v_platform = 'instagram' THEN
+            COALESCE(
+              (v_element->'author'->>'follower_count')::INTEGER,
+              (v_element->'profile'->>'follower_count')::INTEGER,
+              0
+            )
+          ELSE
+            COALESCE(
+              (v_element->'author_stats'->>'follower_count')::INTEGER,
+              (v_element->>'profile_followers')::INTEGER,
+              0
+            )
+        END,
+        -- Extract bio
+        COALESCE(
+          v_element->'author'->>'signature',
+          v_element->>'profile_biography',
+          v_element->'profile'->>'biography',
+          v_element->>'bio',
+          ''
+        ),
+        NOW()
+      )
+      ON CONFLICT (creator_id) DO UPDATE SET
+        username = EXCLUDED.username,
+        display_name = EXCLUDED.display_name,
+        avatar_url = EXCLUDED.avatar_url,
+        verified = EXCLUDED.verified,
+        followers_count = EXCLUDED.followers_count,
+        bio = EXCLUDED.bio,
+        updated_at = EXCLUDED.updated_at;
+
+      -- =======================================================================
+      -- UPSERT SOUND (HOT) - Only if sound_id exists
+      -- =======================================================================
+      IF v_sound_id IS NOT NULL THEN
+        INSERT INTO sounds_hot (
+          sound_id, sound_title, sound_author, music_duration, music_is_original
+        )
+        VALUES (
+          v_sound_id,
+          -- Extract sound title based on platform
+          CASE 
+            WHEN v_platform = 'youtube' THEN
+              COALESCE(
+                v_element->'music'->>'song',
+                v_element->'music'->>'title',
+                v_element->'music'->>'music_title'
+              )
+            ELSE
+              COALESCE(
+                v_element->'music'->>'title',
+                v_element->'music'->>'music_title',
+                v_element->>'original_sound'
+              )
+          END,
+          -- Extract sound author based on platform
+          CASE 
+            WHEN v_platform = 'youtube' THEN
+              COALESCE(
+                v_element->'music'->>'artist',
+                v_element->'music'->>'music_author'
+              )
+            ELSE
+              COALESCE(
+                v_element->'music'->>'authorname',
+                v_element->'music'->>'authorName',
+                v_element->'music'->>'music_author',
+                v_element->>'account_id'
+              )
+          END,
+          COALESCE((v_element->'music'->>'duration')::INTEGER, 0),
+          COALESCE((v_element->'music'->>'original')::BOOLEAN, FALSE)
+        )
+        ON CONFLICT (sound_id) DO UPDATE SET
+          last_used_at = NOW(),
+          updated_at = NOW();
+      END IF;
+
+      -- =======================================================================
+      -- PREPARE NEW VALUES & FETCH OLD VALUES FOR DELTA CALCULATION
+      -- =======================================================================
+      -- Metrics already extracted above (v_new_play_count, v_new_likes, v_new_comments, v_new_shares)
+
+      -- Fetch previous play_count from history
+      SELECT previous_play_count INTO v_old_play_count
+      FROM video_play_count_history
+      WHERE video_id = v_post_id;
+
+      -- Fetch old values from existing video (for daily aggregation delta tracking)
+      SELECT 
+        likes_count, 
+        comments_count, 
+        shares_count, 
+        COALESCE(impact_score, 0)
+      INTO 
+        v_old_likes, 
+        v_old_comments, 
+        v_old_shares, 
+        v_old_impact
+      FROM videos_hot
+      WHERE video_id = v_post_id;
+
+      -- If no history or video, set to 0 (this is a new video)
+      IF v_old_play_count IS NULL THEN
+        v_old_play_count := 0;
+      END IF;
+      IF v_old_likes IS NULL THEN
+        v_old_likes := 0;
+        v_old_comments := 0;
+        v_old_shares := 0;
+        v_old_impact := 0;
+      END IF;
+
+      -- Calculate delta
+      v_delta := v_new_play_count - v_old_play_count;
+
+      -- =======================================================================
+      -- UPSERT VIDEO (HOT) - Platform-aware field extraction
+      -- =======================================================================
+      INSERT INTO videos_hot (
+        video_id, post_id, creator_id, url, caption, description,
+        created_at, views_count, likes_count, comments_count,
+        shares_count, duration_seconds, video_url, cover_url
+      )
+      VALUES (
+        v_post_id,
+        v_post_id,
+        v_creator_id,
+        v_video_url,
+        -- Extract caption/description based on platform
+        CASE 
+          WHEN v_platform = 'youtube' THEN
+            COALESCE(v_element->>'title', v_element->>'description', '')
+          ELSE
+            COALESCE(v_element->>'description', v_element->>'caption', '')
+        END,
+        CASE 
+          WHEN v_platform = 'youtube' THEN
+            COALESCE(v_element->>'description', v_element->>'title', '')
+          ELSE
+            COALESCE(v_element->>'description', v_element->>'caption', '')
+        END,
+        -- Extract created_at based on platform
+        CASE 
+          WHEN v_platform = 'tiktok' THEN
+            COALESCE(
+              (v_element->>'create_time')::TIMESTAMP WITH TIME ZONE,
+              to_timestamp((v_element->>'createTime')::BIGINT)
+            )
+          WHEN v_platform = 'youtube' THEN
+            COALESCE(
+              (v_element->>'upload_date')::TIMESTAMP WITH TIME ZONE,
+              (v_element->>'created_at')::TIMESTAMP WITH TIME ZONE,
+              NOW()
+            )
+          WHEN v_platform = 'instagram' THEN
+            COALESCE(
+              (v_element->>'taken_at')::TIMESTAMP WITH TIME ZONE,
+              (v_element->>'created_at')::TIMESTAMP WITH TIME ZONE,
+              NOW()
+            )
+          ELSE
+            COALESCE(
+              (v_element->>'create_time')::TIMESTAMP WITH TIME ZONE,
+              to_timestamp((v_element->>'createTime')::BIGINT),
+              NOW()
+            )
+        END,
+        v_new_play_count,
+        v_new_likes,
+        v_new_comments,
+        v_new_shares,
+        -- Extract duration based on platform
+        CASE 
+          WHEN v_platform = 'youtube' THEN
+            COALESCE(
+              (v_element->>'duration')::INTEGER,
+              (v_element->>'video_duration')::INTEGER,
+              0
+            )
+          ELSE
+            COALESCE(
+              (v_element->>'video_duration')::INTEGER,
+              (v_element->>'duration_seconds')::INTEGER,
+              0
+            )
+        END,
+        -- Extract video_url
+        COALESCE(
+          v_element->>'video_url',
+          v_element->>'video_play_url',
+          ''
+        ),
+        -- Extract cover_url based on platform
+        CASE 
+          WHEN v_platform = 'youtube' THEN
+            COALESCE(
+              v_element->>'thumbnail',
+              v_element->>'cover_url',
+              ''
+            )
+          ELSE
+            COALESCE(
+              v_element->>'preview_image',
+              v_element->>'cover_url',
+              v_element->'author'->>'cover_url',
+              ''
+            )
+        END
+      )
+      ON CONFLICT (video_id) DO UPDATE SET
+        views_count = EXCLUDED.views_count,
+        likes_count = EXCLUDED.likes_count,
+        comments_count = EXCLUDED.comments_count,
+        shares_count = EXCLUDED.shares_count,
+        last_seen_at = NOW(),
+        updated_at = NOW();
+
+      -- =======================================================================
+      -- UPSERT COLD STORAGE DATA
+      -- =======================================================================
+      INSERT INTO videos_cold (video_id, full_json, raw_response)
+      VALUES (
+        v_post_id,
+        v_element,
+        v_element
+      )
+      ON CONFLICT (video_id) DO UPDATE SET
+        full_json = EXCLUDED.full_json,
+        raw_response = EXCLUDED.raw_response,
+        updated_at = NOW();
+
+      -- Insert creator cold storage
+      BEGIN
+        INSERT INTO creator_profiles_cold (creator_id, full_json)
+        VALUES (v_creator_id, COALESCE(v_element->'author', v_element->'profile', '{}'::JSONB))
+        ON CONFLICT (creator_id) DO UPDATE SET
+          full_json = EXCLUDED.full_json,
+          updated_at = NOW();
+      EXCEPTION
+        WHEN undefined_table THEN NULL;
+      END;
+
+      -- Also populate creators_cold if it exists
+      BEGIN
+        INSERT INTO creators_cold (creator_id, full_json, raw_data)
+        VALUES (v_creator_id, COALESCE(v_element->'author', v_element->'profile', '{}'::JSONB), v_element)
+        ON CONFLICT (creator_id) DO UPDATE SET
+          full_json = EXCLUDED.full_json,
+          raw_data = EXCLUDED.raw_data,
+          updated_at = NOW();
+      EXCEPTION
+        WHEN undefined_table THEN NULL;
+      END;
+
+      -- Insert sound cold storage if sound exists
+      IF v_sound_id IS NOT NULL THEN
+        BEGIN
+          INSERT INTO sounds_cold (sound_id, full_json, music_details)
+          VALUES (v_sound_id, v_element->'music', v_element->'music')
+          ON CONFLICT (sound_id) DO UPDATE SET
+            full_json = EXCLUDED.full_json,
+            updated_at = NOW();
+        EXCEPTION
+          WHEN undefined_table THEN NULL;
+        END;
+      END IF;
+
+      -- =======================================================================
+      -- UPDATE VIDEO PLAY COUNT HISTORY
+      -- =======================================================================
+      INSERT INTO video_play_count_history (video_id, previous_play_count, last_updated)
+      VALUES (v_post_id, v_new_play_count, NOW())
+      ON CONFLICT (video_id) DO UPDATE SET
+        previous_play_count = EXCLUDED.previous_play_count,
+        last_updated = NOW();
+
+      -- =======================================================================
+      -- UPDATE SOUND FACTS AND AGGREGATIONS (DELTA-BASED)
+      -- =======================================================================
+      IF v_sound_id IS NOT NULL THEN
+        -- Update sound's views_total with delta (if positive)
+        IF v_delta > 0 THEN
+          UPDATE sounds_hot
+          SET views_total = COALESCE(views_total, 0) + v_delta,
+              updated_at = NOW()
+          WHERE sound_id = v_sound_id;
+        END IF;
+
+        -- Create fact relationship (video must exist first!)
+        INSERT INTO video_sound_facts (video_id, sound_id, snapshot_at, views_at_snapshot, likes_at_snapshot)
+        VALUES (
+          v_post_id, 
+          v_sound_id, 
+          NOW(),
+          v_new_play_count,
+          v_new_likes
+        )
+        ON CONFLICT (video_id, sound_id) DO UPDATE SET
+          snapshot_at = NOW(),
+          views_at_snapshot = EXCLUDED.views_at_snapshot,
+          likes_at_snapshot = EXCLUDED.likes_at_snapshot;
+      END IF;
+
+      -- =======================================================================
+      -- UPDATE CREATOR AGGREGATIONS (DELTA-BASED)
+      -- =======================================================================
+      IF v_delta > 0 THEN
+        UPDATE creators_hot
+        SET total_play_count = COALESCE(total_play_count, 0) + v_delta,
+            last_seen_at = NOW(),
+            updated_at = NOW()
+        WHERE creator_id = v_creator_id;
+      ELSE
+        -- Just update timestamps
+        UPDATE creators_hot
+        SET last_seen_at = NOW(),
+            updated_at = NOW()
+        WHERE creator_id = v_creator_id;
+      END IF;
+
+      -- =======================================================================
+      -- PROCESS HASHTAGS WITH DELTA-BASED UPDATES - Platform-aware
+      -- =======================================================================
+      IF v_platform = 'youtube' THEN
+        -- YouTube hashtags: array of objects with "hashtag" property
+        v_hashtags_json := COALESCE(v_element->'hashtags', '[]'::JSONB);
+        IF jsonb_typeof(v_hashtags_json) = 'array' THEN
+          FOR v_hashtag_obj IN SELECT * FROM jsonb_array_elements(v_hashtags_json)
+          LOOP
+            v_hashtag := LOWER(REPLACE(COALESCE(v_hashtag_obj->>'hashtag', ''), '#', ''));
+            IF v_hashtag != '' THEN
+              INSERT INTO hashtags_hot (hashtag, hashtag_norm, updated_at)
+              VALUES (v_hashtag, v_hashtag, NOW())
+              ON CONFLICT (hashtag) DO UPDATE SET
+                last_seen_at = NOW(),
+                updated_at = NOW();
+
+              BEGIN
+                INSERT INTO hashtags_cold (hashtag, raw_data)
+                VALUES (v_hashtag, v_element)
+                ON CONFLICT (hashtag) DO UPDATE SET
+                  updated_at = NOW();
+              EXCEPTION
+                WHEN undefined_table THEN NULL;
+              END;
+
+              INSERT INTO video_hashtag_facts (video_id, hashtag, snapshot_at, views_at_snapshot, likes_at_snapshot)
+              VALUES (
+                v_post_id,
+                v_hashtag,
+                NOW(),
+                v_new_play_count,
+                v_new_likes
+              )
+              ON CONFLICT (video_id, hashtag) DO UPDATE SET
+                snapshot_at = NOW(),
+                views_at_snapshot = EXCLUDED.views_at_snapshot,
+                likes_at_snapshot = EXCLUDED.likes_at_snapshot;
+
+              IF v_delta > 0 THEN
+                UPDATE hashtags_hot
+                SET views_total = COALESCE(views_total, 0) + v_delta,
+                    updated_at = NOW()
+                WHERE hashtag = v_hashtag;
+              END IF;
+            END IF;
+          END LOOP;
+        END IF;
+      ELSE
+        -- TikTok and Instagram: array of strings
+        FOR v_hashtag IN 
+          SELECT value::TEXT 
+          FROM jsonb_array_elements_text(COALESCE(v_element->'hashtags', '[]'::JSONB))
+        LOOP
+          v_hashtag := LOWER(REPLACE(v_hashtag, '#', ''));
+          
+          INSERT INTO hashtags_hot (hashtag, hashtag_norm, updated_at)
+          VALUES (v_hashtag, v_hashtag, NOW())
+          ON CONFLICT (hashtag) DO UPDATE SET
+            last_seen_at = NOW(),
+            updated_at = NOW();
+
+          BEGIN
+            INSERT INTO hashtags_cold (hashtag, raw_data)
+            VALUES (v_hashtag, v_element)
+            ON CONFLICT (hashtag) DO UPDATE SET
+              updated_at = NOW();
+          EXCEPTION
+            WHEN undefined_table THEN NULL;
+          END;
+
+          INSERT INTO video_hashtag_facts (video_id, hashtag, snapshot_at, views_at_snapshot, likes_at_snapshot)
+          VALUES (
+            v_post_id,
+            v_hashtag,
+            NOW(),
+            v_new_play_count,
+            v_new_likes
+          )
+          ON CONFLICT (video_id, hashtag) DO UPDATE SET
+            snapshot_at = NOW(),
+            views_at_snapshot = EXCLUDED.views_at_snapshot,
+            likes_at_snapshot = EXCLUDED.likes_at_snapshot;
+
+          IF v_delta > 0 THEN
+            UPDATE hashtags_hot
+            SET views_total = COALESCE(views_total, 0) + v_delta,
+                updated_at = NOW()
+            WHERE hashtag = v_hashtag;
+          END IF;
+        END LOOP;
+      END IF;
+
+      -- =======================================================================
+      -- UPDATE COMMUNITY MEMBERSHIPS FOR ACCEPTED VIDEOS
+      -- =======================================================================
+      BEGIN
+        IF v_platform = 'youtube' THEN
+          FOR v_hashtag_obj IN SELECT * FROM jsonb_array_elements(COALESCE(v_element->'hashtags', '[]'::JSONB))
+          LOOP
+            v_hashtag := LOWER(REPLACE(COALESCE(v_hashtag_obj->>'hashtag', ''), '#', ''));
+            IF v_hashtag != '' THEN
+              PERFORM update_community_video_membership(c.id, v_post_id)
+              FROM communities c
+              WHERE v_hashtag = ANY(c.linked_hashtags);
+            END IF;
+          END LOOP;
+        ELSE
+          FOR v_hashtag IN 
+            SELECT value::TEXT 
+            FROM jsonb_array_elements_text(COALESCE(v_element->'hashtags', '[]'::JSONB))
+          LOOP
+            v_hashtag := LOWER(REPLACE(v_hashtag, '#', ''));
+            PERFORM update_community_video_membership(c.id, v_post_id)
+            FROM communities c
+            WHERE v_hashtag = ANY(c.linked_hashtags);
+          END LOOP;
+        END IF;
+        
+        -- Update community totals for all affected communities
+        PERFORM update_community_totals(c.id)
+        FROM communities c
+        WHERE EXISTS (
+          SELECT 1 FROM video_hashtag_facts vhf
+          WHERE vhf.video_id = v_post_id
+            AND vhf.hashtag = ANY(c.linked_hashtags)
+        );
+      EXCEPTION
+        WHEN undefined_table OR undefined_function THEN
+          -- Communities feature not yet implemented, skip silently
+          NULL;
+      END;
+
+      -- =======================================================================
+      -- UPDATE DAILY AGGREGATION STATS
+      -- =======================================================================
+      BEGIN
+        -- Get the current impact_score from the newly updated video
+        SELECT impact_score INTO v_new_impact
+        FROM videos_hot
+        WHERE video_id = v_post_id;
+
+        -- Calculate deltas for daily aggregation
+        INSERT INTO daily_video_aggregations (
+          video_id,
+          date,
+          views_delta,
+          likes_delta,
+          comments_delta,
+          shares_delta,
+          impact_delta
+        )
+        VALUES (
+          v_post_id,
+          CURRENT_DATE,
+          v_delta,
+          v_new_likes - v_old_likes,
+          v_new_comments - v_old_comments,
+          v_new_shares - v_old_shares,
+          v_new_impact - v_old_impact
+        )
+        ON CONFLICT (video_id, date) DO UPDATE SET
+          views_delta = daily_video_aggregations.views_delta + EXCLUDED.views_delta,
+          likes_delta = daily_video_aggregations.likes_delta + EXCLUDED.likes_delta,
+          comments_delta = daily_video_aggregations.comments_delta + EXCLUDED.comments_delta,
+          shares_delta = daily_video_aggregations.shares_delta + EXCLUDED.shares_delta,
+          impact_delta = daily_video_aggregations.impact_delta + EXCLUDED.impact_delta,
+          updated_at = NOW();
+      EXCEPTION
+        WHEN undefined_table THEN
+          -- Daily aggregation table not yet implemented, skip silently
+          NULL;
+      END;
+
+      RAISE NOTICE 'Successfully processed video % (platform: %)', v_post_id, v_platform;
       v_processed_count := v_processed_count + 1;
       
     EXCEPTION

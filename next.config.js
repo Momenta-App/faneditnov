@@ -4,15 +4,19 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**.tiktokcdn.com',
+        hostname: '**.cdninstagram.com',
       },
       {
         protocol: 'https',
-        hostname: '**.tiktokcdn-eu.com',
+        hostname: '**.fbcdn.net',
       },
       {
         protocol: 'https',
-        hostname: '**.tiktokcdn-us.com',
+        hostname: 'i.ytimg.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'yt3.ggpht.com',
       },
       {
         protocol: 'https',
@@ -21,6 +25,10 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: '**.supabase.co',
+      },
+      {
+        protocol: 'https',
+        hostname: 'ui-avatars.com',
       },
     ],
   },

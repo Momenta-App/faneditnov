@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { detectPlatform } from '@/lib/url-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,9 +35,7 @@ export async function GET(request: Request) {
           avatar_url,
           verified
         )
-      `)
-      .limit(fetchLimit)
-      .range(offset, offset + fetchLimit - 1);
+      `);
 
     // Apply time range filter
     if (timeRange !== 'all') {
@@ -67,7 +66,9 @@ export async function GET(request: Request) {
     // Apply sorting
     switch (sortBy) {
       case 'impact':
-        query = query.order('impact_score', { ascending: false });
+        // Sort by impact_score DESC, with NULL values last
+        // Use COALESCE to ensure NULL values are treated as 0 for sorting
+        query = query.order('impact_score', { ascending: false, nullsFirst: false });
         break;
       case 'views':
         query = query.order('views_count', { ascending: false });
@@ -82,6 +83,9 @@ export async function GET(request: Request) {
         query = query.order('views_count', { ascending: false });
     }
 
+    // Apply pagination AFTER sorting
+    query = query.range(offset, offset + fetchLimit - 1);
+
     const { data, error } = await query;
 
     if (error) {
@@ -89,14 +93,45 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Debug: Log first few videos when sorting by impact
+    if (sortBy === 'impact' && data && data.length > 0) {
+      console.log('Top videos by impact:', data.slice(0, 5).map((v: any) => ({
+        video_id: v.video_id,
+        platform: v.platform,
+        impact_score: v.impact_score,
+        views_count: v.views_count
+      })));
+    }
+
     // Transform data to match frontend expectations
-    let transformedData = data?.map((video: any) => ({
-      id: video.video_id,
-      postId: video.post_id || video.video_id,
-      title: video.caption || 'Untitled',
-      description: video.description || video.caption || '',
-      thumbnail: video.cover_url || '',
-      videoUrl: video.video_url || video.url || '',
+    let transformedData = data?.map((video: any) => {
+      // Determine platform first
+      const detectedPlatform = video.platform || (video.url || video.video_url ? detectPlatform(video.url || video.video_url) : 'unknown');
+      
+      // For Instagram, prefer 'url' (post URL) over 'video_url' (CDN URL) for embeds
+      // For other platforms, prefer 'url' for YouTube, but allow 'video_url' for TikTok
+      let videoUrl: string;
+      if (detectedPlatform === 'instagram') {
+        // Instagram: always use post URL (url field) for embeds, not CDN URL
+        videoUrl = video.url || video.video_url || '';
+      } else if (detectedPlatform === 'youtube') {
+        // YouTube: prefer page URL (url) over CDN URL
+        videoUrl = video.url || video.video_url || '';
+      } else {
+        // TikTok and others: can use either
+        videoUrl = video.video_url || video.url || '';
+      }
+      
+      return {
+        id: video.video_id,
+        postId: video.post_id || video.video_id,
+        title: video.caption || 'Untitled',
+        description: video.description || video.caption || '',
+        thumbnail: video.cover_url || '',
+        videoUrl: videoUrl,
+        // For platform detection, prefer 'url' field (YouTube page URL) over 'video_url' (CDN URL)
+        // If platform is stored in DB, use it; otherwise detect from URL
+        platform: detectedPlatform, // Platform: tiktok, instagram, youtube, or unknown
       creator: {
         id: video.creator?.creator_id || 'unknown',
         username: video.creator?.username || 'unknown',
@@ -112,7 +147,8 @@ export async function GET(request: Request) {
       duration: video.duration_seconds || 0,
       createdAt: video.created_at,
       hashtags: [], // Will be populated from video_hashtag_facts if needed
-    })) || [];
+      };
+    }) || [];
 
     // Only deduplicate if explicitly requested (for homepage use cases)
     // By default, return all videos regardless of creator

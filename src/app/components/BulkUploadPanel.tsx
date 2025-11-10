@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Card } from './Card';
 import { Button } from './Button';
 import { Badge } from './Badge';
-import { standardizeTikTokUrl } from '@/lib/url-utils';
+import { standardizeUrl, isValidUrl } from '@/lib/url-utils';
 import { supabaseClient } from '@/lib/supabase-client';
 
 interface BulkUploadPanelProps {
@@ -25,11 +25,9 @@ export function BulkUploadPanel({ skipValidation }: BulkUploadPanelProps) {
   const [result, setResult] = useState<any>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const isValidTikTokUrl = (url: string): boolean => {
-    // Full format or shortened formats
-    return /tiktok\.com\/.+\/video\/\d+/.test(url) || 
-           /vt\.tiktok\.com\/[A-Za-z0-9]+/.test(url) ||
-           /vm\.tiktok\.com\/[A-Za-z0-9]+/.test(url);
+  const isValidUrlForUpload = (url: string): boolean => {
+    // Instagram or YouTube Shorts format
+    return isValidUrl(url);
   };
 
   const parseCSVFile = async (file: File) => {
@@ -57,13 +55,11 @@ export function BulkUploadPanel({ skipValidation }: BulkUploadPanelProps) {
         // Only include if it looks like a URL
         if (url.startsWith('http')) {
           try {
-            // Standardize if full URL, keep as-is if shortened
-            const standardized = url.includes('vt.tiktok.com') || url.includes('vm.tiktok.com')
-              ? url
-              : standardizeTikTokUrl(url);
+            // Standardize URL (supports Instagram and YouTube)
+            const standardized = standardizeUrl(url);
             
-            // Check if valid TikTok URL
-            if (isValidTikTokUrl(standardized)) {
+            // Check if valid URL (Instagram or YouTube)
+            if (isValidUrlForUpload(standardized)) {
               // Check for duplicates
               if (!seen.has(standardized)) {
                 seen.add(standardized);
@@ -81,7 +77,7 @@ export function BulkUploadPanel({ skipValidation }: BulkUploadPanelProps) {
       }
 
       if (parsedUrls.length === 0) {
-        setError('No valid TikTok URLs found in file');
+        setError('No valid TikTok, Instagram posts/reels, or YouTube Shorts URLs found in file. Regular YouTube videos are not accepted.');
         setSubmissionStatus('error');
         return;
       }

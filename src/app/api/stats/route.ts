@@ -70,7 +70,7 @@ export async function GET() {
           videos: {
             count: videosCount || 0,
             formatted: formatStat(videosCount || 0),
-            label: 'Epic Edits'
+            label: 'Clips'
           },
           views: {
             count: totalViews,
@@ -107,7 +107,7 @@ export async function GET() {
         videos: {
           count: cache.total_videos || 0,
           formatted: formatStat(cache.total_videos || 0),
-          label: 'Epic Edits'
+          label: 'Clips'
         },
         views: {
           count: cache.total_views || 0,
@@ -131,7 +131,7 @@ export async function GET() {
         success: false,
         error: 'Failed to fetch statistics',
         stats: {
-          videos: { count: 0, formatted: '0+', label: 'Epic Edits' },
+          videos: { count: 0, formatted: '0+', label: 'Clips' },
           views: { count: 0, formatted: '0+', label: 'Global Views' },
           creators: { count: 0, formatted: '0+', label: 'Talented Creators' }
         }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { detectPlatform } from '@/lib/url-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -200,6 +201,7 @@ export async function GET(
         description: video.description || '',
         thumbnail: video.cover_url || '',
         videoUrl: video.video_url || '',
+        platform: video.platform || (video.video_url ? detectPlatform(video.video_url) : 'unknown'), // Platform: tiktok, instagram, youtube, or unknown
         creator: {
           id: video.creator_id,
           username: creatorUsername,

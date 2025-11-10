@@ -24,6 +24,33 @@ export function CreatorCard({ creator, variant = 'grid', hideFollowers = false, 
     return num.toString();
   };
 
+  // Use regular img for ui-avatars.com to avoid Next.js Image optimization issues
+  const isUIAvatar = creator.avatar?.includes('ui-avatars.com');
+  
+  const AvatarImage = ({ width, height, className }: { width: number; height: number; className?: string }) => {
+    if (isUIAvatar) {
+      return (
+        <img 
+          src={creator.avatar} 
+          alt={creator.displayName}
+          width={width}
+          height={height}
+          className={className}
+          style={{ borderRadius: '50%', objectFit: 'cover' }}
+        />
+      );
+    }
+    return (
+      <Image 
+        src={creator.avatar} 
+        alt={creator.displayName}
+        width={width}
+        height={height}
+        className={className}
+      />
+    );
+  };
+
   if (frostedGlass) {
     // Determine rank class for top 3
     const rankClass = rank === 1 ? 'rank-gold' : rank === 2 ? 'rank-silver' : rank === 3 ? 'rank-bronze' : '';
@@ -40,9 +67,7 @@ export function CreatorCard({ creator, variant = 'grid', hideFollowers = false, 
             {/* Avatar */}
             <div className="relative shrink-0">
               <div className="w-16 h-16 relative">
-                <Image 
-                  src={creator.avatar} 
-                  alt={creator.displayName}
+                <AvatarImage 
                   width={64}
                   height={64}
                   className="rounded-full object-cover"
@@ -229,9 +254,7 @@ export function CreatorCard({ creator, variant = 'grid', hideFollowers = false, 
             {/* Avatar */}
             <div className="relative shrink-0">
               <div className="w-14 h-14 relative">
-                <Image 
-                  src={creator.avatar} 
-                  alt={creator.displayName}
+                <AvatarImage 
                   width={56}
                   height={56}
                   className="rounded-full object-cover"
@@ -296,9 +319,7 @@ export function CreatorCard({ creator, variant = 'grid', hideFollowers = false, 
           {/* Avatar */}
           <div className="relative shrink-0">
             <div className="w-14 h-14 relative">
-              <Image 
-                src={creator.avatar} 
-                alt={creator.displayName}
+              <AvatarImage 
                 width={56}
                 height={56}
                 className="rounded-full object-cover"

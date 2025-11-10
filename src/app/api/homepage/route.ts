@@ -44,7 +44,7 @@ export async function GET(request: Request) {
         error: 'Cache not initialized. Please run refresh_homepage_cache()',
         data: {
           stats: {
-            videos: { count: 0, formatted: '0+', label: 'Epic Edits' },
+            videos: { count: 0, formatted: '0+', label: 'Clips' },
             views: { count: 0, formatted: '0+', label: 'Global Views' },
             creators: { count: 0, formatted: '0+', label: 'Talented Creators' }
           },
@@ -76,7 +76,7 @@ export async function GET(request: Request) {
           videos: {
             count: cache.total_videos || 0,
             formatted: formatStat(cache.total_videos || 0),
-            label: 'Epic Edits'
+            label: 'Clips'
           },
           views: {
             count: cache.total_views || 0,
@@ -108,7 +108,7 @@ export async function GET(request: Request) {
         error: 'Failed to fetch homepage data',
         data: {
           stats: {
-            videos: { count: 0, formatted: '0+', label: 'Epic Edits' },
+            videos: { count: 0, formatted: '0+', label: 'Clips' },
             views: { count: 0, formatted: '0+', label: 'Global Views' },
             creators: { count: 0, formatted: '0+', label: 'Talented Creators' }
           },

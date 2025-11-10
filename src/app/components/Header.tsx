@@ -15,7 +15,7 @@ export function Header() {
 
   const navigation = [
     { name: 'Home', href: '/' },
-    { name: 'Edits', href: '/edits' },
+    { name: 'Videos', href: '/edits' },
     { name: 'Creators', href: '/creators' },
     { name: 'Hashtags', href: '/hashtags' },
     { name: 'Sounds', href: '/sounds' },
@@ -38,7 +38,7 @@ export function Header() {
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2 focus-ring rounded-lg p-2 -ml-2 transition-all hover:scale-105">
               <span className="text-xl font-bold text-[var(--color-text-primary)]">
-                Fanedit.com
+                Sportsclips.io
               </span>
             </Link>
           </div>

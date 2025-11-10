@@ -112,7 +112,7 @@ export default function Home() {
     }
     // Default stats if cache not loaded yet
     return [
-      { value: '10K+', label: 'Epic Edits' },
+      { value: '10K+', label: 'Clips' },
       { value: '50M+', label: 'Global Views' },
       { value: '2.5K+', label: 'Talented Creators' },
     ];
@@ -1072,21 +1072,21 @@ export default function Home() {
         <section className="hero">
           <div className="hero-content">
             <div className="badge">
-              The Edits Community
+              The Sports Clips Community
             </div>
             
             <h1 className="hero-title">
-              The Home of Edits
+              The Home of<br />Sports Clips
             </h1>
             
             <p className="hero-subtitle">
-              Experience jaw-dropping fan-made trailers, edits, and mashups from the world&apos;s most talented creators. 
-              Discover cinematic masterpieces, vote for your favorites, and watch creativity come alive.
+              Experience jaw-dropping sports highlights, clips, and compilations from the world&apos;s most talented creators. 
+              Discover incredible moments, vote for your favorites, and watch sports come alive.
             </p>
 
             <div className="cta-buttons">
               <Link href="/edits" className="btn btn-primary">
-                Discover Epic Edits
+                Discover Epic Sports Clips
               </Link>
               <Link href="/communities" className="btn btn-secondary">
                 Join the Movement
@@ -1104,7 +1104,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Featured Edits Section */}
+        {/* Featured Sports Clips Section */}
         <section className="section">
           <div style={{ width: '100%' }}>
           <div className="section-header">
@@ -1165,7 +1165,7 @@ export default function Home() {
         <section className="section">
           <div style={{ width: '100%' }}>
           <div className="section-header">
-            <h2 className="section-title">World&apos;s Best Editors</h2>
+            <h2 className="section-title">World&apos;s Best Creators</h2>
             <p className="section-subtitle">
               Meet the visionaries pushing boundaries and redefining what&apos;s possible. Your masterpiece could be next.
             </p>
@@ -1221,76 +1221,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* How It Works / What Are Fan Edits Section */}
-        <section className="section" style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
-          <div className="how-it-works">
-            <div className="how-it-works-intro">
-              <h2>What Are Fan Edits?</h2>
-              <p>
-                Fan edits reimagine movies, sports, and music into fresh creative expressions. From cinematic trailers to viral montages, editors turn familiar moments into new stories that move audiences.
-              </p>
-            </div>
-
-            <div className="features-grid-wrapper">
-              {/* Video Background Layer */}
-              <div className="video-background-layer" style={{ height: `${gridHeight}px` }}>
-                <video 
-                  src="/4.webm"
-                  autoPlay 
-                  loop 
-                  muted 
-                  playsInline
-                  className="feature-video"
-                />
-              </div>
-
-              {/* Grid Content Layer */}
-              <div className="features-grid" ref={gridRef}>
-                {/* Left Column */}
-                <div className="features-column">
-                  <div className="feature-card">
-                    <div className="feature-icon">🔍</div>
-                    <h4>Discover Edits</h4>
-                    <p>
-                      Browse standout creations across film, sports, and music. See how fans reshape culture through creativity.
-                    </p>
-                  </div>
-
-                  <div className="feature-card">
-                    <div className="feature-icon">🚀</div>
-                    <h4>Share Work</h4>
-                    <p>
-                      Upload your edits to connect with fans and industry professionals who value originality.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Center Column - Empty for video to show through */}
-                <div className="features-center"></div>
-
-                {/* Right Column */}
-                <div className="features-column">
-                  <div className="feature-card">
-                    <div className="feature-icon">⭐</div>
-                    <h4>Find Talent</h4>
-                    <p>
-                      Spot rising editors with unique style and proven reach—ideal for brands, studios, and music partners.
-                    </p>
-                  </div>
-
-                  <div className="feature-card">
-                    <div className="feature-icon">🏆</div>
-                    <h4>Earn Recognition</h4>
-                    <p>
-                      Climb the rankings and get featured for your creative impact and storytelling skill.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* Section Divider */}
         <div style={{
           height: '2px',
@@ -1335,14 +1265,14 @@ export default function Home() {
               {([
                 {
                   title: 'For Fans',
-                  description: 'Dive into a world of incredible edits. Vote, share, and support the creators making magic happen every day.',
+                  description: 'Dive into a world of incredible sports clips. Vote, share, and support the creators making magic happen every day.',
                   link: '/edits',
                   linkText: 'Explore Now',
                   isBrand: false
                 },
                 {
                   title: 'For Creators',
-                  description: 'Unleash your creativity. Upload your edits, build your audience, and rise through the ranks. Turn your passion into recognition.',
+                  description: 'Unleash your creativity. Upload your sports clips, build your audience, and rise through the ranks. Turn your passion into recognition.',
                   link: '/auth/signup',
                   linkText: 'Start Creating',
                   isBrand: false

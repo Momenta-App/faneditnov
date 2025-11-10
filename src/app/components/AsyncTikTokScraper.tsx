@@ -44,7 +44,7 @@ export function AsyncTikTokScraper() {
           type="text"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="Enter TikTok URL (e.g., https://www.tiktok.com/@user/video/123)"
+          placeholder="Enter TikTok, Instagram post/reel, or YouTube Shorts URL (regular YouTube videos not accepted)"
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#120F23]"
           disabled={loading}
           required

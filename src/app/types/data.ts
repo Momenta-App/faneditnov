@@ -20,6 +20,7 @@ export interface Video {
   description: string;
   thumbnail: string;
   videoUrl: string;
+  platform?: 'tiktok' | 'instagram' | 'youtube' | 'unknown';  // Platform source
   creator: {
     id: string;
     username: string;

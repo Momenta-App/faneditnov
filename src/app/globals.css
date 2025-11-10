@@ -454,8 +454,8 @@ h6 {
   justify-content: center;
 }
 
-/* TikTok embed styling */
-.video-embed-container .tiktok-embed {
+/* Instagram embed styling */
+.video-embed-container .instagram-embed {
   border: none !important;
   margin: 0 !important;
   max-width: 100% !important;
@@ -463,15 +463,12 @@ h6 {
   width: 100% !important;
   display: block !important;
   visibility: visible !important;
-  /* Override TikTok's inline styles */
+  /* Override Instagram's inline styles */
   min-height: auto !important;
 }
 
-/* Don't hide the section - TikTok needs it to convert to iframe */
-/* The TikTok embed script will handle the conversion */
-
 /* Keep only the iframe/embed */
-.video-embed-container .tiktok-embed iframe {
+.video-embed-container .instagram-embed iframe {
   border: none !important;
   border-radius: 12px !important;
   width: 100% !important;
@@ -484,29 +481,29 @@ h6 {
   z-index: 1 !important;
 }
 
-/* Hide any additional UI elements that TikTok adds */
-.video-embed-container .tiktok-embed::before,
-.video-embed-container .tiktok-embed::after {
+/* Hide any additional UI elements that Instagram adds */
+.video-embed-container .instagram-embed::before,
+.video-embed-container .instagram-embed::after {
   display: none !important;
 }
 
-/* Override TikTok's default max-width */
-.video-embed-container .tiktok-embed {
+/* Override Instagram's default max-width */
+.video-embed-container .instagram-embed {
   max-width: 100% !important;
   min-width: 100% !important;
   width: 100% !important;
 }
 
-/* TikTok iframe styling - hide white background and make larger */
-.tiktok-iframe {
+/* Instagram iframe styling - hide white background and make larger */
+.instagram-iframe {
   background: black !important;
   border: none !important;
   width: 100% !important;
   height: 100% !important;
 }
 
-/* Remove white background from TikTok iframe */
-iframe[src*="tiktok.com/embed"] {
+/* Remove white background from Instagram iframe */
+iframe[src*="instagram.com/p/"] {
   background-color: black !important;
   border: none !important;
   margin: 0 !important;

@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
     const envCheck = {
       BRIGHT_DATA_API_KEY: !!process.env.BRIGHT_DATA_API_KEY,
       BRIGHT_DATA_CUSTOMER_ID: !!process.env.BRIGHT_DATA_CUSTOMER_ID,
-      BRIGHT_DATA_TIKTOK_POST_SCRAPER_ID: !!process.env.BRIGHT_DATA_TIKTOK_POST_SCRAPER_ID,
+      BRIGHT_DATA_INSTAGRAM_POST_SCRAPER_ID: !!process.env.BRIGHT_DATA_INSTAGRAM_POST_SCRAPER_ID,
+      BRIGHT_DATA_YOUTUBE_SHORTS_SCRAPER_ID: !!process.env.BRIGHT_DATA_YOUTUBE_SHORTS_SCRAPER_ID,
       BRIGHT_DATA_MOCK_MODE: process.env.BRIGHT_DATA_MOCK_MODE,
       NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 
         (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'),
@@ -47,11 +48,13 @@ export async function GET(request: NextRequest) {
       // Ignore quota check errors
     }
 
-    // Overall status
+    // Overall status - at least one platform must be configured
+    const hasAtLeastOnePlatform = envCheck.BRIGHT_DATA_INSTAGRAM_POST_SCRAPER_ID || 
+                                   envCheck.BRIGHT_DATA_YOUTUBE_SHORTS_SCRAPER_ID;
     const canUseBulkUpload = isAdmin && 
       envCheck.BRIGHT_DATA_API_KEY && 
       envCheck.BRIGHT_DATA_CUSTOMER_ID && 
-      envCheck.BRIGHT_DATA_TIKTOK_POST_SCRAPER_ID;
+      hasAtLeastOnePlatform;
 
     return NextResponse.json({
       authenticated: true,
@@ -71,7 +74,11 @@ export async function GET(request: NextRequest) {
         allRequiredVariablesSet: 
           envCheck.BRIGHT_DATA_API_KEY && 
           envCheck.BRIGHT_DATA_CUSTOMER_ID && 
-          envCheck.BRIGHT_DATA_TIKTOK_POST_SCRAPER_ID,
+          hasAtLeastOnePlatform,
+        supportedPlatforms: {
+          instagram: envCheck.BRIGHT_DATA_INSTAGRAM_POST_SCRAPER_ID,
+          youtube: envCheck.BRIGHT_DATA_YOUTUBE_SHORTS_SCRAPER_ID,
+        },
       },
       quota: quotaInfo ? {
         videoSubmissions: quotaInfo.video_submissions,
@@ -86,14 +93,17 @@ export async function GET(request: NextRequest) {
           `UPDATE profiles SET role = 'admin' WHERE email = '${user.email}';`] : []),
         ...(!envCheck.BRIGHT_DATA_API_KEY ? ['❌ Missing BRIGHT_DATA_API_KEY environment variable'] : []),
         ...(!envCheck.BRIGHT_DATA_CUSTOMER_ID ? ['❌ Missing BRIGHT_DATA_CUSTOMER_ID environment variable'] : []),
-        ...(!envCheck.BRIGHT_DATA_TIKTOK_POST_SCRAPER_ID ? ['❌ Missing BRIGHT_DATA_TIKTOK_POST_SCRAPER_ID environment variable'] : []),
+        ...(!envCheck.BRIGHT_DATA_INSTAGRAM_POST_SCRAPER_ID && !envCheck.BRIGHT_DATA_YOUTUBE_SHORTS_SCRAPER_ID 
+          ? ['❌ Missing at least one scraper ID (BRIGHT_DATA_INSTAGRAM_POST_SCRAPER_ID or BRIGHT_DATA_YOUTUBE_SHORTS_SCRAPER_ID)'] : []),
+        ...(!envCheck.BRIGHT_DATA_INSTAGRAM_POST_SCRAPER_ID ? ['⚠️ Instagram scraper not configured (optional)'] : []),
+        ...(!envCheck.BRIGHT_DATA_YOUTUBE_SHORTS_SCRAPER_ID ? ['⚠️ YouTube Shorts scraper not configured (optional)'] : []),
       ],
       recommendations: canUseBulkUpload ? [
         '✅ All checks passed! You can use bulk upload.'
       ] : [
         'To enable bulk upload:',
         ...(!isAdmin ? ['1. Update your role to admin in the database (see SQL above)'] : []),
-        ...(!envCheck.BRIGHT_DATA_API_KEY || !envCheck.BRIGHT_DATA_CUSTOMER_ID || !envCheck.BRIGHT_DATA_TIKTOK_POST_SCRAPER_ID ? 
+        ...(!envCheck.BRIGHT_DATA_API_KEY || !envCheck.BRIGHT_DATA_CUSTOMER_ID || !hasAtLeastOnePlatform ? 
           ['2. Add missing BrightData environment variables to .env.local'] : []),
       ]
     }, { status: 200 });

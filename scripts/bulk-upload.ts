@@ -1,16 +1,16 @@
 #!/usr/bin/env tsx
 
 /**
- * Bulk TikTok URL Upload Script
+ * Bulk Instagram URL Upload Script
  * 
- * Reads a CSV/TXT file containing TikTok URLs and submits them in bulk to the BrightData API.
+ * Reads a CSV/TXT file containing Instagram URLs and submits them in bulk to the BrightData API.
  * Requires admin authentication.
  * 
  * Usage:
  *   npx tsx scripts/bulk-upload.ts <csv-file>
  *   
  * Examples:
- *   npx tsx scripts/bulk-upload.ts tiktok-urls.csv
+ *   npx tsx scripts/bulk-upload.ts instagram-urls.csv
  *   ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD=pass123 npx tsx scripts/bulk-upload.ts urls.txt
  */
 
@@ -62,55 +62,75 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 // ============================================================================
 
 /**
- * Standardize TikTok URL to consistent format
+ * Standardize URL to consistent format
+ * Supports Instagram posts/reels and YouTube Shorts
  * Extracted from @/lib/url-utils.ts
- * Note: Shortened URLs (vt.tiktok.com, vm.tiktok.com) are kept as-is
- * since BrightData can handle them directly
  */
-function standardizeTikTokUrl(url: string): string {
+function standardizeUrl(url: string): string {
   try {
     const urlObj = new URL(url);
     
-    // Keep shortened URLs as-is (BrightData handles them)
-    if (urlObj.hostname === 'vt.tiktok.com' || urlObj.hostname === 'vm.tiktok.com') {
-      return url;
+    // Instagram: Extract the post/reel path (e.g., /p/ABC123 or /reel/XYZ789)
+    if (urlObj.hostname.includes('instagram.com')) {
+      const pathMatch = urlObj.pathname.match(/\/(p|reel)\/([A-Za-z0-9_-]+)/);
+      if (pathMatch) {
+        const [_, type, shortcode] = pathMatch;
+        return `https://www.instagram.com/${type}/${shortcode}`;
+      }
     }
     
-    // Extract username and video ID from path for full URLs
-    const pathMatch = urlObj.pathname.match(/@([^/]+)\/video\/(\d+)/);
-    
-    if (pathMatch) {
-      const [, username, videoId] = pathMatch;
-      return `https://www.tiktok.com/@${username}/video/${videoId}`;
+    // YouTube: Handle Shorts format
+    if (urlObj.hostname.includes('youtube.com') || urlObj.hostname === 'youtu.be') {
+      // Reject regular /watch URLs
+      if (urlObj.pathname.includes('/watch')) {
+        throw new Error('Regular YouTube videos not accepted, only Shorts');
+      }
+      
+      // Handle youtu.be short links
+      if (urlObj.hostname === 'youtu.be') {
+        const videoId = urlObj.pathname.replace(/^\//, '');
+        if (videoId) {
+          return `https://www.youtube.com/shorts/${videoId}`;
+        }
+      }
+      
+      // Handle youtube.com/shorts/ format
+      const shortsMatch = urlObj.pathname.match(/\/shorts\/([A-Za-z0-9_-]+)/);
+      if (shortsMatch) {
+        const [, videoId] = shortsMatch;
+        return `https://www.youtube.com/shorts/${videoId}`;
+      }
     }
     
-    return url;
-  } catch {
-    return url;
+    return url.split('?')[0].trim();
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    return url.split('?')[0].trim();
   }
 }
 
 /**
- * Validate if URL is a TikTok video URL
- * Accepts both full URLs and shortened vt.tiktok.com URLs
+ * Validate if URL is an Instagram post/reel URL
  */
-function isValidTikTokUrl(url: string): boolean {
-  // Full format: https://www.tiktok.com/@user/video/123456
-  if (/tiktok\.com\/.+\/video\/\d+/.test(url)) {
-    return true;
+function isValidInstagramUrl(url: string): boolean {
+  // Instagram post or reel format: https://www.instagram.com/p/ABC123 or /reel/XYZ789
+  return /instagram\.com\/(p|reel)\/[A-Za-z0-9_-]+/.test(url);
+}
+
+/**
+ * Validate if URL is a YouTube Shorts URL (NOT regular YouTube videos)
+ */
+function isValidYouTubeShortsUrl(url: string): boolean {
+  // Reject regular YouTube videos
+  if (/youtube\.com\/watch/.test(url)) {
+    return false;
   }
   
-  // Shortened format: https://vt.tiktok.com/ZSyYYTJhJ/
-  if (/vt\.tiktok\.com\/[A-Za-z0-9]+/.test(url)) {
-    return true;
-  }
-  
-  // Mobile format: https://vm.tiktok.com/ZSyYYTJhJ/
-  if (/vm\.tiktok\.com\/[A-Za-z0-9]+/.test(url)) {
-    return true;
-  }
-  
-  return false;
+  // Only accept Shorts format or youtu.be
+  return /youtube\.com\/shorts\/[A-Za-z0-9_-]+/.test(url) || 
+         /youtu\.be\/[A-Za-z0-9_-]+/.test(url);
 }
 
 /**
@@ -135,7 +155,7 @@ function prompt(question: string): Promise<string> {
 // ============================================================================
 
 /**
- * Parse CSV/TXT file and extract TikTok URLs
+ * Parse CSV/TXT file and extract Instagram and YouTube Shorts URLs
  */
 function parseUrlsFromFile(filename: string): string[] {
   console.log(`📁 Reading file: ${filename}`);
@@ -181,11 +201,20 @@ function cleanAndValidateUrls(urls: string[]): {
   
   for (const url of urls) {
     try {
-      // Standardize the URL
-      const standardized = standardizeTikTokUrl(url);
+      // Standardize the URL (handles both Instagram and YouTube Shorts)
+      let standardized: string;
+      try {
+        standardized = standardizeUrl(url);
+      } catch (error) {
+        // Handle errors (e.g., regular YouTube videos)
+        const errorMsg = error instanceof Error ? error.message : 'Invalid URL';
+        invalid.push(`${url} (${errorMsg})`);
+        continue;
+      }
       
-      // Check if valid TikTok URL
-      if (!isValidTikTokUrl(standardized)) {
+      // Check if valid URL
+      const isValid = isValidInstagramUrl(standardized) || isValidYouTubeShortsUrl(standardized);
+      if (!isValid) {
         invalid.push(url);
         continue;
       }
@@ -304,7 +333,7 @@ async function main() {
     console.error('❌ Error: No file specified');
     console.error('\nUsage: npx tsx scripts/bulk-upload.ts <csv-file>');
     console.error('\nExample:');
-    console.error('  npx tsx scripts/bulk-upload.ts tiktok-urls.csv');
+    console.error('  npx tsx scripts/bulk-upload.ts instagram-urls.csv');
     process.exit(1);
   }
   
@@ -331,7 +360,7 @@ async function main() {
     }
     
     if (valid.length === 0) {
-      console.error('\n❌ No valid TikTok URLs found');
+      console.error('\n❌ No valid Instagram posts/reels or YouTube Shorts URLs found');
       process.exit(1);
     }
     

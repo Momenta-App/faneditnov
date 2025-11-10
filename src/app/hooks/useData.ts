@@ -57,8 +57,14 @@ export function useCreators(search = '', sortBy = 'views', timeRange = 'all', li
           params.append('search', search);
         }
         const response = await fetch(`/api/creators?${params}`);
-        if (!response.ok) throw new Error('Failed to fetch creators');
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Failed to fetch creators: ${response.status}`);
+        }
         const result = await response.json();
+        if (result.error) {
+          throw new Error(result.error);
+        }
         setData(result.data || []);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');

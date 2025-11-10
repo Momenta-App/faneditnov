@@ -16,13 +16,19 @@ export default function CreatorsPage() {
   const { data: creators, loading, error } = useCreators(searchQuery, sortBy, timeRange, 100);
 
   // Creators are already filtered and sorted by backend
-  const filteredCreators = creators;
+  const filteredCreators = Array.isArray(creators) ? creators : [];
 
   if (error) {
     return (
       <div className="min-h-screen py-12 flex items-center justify-center" style={{ background: 'var(--color-background)' }}>
         <div className="text-center">
           <p className="text-red-600 mb-4">Error loading creators: {error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded"
+          >
+            Reload Page
+          </button>
         </div>
       </div>
     );

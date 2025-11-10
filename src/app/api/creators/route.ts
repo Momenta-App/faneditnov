@@ -16,6 +16,7 @@ export async function GET(request: Request) {
       'all': null,
       '7d': 7,
       '30d': 30,
+      '1y': 365,
       'year': 365,
     };
 

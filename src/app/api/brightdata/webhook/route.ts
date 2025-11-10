@@ -375,6 +375,46 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Check if this is just a notification webhook (no data payload)
+    // When using uncompressed_webhook=true, BrightData sends:
+    // 1. Notification webhook: {snapshot_id, status: "ready"} 
+    // 2. Data webhook: [array of records]
+    // We should acknowledge notification webhooks but wait for the data webhook
+    const isNotificationOnly = body.status && !Array.isArray(body) && !body.data && Object.keys(body).length <= 3;
+    
+    if (isNotificationOnly) {
+      console.log('Received notification-only webhook (no data), acknowledging and waiting for data webhook...', { 
+        snapshot_id, 
+        status: body.status 
+      });
+      
+      // Check if we've already processed this snapshot (data webhook may have arrived first)
+      if (supabaseAdmin) {
+        const { data: existingIngestion } = await supabaseAdmin
+          .from('bd_ingestions')
+          .select('status')
+          .eq('snapshot_id', snapshot_id)
+          .maybeSingle();
+        
+        if (existingIngestion?.status === 'completed') {
+          console.log(`Snapshot ${snapshot_id} already processed, skipping notification`);
+          return NextResponse.json({
+            message: 'Snapshot already processed',
+            snapshot_id: snapshot_id,
+            status: existingIngestion.status,
+            skipped: true
+          });
+        }
+      }
+      
+      // Acknowledge the notification - the actual data will come in a separate webhook
+      return NextResponse.json({
+        message: 'Notification received, waiting for data webhook',
+        snapshot_id: snapshot_id,
+        status: body.status
+      });
+    }
+    
     console.log('Received notification webhook, downloading data from BrightData...', { snapshot_id, status: body.status });
     
     // Check if we've already processed this snapshot

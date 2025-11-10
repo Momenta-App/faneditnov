@@ -19,8 +19,8 @@ export default function Home() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [creatorTimeFilter, setCreatorTimeFilter] = useState<TimeFilter>('all');
   // Use homepage cache for fast loading
-  const { data: homepageData, loading: loadingVideos } = useHomepage(timeFilter);
-  const { data: creatorHomepageData, loading: loadingCreators } = useHomepage(creatorTimeFilter);
+  const { data: homepageData, loading: loadingVideos, error: videosError } = useHomepage(timeFilter);
+  const { data: creatorHomepageData, loading: loadingCreators, error: creatorsError } = useHomepage(creatorTimeFilter);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const gridRef = useRef<HTMLDivElement>(null);
   const [gridHeight, setGridHeight] = useState(700);
@@ -53,15 +53,21 @@ export default function Home() {
   }, []);
 
   // Track when initial data has loaded (only set once)
+  // Also set loaded if there's an error (so we can show content anyway)
   useEffect(() => {
-    if (mounted && !loadingVideos && !loadingCreators && !hasInitiallyLoaded) {
+    if (mounted && (!loadingVideos && !loadingCreators) && !hasInitiallyLoaded) {
       setHasInitiallyLoaded(true);
     }
-  }, [mounted, loadingVideos, loadingCreators, hasInitiallyLoaded]);
+    // If there's an error, still mark as loaded so we can show fallback content
+    if (mounted && (videosError || creatorsError) && !hasInitiallyLoaded) {
+      setHasInitiallyLoaded(true);
+    }
+  }, [mounted, loadingVideos, loadingCreators, hasInitiallyLoaded, videosError, creatorsError]);
 
   // Show loading state only until component is mounted and initial data is loaded
   // After initial load, don't show full loading screen for filter changes
-  const isLoading = !mounted || (!hasInitiallyLoaded && (loadingVideos || loadingCreators));
+  // Also stop loading if there's an error (show content anyway)
+  const isLoading = !mounted || (!hasInitiallyLoaded && (loadingVideos || loadingCreators) && !videosError && !creatorsError);
 
   // Progress bar animation with easing that slows down near the end
   useEffect(() => {

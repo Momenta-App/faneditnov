@@ -41,7 +41,7 @@ async function checkFunction(name: string): Promise<boolean> {
     .select('routine_name')
     .eq('routine_name', name)
     .limit(1);
-  return funcData && funcData.length > 0;
+  return funcData ? funcData.length > 0 : false;
 }
 
 async function checkStorageBucket(): Promise<{ exists: boolean; public: boolean }> {

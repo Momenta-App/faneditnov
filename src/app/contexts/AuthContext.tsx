@@ -198,6 +198,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('✅ Client login successful:', data.user.id);
       setSession(data.session);
       setUser(data.user);
+      
+      // Wait a moment to ensure session is persisted by Supabase client
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
       // onAuthStateChange will fetch the profile; no need to do it here
     } catch (error) {
       setIsLoading(false);

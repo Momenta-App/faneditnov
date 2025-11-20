@@ -38,7 +38,7 @@ export function Header() {
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2 focus-ring rounded-lg p-2 -ml-2 transition-all hover:scale-105">
               <span className="text-xl font-bold text-[var(--color-text-primary)]">
-                Sportsclips.io
+                Fan Activation
               </span>
             </Link>
           </div>

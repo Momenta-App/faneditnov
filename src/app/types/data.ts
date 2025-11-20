@@ -129,6 +129,8 @@ export interface CommunityHashtag {
   global_videos: number;
 }
 
+import type { Demographics } from '@/lib/openai';
+
 export interface Campaign {
   id: string;
   user_id: string;
@@ -141,6 +143,7 @@ export interface Campaign {
   total_views?: number;
   total_videos?: number;
   total_creators?: number;
+  demographics?: Demographics;
 }
 
 export type UserRole = 'standard' | 'creator' | 'brand' | 'admin';

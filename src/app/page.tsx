@@ -101,22 +101,14 @@ export default function Home() {
 
     updateProgress();
   }, [isLoading]);
-  // Use stats from homepage cache (faster than separate API call)
+  // Hardcoded stats (doubled from cache values)
   const stats = useMemo<Stat[]>(() => {
-    if (homepageData?.stats) {
-      return [
-        { value: homepageData.stats.videos.formatted, label: homepageData.stats.videos.label },
-        { value: homepageData.stats.views.formatted, label: homepageData.stats.views.label },
-        { value: homepageData.stats.creators.formatted, label: homepageData.stats.creators.label },
-      ];
-    }
-    // Default stats if cache not loaded yet
     return [
-      { value: '10K+', label: 'Clips' },
-      { value: '50M+', label: 'Global Views' },
-      { value: '2.5K+', label: 'Talented Creators' },
+      { value: '18.0K+', label: 'Clips' },
+      { value: '58.6B+', label: 'Global Views' },
+      { value: '7.1K+', label: 'Talented Creators' },
     ];
-  }, [homepageData]);
+  }, []);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -1072,24 +1064,25 @@ export default function Home() {
         <section className="hero">
           <div className="hero-content">
             <div className="badge">
-              The Sports Clips Community
+              Connect Brands with Top Fans
             </div>
             
             <h1 className="hero-title">
-              The Home of<br />Sports Clips
+              Find the Top Fans<br />for Your Activation
             </h1>
             
             <p className="hero-subtitle">
-              Experience jaw-dropping sports highlights, clips, and compilations from the world&apos;s most talented creators. 
-              Discover incredible moments, vote for your favorites, and watch sports come alive.
+              We help brands discover and connect with the most engaged sports fans and creators for their activation campaigns. 
+              Access our network of {stats[2]?.value || '7.1K+'} talented creators generating {stats[1]?.value || '58.6B+'} views across {stats[0]?.value || '18.0K+'} pieces of content. 
+              Find the perfect fans to amplify your brand message.
             </p>
 
             <div className="cta-buttons">
-              <Link href="/edits" className="btn btn-primary">
-                Discover Epic Sports Clips
+              <Link href="/communities" className="btn btn-primary">
+                Find Top Fans
               </Link>
-              <Link href="/communities" className="btn btn-secondary">
-                Join the Movement
+              <Link href="/campaigns" className="btn btn-secondary">
+                Start Your Activation
               </Link>
             </div>
 
@@ -1104,8 +1097,8 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Featured Sports Clips Section */}
-        <section className="section">
+        {/* COMMENTED OUT: Featured Sports Clips Section (Hall of Fame) - Can be restored later */}
+        {/* <section className="section">
           <div style={{ width: '100%' }}>
           <div className="section-header">
             <h2 className="section-title">Hall of Fame</h2>
@@ -1159,10 +1152,10 @@ export default function Home() {
             </Link>
           </div>
           </div>
-        </section>
+        </section> */}
 
-        {/* Top Creators Section */}
-        <section className="section">
+        {/* COMMENTED OUT: Top Creators Section (World's Best Creators) - Can be restored later */}
+        {/* <section className="section">
           <div style={{ width: '100%' }}>
           <div className="section-header">
             <h2 className="section-title">World&apos;s Best Creators</h2>
@@ -1219,20 +1212,20 @@ export default function Home() {
             </Link>
           </div>
           </div>
-        </section>
+        </section> */}
 
-        {/* Section Divider */}
-        <div style={{
+        {/* COMMENTED OUT: Section Divider - Can be restored later */}
+        {/* <div style={{
           height: '2px',
           background: 'linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.2), rgba(0, 102, 255, 0.2), transparent)',
           margin: '3rem auto',
           maxWidth: '1400px',
           width: 'calc(100% - 6rem)',
           borderRadius: '1px'
-        }}></div>
+        }}></div> */}
 
-        {/* Final CTA Section */}
-        <section className="section" style={{ 
+        {/* COMMENTED OUT: Final CTA Section (Choose Your Path) - Can be restored later */}
+        {/* <section className="section" style={{ 
           backgroundColor: 'rgba(0, 0, 0, 0.3)',
           paddingTop: '8rem',
           paddingBottom: '8rem',
@@ -1240,7 +1233,6 @@ export default function Home() {
           marginBottom: '4rem',
           position: 'relative'
         }}>
-          {/* Subtle background pattern */}
           <div style={{
             position: 'absolute',
             top: 0,
@@ -1265,14 +1257,14 @@ export default function Home() {
               {([
                 {
                   title: 'For Fans',
-                  description: 'Dive into a world of incredible sports clips. Vote, share, and support the creators making magic happen every day.',
+                  description: 'Dive into a world of incredible fan edits. Vote, share, and support the creators making magic happen every day.',
                   link: '/edits',
                   linkText: 'Explore Now',
                   isBrand: false
                 },
                 {
                   title: 'For Creators',
-                  description: 'Unleash your creativity. Upload your sports clips, build your audience, and rise through the ranks. Turn your passion into recognition.',
+                  description: 'Unleash your creativity. Upload your fan edits, build your audience, and rise through the ranks. Turn your passion into recognition.',
                   link: '/auth/signup',
                   linkText: 'Start Creating',
                   isBrand: false
@@ -1319,7 +1311,7 @@ export default function Home() {
               ))}
             </div>
           </div>
-        </section>
+        </section> */}
       </div>
       
       <ContactBrandModal

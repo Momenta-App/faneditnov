@@ -52,15 +52,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // If still loading, show loading state
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white">Loading...</div>
-      </div>
-    );
-  }
-
   // If not authenticated and not on login/signup page, show loading while redirect happens
   if (!user && pathname !== '/auth/login' && pathname !== '/auth/signup' && pathname !== '/auth/callback') {
     return (

@@ -114,11 +114,11 @@ export default function UploadPage() {
           <div className="text-center">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2" 
               style={{ color: 'var(--color-text-primary)', letterSpacing: '-0.02em' }}>
-              {isAdmin ? 'Admin Upload Center' : 'Submit Your Fan Edit'}
+              Upload Center
             </h1>
             <p className="text-base md:text-lg" 
               style={{ color: 'var(--color-text-muted)' }}>
-              {isAdmin ? 'Advanced upload options with quality control toggles' : 'Share your TikTok fan edits with the community'}
+              Upload videos with advanced options including validation bypass and bulk upload
             </p>
           </div>
         </div>
@@ -165,8 +165,8 @@ export default function UploadPage() {
           </div>
         )}
 
-        {/* Admin Tabbed Interface OR Regular Upload Form */}
-        {isAdmin ? (
+        {/* Tabbed Interface - Available to all logged-in users */}
+        {user ? (
           <Tabs className="space-y-6">
             <TabList>
               <Tab isActive={activeTab === 0} onClick={() => setActiveTab(0)}>

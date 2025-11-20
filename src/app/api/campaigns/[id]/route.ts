@@ -86,3 +86,58 @@ export async function GET(
   }
 }
 
+/**
+ * DELETE /api/campaigns/[id]
+ * Delete a campaign
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const user = await requireAuth(request);
+
+    // Verify campaign exists and belongs to user
+    const { data: campaign, error: fetchError } = await supabaseAdmin
+      .from('campaigns')
+      .select('id, user_id')
+      .eq('id', params.id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (fetchError || !campaign) {
+      return NextResponse.json(
+        { error: 'Campaign not found' },
+        { status: 404 }
+      );
+    }
+
+    // Delete the campaign
+    const { error: deleteError } = await supabaseAdmin
+      .from('campaigns')
+      .delete()
+      .eq('id', params.id)
+      .eq('user_id', user.id); // Extra security check
+
+    if (deleteError) {
+      console.error('Error deleting campaign:', deleteError);
+      throw deleteError;
+    }
+
+    return NextResponse.json(
+      { message: 'Campaign deleted successfully' },
+      { status: 200 }
+    );
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return handleAuthError(error);
+    }
+
+    console.error('Error deleting campaign:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete campaign' },
+      { status: 500 }
+    );
+  }
+}
+

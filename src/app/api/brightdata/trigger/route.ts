@@ -46,14 +46,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Admin-only: Validate skip_validation permission
-    if (skip_validation && user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Only admins can bypass validation', code: 'FORBIDDEN' },
-        { status: 403 }
-      );
-    }
-
     // Check quota for each URL (one submission per URL)
     const quotaStatus = await checkVideoSubmissionQuota(user.id, user.role);
     

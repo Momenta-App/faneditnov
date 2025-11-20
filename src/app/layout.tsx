@@ -13,7 +13,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Sportsclips.io - TikTok Fan Edits",
+  title: "Fan Activation - TikTok Fan Edits",
   description: "Upload and explore TikTok fan edits, creators, videos, hashtags, and sounds",
   icons: {
     icon: [

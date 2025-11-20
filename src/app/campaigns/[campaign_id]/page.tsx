@@ -9,12 +9,14 @@ import { CreatorCard } from '../../components/CreatorCard';
 import { FilterBar, VIDEO_SORT_OPTIONS } from '../../components/filters';
 import { NoVideosEmptyState } from '../../components/empty-states';
 import { VideoCardSkeleton } from '../../components/Skeleton';
+import { Button } from '../../components/Button';
 import {
   useCampaign,
   useCampaignVideos,
   useCampaignCreators,
   useCampaignHashtags,
 } from '../../hooks/useData';
+import { generateCampaignRequestEmail } from '@/lib/email-utils';
 
 // Helper function for formatting numbers
 const formatNumber = (num: number) => {
@@ -148,15 +150,50 @@ export default function CampaignPage() {
 
   // Extract display name from AI payload
   const aiPayload = campaign.ai_payload as any;
-  const displayName = aiPayload
-    ? `${aiPayload.sport} - ${aiPayload.league}`
-    : campaign.name;
+  let displayName = campaign.name;
+  
+  if (aiPayload) {
+    if (aiPayload.category === 'media') {
+      if (aiPayload.franchise && aiPayload.series) {
+        displayName = `${aiPayload.franchise} - ${aiPayload.series}`;
+      } else if (aiPayload.franchise) {
+        displayName = aiPayload.franchise;
+      }
+    } else {
+      if (aiPayload.sport && aiPayload.league) {
+        displayName = `${aiPayload.sport} - ${aiPayload.league}`;
+      } else if (aiPayload.sport) {
+        displayName = aiPayload.sport;
+      }
+    }
+  }
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-background)' }}>
+      {/* Back Button */}
+      <div className="container-page pt-8 pb-4">
+        <motion.button
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4 }}
+          onClick={() => router.push('/campaign')}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all hover:scale-105"
+          style={{
+            color: 'var(--color-text-muted)',
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+          }}
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          <span className="font-medium">Back to Campaigns</span>
+        </motion.button>
+      </div>
+
       {/* Header */}
       <div className="relative overflow-hidden">
-        <div className="container-page pt-16 pb-24 sm:pt-20 sm:pb-28 lg:pt-24 lg:pb-32">
+        <div className="container-page pt-8 pb-24 sm:pt-12 sm:pb-28 lg:pt-16 lg:pb-32">
           <div className="flex flex-col items-center text-center">
             <motion.h1
               initial={{ opacity: 0, y: 20 }}
@@ -179,6 +216,28 @@ export default function CampaignPage() {
                 Campaign for: {campaign.input_text}
               </motion.p>
             )}
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="mt-4 sm:mt-6"
+            >
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={() => {
+                  const mailtoLink = generateCampaignRequestEmail(
+                    campaign.id,
+                    displayName,
+                    campaign.input_text || ''
+                  );
+                  window.location.href = mailtoLink;
+                }}
+              >
+                Start Campaign
+              </Button>
+            </motion.div>
           </div>
         </div>
       </div>
@@ -193,6 +252,101 @@ export default function CampaignPage() {
           </div>
         </div>
       </div>
+
+      {/* Demographics Section */}
+      {campaign.demographics && campaign.demographics.locations && campaign.demographics.locations.length > 0 && (
+        <div className="mt-8" style={{ background: 'var(--color-background)' }}>
+          <div className="container-page">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="relative overflow-hidden rounded-2xl p-6 sm:p-8"
+              style={{
+                background: 'linear-gradient(135deg, var(--color-surface) 0%, var(--color-background) 100%)',
+                border: '1px solid var(--color-border)',
+                boxShadow: 'var(--shadow-lg)',
+              }}
+            >
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 rounded-lg" style={{ background: 'var(--color-primary)/10' }}>
+                    <svg className="w-6 h-6" style={{ color: 'var(--color-primary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                      Viewership Demographics
+                    </h2>
+                    <p className="text-sm sm:text-base mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                      Top locations by {campaign.demographics.type === 'country' ? 'country' : 'city'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {campaign.demographics.locations.map((location, index) => {
+                    const isOther = location.name === 'Other';
+                    return (
+                      <motion.div
+                        key={location.name}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.5, delay: 0.4 + index * 0.1 }}
+                        className="relative"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-2 h-2 rounded-full"
+                              style={{
+                                background: isOther
+                                  ? 'var(--color-text-muted)'
+                                  : `hsl(${(index * 60) % 360}, 70%, 50%)`,
+                              }}
+                            />
+                            <span className="text-base sm:text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                              {location.name}
+                            </span>
+                          </div>
+                          <span className="text-base sm:text-lg font-bold" style={{ color: 'var(--color-primary)' }}>
+                            {location.percentage.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div
+                          className="h-3 sm:h-4 rounded-full overflow-hidden relative"
+                          style={{
+                            background: 'var(--color-border)',
+                          }}
+                        >
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${location.percentage}%` }}
+                            transition={{ duration: 1, delay: 0.5 + index * 0.1, ease: 'easeOut' }}
+                            className="h-full rounded-full"
+                            style={{
+                              background: isOther
+                                ? 'linear-gradient(90deg, var(--color-text-muted) 0%, var(--color-text-muted-light) 100%)'
+                                : `linear-gradient(90deg, hsl(${(index * 60) % 360}, 70%, 50%) 0%, hsl(${(index * 60) % 360}, 70%, 65%) 100%)`,
+                            }}
+                          />
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div
+                className="absolute inset-0 opacity-5"
+                style={{
+                  background: 'linear-gradient(135deg, var(--color-primary) 0%, transparent 100%)',
+                }}
+              />
+            </motion.div>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="mt-8" style={{ background: 'var(--color-background)' }}>
@@ -369,15 +523,16 @@ export default function CampaignPage() {
           >
             <div className="mb-4 sm:mb-6">
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                Trending Hashtags
+                Campaign Hashtags
               </h2>
               <p className="text-base sm:text-lg" style={{ color: 'var(--color-text-muted)' }}>
-                Explore the most popular hashtags in this campaign
+                All hashtags used in this campaign
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {hashtags?.map((hashtag, index) => (
+            {hashtags && hashtags.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {hashtags.map((hashtag, index) => (
                 <motion.div
                   key={hashtag.hashtag}
                   initial={{ opacity: 0, y: 20 }}
@@ -439,8 +594,15 @@ export default function CampaignPage() {
                     </div>
                   </Link>
                 </motion.div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-lg" style={{ color: 'var(--color-text-muted)' }}>
+                  No hashtags found for this campaign.
+                </p>
+              </div>
+            )}
           </motion.div>
         )}
       </div>

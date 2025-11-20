@@ -1,0 +1,37 @@
+{
+  "timestamp": "2025-11-20T05:08:36.376Z",
+  "source2Url": "https://hflcevjepybupsxsqrqg.supabase.co",
+  "targetUrl": "https://slxnxnrmykallqpeeqmh.supabase.co",
+  "stats": {
+    "creators": {
+      "migrated": 530,
+      "errors": 0,
+      "skipped": 0
+    },
+    "videos": {
+      "migrated": 761,
+      "errors": 0,
+      "skipped": 0
+    },
+    "creatorProfiles": {
+      "migrated": 530,
+      "errors": 0,
+      "skipped": 0
+    },
+    "videoCold": {
+      "migrated": 761,
+      "errors": 0,
+      "skipped": 0
+    },
+    "sounds": {
+      "migrated": 531,
+      "errors": 0,
+      "skipped": 0
+    },
+    "hashtags": {
+      "migrated": 1079,
+      "errors": 0,
+      "skipped": 202
+    }
+  }
+}

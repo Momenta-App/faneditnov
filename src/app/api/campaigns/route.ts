@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/campaigns
  * Create a new campaign from an AI suggestion
+ * Works exactly like community creation - uses linked_hashtags and backfill
  */
 export async function POST(request: NextRequest) {
   try {
@@ -77,51 +78,92 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate campaign name from input_text
-    const name = `${input_text.trim()} Campaign`;
-
-    // Extract all hashtags from AI payload
+    // Generate campaign name from AI payload
     const suggestion = ai_payload as CampaignSuggestion;
-    const hashtags = extractHashtagsFromSuggestion(suggestion);
+    let name: string;
+    
+    if (suggestion.category === 'media') {
+      // Media format: "Franchise - Series" or just "Franchise"
+      if (suggestion.franchise && suggestion.series) {
+        name = `${suggestion.franchise} - ${suggestion.series}`;
+      } else if (suggestion.franchise) {
+        name = suggestion.franchise;
+      } else {
+        name = `${input_text.trim()} Campaign`;
+      }
+    } else {
+      // Sports format: "Sport - League"
+      if (suggestion.sport && suggestion.league) {
+        name = `${suggestion.sport} - ${suggestion.league}`;
+      } else if (suggestion.sport) {
+        name = suggestion.sport;
+      } else {
+        name = `${input_text.trim()} Campaign`;
+      }
+    }
 
+    // Extract all hashtags from AI payload (like communities)
+    const hashtags = extractHashtagsFromSuggestion(suggestion);
+    
     if (hashtags.length === 0) {
       return NextResponse.json(
-        { error: 'No hashtags found in AI payload' },
+        { error: 'No hashtags found in AI payload', code: 'VALIDATION_ERROR' },
         { status: 400 }
       );
     }
 
-    // Query video_hashtag_facts to find videos matching any hashtag
-    const { data: hashtagVideos, error: hashtagError } = await supabaseAdmin
-      .from('video_hashtag_facts')
-      .select('video_id')
-      .in('hashtag', hashtags);
+    // Normalize hashtags (lowercase, remove #) - exactly like communities
+    const normalizedHashtags = hashtags.map((tag: string) => 
+      tag.toLowerCase().replace(/^#/, '')
+    );
 
-    if (hashtagError) {
-      console.error('Error querying video_hashtag_facts:', hashtagError);
-      throw hashtagError;
+    // Extract demographics from AI payload if present
+    const demographics = suggestion.demographics || null;
+
+    // Create campaign record - use linked_hashtags (TEXT[]) if column exists, otherwise use hashtags (JSONB)
+    // This matches the community creation pattern exactly
+    const insertData: any = {
+      user_id: user.id,
+      name,
+      input_text: input_text.trim(),
+      ai_payload,
+      hashtags: hashtags, // JSONB for backwards compatibility
+      video_ids: [], // Will be populated by backfill
+    };
+
+    // Add demographics if present (from migration 044)
+    if (demographics) {
+      insertData.demographics = demographics;
     }
 
-    // Get unique video IDs
-    const videoIds = [...new Set((hashtagVideos || []).map((v) => v.video_id))];
+    // Add linked_hashtags if the column exists (from migration 040)
+    // Try to insert with linked_hashtags, fall back if column doesn't exist
+    try {
+      insertData.linked_hashtags = normalizedHashtags;
+    } catch (e) {
+      // Column might not exist yet, that's okay
+    }
 
-    // Create campaign record
     const { data: campaign, error: insertError } = await supabaseAdmin
       .from('campaigns')
-      .insert({
-        user_id: user.id,
-        name,
-        input_text: input_text.trim(),
-        ai_payload,
-        hashtags,
-        video_ids: videoIds,
-      })
+      .insert(insertData)
       .select()
       .single();
 
     if (insertError) {
       console.error('Error creating campaign:', insertError);
       throw insertError;
+    }
+
+    // Trigger backfill (same as communities)
+    // This will populate video_ids from linked_hashtags
+    const { error: backfillError } = await supabaseAdmin.rpc('backfill_campaign', {
+      p_campaign_id: campaign.id
+    });
+
+    if (backfillError) {
+      // Log but don't fail - backfill can be retried later (same as communities)
+      console.error('Backfill error (non-fatal):', backfillError);
     }
 
     return NextResponse.json(campaign, { status: 201 });

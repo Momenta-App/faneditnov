@@ -143,6 +143,94 @@ export function useHashtag(tag: string) {
   return { data, loading, error };
 }
 
+export function useCreator(creatorId: string) {
+  const [data, setData] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCreator = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`/api/creators/${encodeURIComponent(creatorId)}`);
+        if (!response.ok) {
+          if (response.status === 404) {
+            setError('Creator not found');
+          } else {
+            throw new Error('Failed to fetch creator');
+          }
+          return;
+        }
+        const result = await response.json();
+        setData(result.data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (creatorId) {
+      fetchCreator();
+    }
+  }, [creatorId]);
+
+  return { data, loading, error };
+}
+
+export function useCreatorVideos(
+  creatorId: string,
+  search = '',
+  sortBy = 'views',
+  timeRange = 'all',
+  limit = 100,
+  offset = 0
+) {
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchVideos = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams({
+          limit: limit.toString(),
+          offset: offset.toString(),
+          sort: sortBy,
+          timeRange,
+        });
+        if (search) {
+          params.append('search', search);
+        }
+        const response = await fetch(`/api/creators/${encodeURIComponent(creatorId)}/videos?${params}`);
+        if (!response.ok) {
+          if (response.status === 404) {
+            setData([]);
+            setLoading(false);
+            return;
+          }
+          throw new Error('Failed to fetch creator videos');
+        }
+        const result = await response.json();
+        setData(result.data || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (creatorId) {
+      fetchVideos();
+    }
+  }, [creatorId, search, sortBy, timeRange, limit, offset]);
+
+  return { data, loading, error };
+}
+
 export function useSounds(search = '', sortBy = 'views', timeRange = 'all', limit = 50) {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -530,11 +618,44 @@ export function useHomepage(timeRange = 'all') {
         }
         
         const result = await response.json();
-        // Always set data even if success is false (API returns 200 with error flag)
-        setData(result.data || null);
-        // Only set error if there's a network error, not if API returns error data
-        if (!response.ok && response.status >= 500) {
+        
+        console.log('[useHomepage] API response:', {
+          ok: response.ok,
+          status: response.status,
+          hasData: !!result.data,
+          hasStats: !!result.stats,
+          success: result.success,
+          resultKeys: Object.keys(result)
+        });
+        
+        // Handle different response statuses
+        if (!response.ok) {
+          if (response.status === 401) {
+            console.error('Homepage API: Unauthorized - authentication may be required');
+            setError('Unauthorized access');
+          } else if (response.status >= 500) {
           setError(result.error || 'Failed to fetch homepage data');
+          } else {
+            // For other errors, still try to use data if available
+            console.warn('Homepage API returned error:', response.status, result);
+          }
+        }
+        
+        // Always set data if available, even if there was an error
+        // The API may return data with an error flag
+        if (result.data) {
+          console.log('[useHomepage] Setting data from result.data:', {
+            hasStats: !!result.data.stats,
+            stats: result.data.stats
+          });
+          setData(result.data);
+        } else if (result.stats) {
+          // Fallback: if stats are at top level (from /api/stats)
+          console.log('[useHomepage] Setting data from result.stats (fallback)');
+          setData({ stats: result.stats });
+        } else {
+          console.warn('[useHomepage] No data found in response, setting null');
+          setData(null);
         }
       } catch (err: any) {
         // Don't set error if request was aborted
@@ -570,7 +691,19 @@ export function useCampaigns() {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch('/api/campaigns');
+        // Get session token for authentication
+        const { supabaseClient } = await import('@/lib/supabase-client');
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        const headers: HeadersInit = {};
+        
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+
+        const response = await fetch('/api/campaigns', {
+          headers,
+          credentials: 'include',
+        });
         if (!response.ok) throw new Error('Failed to fetch campaigns');
         const result = await response.json();
         setData(result.data || []);
@@ -597,7 +730,19 @@ export function useCampaign(campaignId: string) {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/campaigns/${campaignId}`);
+        // Get session token for authentication
+        const { supabaseClient } = await import('@/lib/supabase-client');
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        const headers: HeadersInit = {};
+        
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+
+        const response = await fetch(`/api/campaigns/${campaignId}`, {
+          headers,
+          credentials: 'include',
+        });
         if (!response.ok) throw new Error('Failed to fetch campaign');
         const result = await response.json();
         setData(result);
@@ -632,13 +777,25 @@ export function useCampaignVideos(
       setLoading(true);
       setError(null);
       try {
+        // Get session token for authentication
+        const { supabaseClient } = await import('@/lib/supabase-client');
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        const headers: HeadersInit = {};
+        
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+
         const params = new URLSearchParams({
           search,
           sort: sortBy,
           timeRange,
           limit: limit.toString(),
         });
-        const response = await fetch(`/api/campaigns/${campaignId}/videos?${params}`);
+        const response = await fetch(`/api/campaigns/${campaignId}/videos?${params}`, {
+          headers,
+          credentials: 'include',
+        });
         if (!response.ok) throw new Error('Failed to fetch campaign videos');
         const result = await response.json();
         setData(result.data || []);
@@ -667,7 +824,19 @@ export function useCampaignCreators(campaignId: string) {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/campaigns/${campaignId}/creators`);
+        // Get session token for authentication
+        const { supabaseClient } = await import('@/lib/supabase-client');
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        const headers: HeadersInit = {};
+        
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+
+        const response = await fetch(`/api/campaigns/${campaignId}/creators`, {
+          headers,
+          credentials: 'include',
+        });
         if (!response.ok) throw new Error('Failed to fetch campaign creators');
         const result = await response.json();
         setData(result.data || []);
@@ -696,7 +865,19 @@ export function useCampaignHashtags(campaignId: string) {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/campaigns/${campaignId}/hashtags`);
+        // Get session token for authentication
+        const { supabaseClient } = await import('@/lib/supabase-client');
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        const headers: HeadersInit = {};
+        
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+
+        const response = await fetch(`/api/campaigns/${campaignId}/hashtags`, {
+          headers,
+          credentials: 'include',
+        });
         if (!response.ok) throw new Error('Failed to fetch campaign hashtags');
         const result = await response.json();
         setData(result.data || []);

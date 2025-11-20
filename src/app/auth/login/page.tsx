@@ -27,12 +27,13 @@ function LoginContent() {
 
     try {
       await signIn(emailValue, passwordValue);
-      // Small delay to ensure session is persisted before redirect
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Wait for session to be fully set and persisted
+      await new Promise(resolve => setTimeout(resolve, 800));
       
       // Redirect to home or the redirect URL if provided
       const redirect = searchParams.get('redirect') || '/';
-      router.push(redirect);
+      // Use replace instead of push to avoid back button issues
+      router.replace(redirect);
     } catch (err) {
       console.error('Login error in page:', err);
       setError(err instanceof Error ? err.message : 'Login failed. Please try again.');

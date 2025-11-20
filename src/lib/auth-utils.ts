@@ -21,18 +21,9 @@ export async function getSessionUser(
   request: NextRequest
 ): Promise<SessionUser | null> {
   try {
-    // First try Authorization header (for client-side auth)
-    const authHeader = request.headers.get('authorization');
-    let userId: string | null = null;
-
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      // Use token-based session lookup
-      const { getServerSessionFromRequest, getServerUserIdFromRequest } = await import('./supabase-server');
-      userId = await getServerUserIdFromRequest(request);
-    } else {
-      // Fallback to cookie-based session
-      userId = await getServerUserId();
-    }
+    // Always use the request to get the session - this properly reads cookies
+    const { getServerUserIdFromRequest } = await import('./supabase-server');
+    const userId = await getServerUserIdFromRequest(request);
 
     if (!userId) {
       return null;

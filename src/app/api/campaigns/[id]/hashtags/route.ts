@@ -18,7 +18,7 @@ export async function GET(
     // Get campaign to verify ownership and get video_ids and hashtags
     const { data: campaign, error: campaignError } = await supabaseAdmin
       .from('campaigns')
-      .select('video_ids, hashtags')
+      .select('video_ids, hashtags, linked_hashtags')
       .eq('id', params.id)
       .eq('user_id', user.id)
       .single();
@@ -30,105 +30,116 @@ export async function GET(
       );
     }
 
-    const videoIds = campaign.video_ids as string[];
-    const campaignHashtags = campaign.hashtags as string[];
+    const videoIds = (campaign.video_ids as string[]) || [];
+    
+    // Get all campaign hashtags - prefer linked_hashtags (TEXT[]), fall back to hashtags (JSONB)
+    let allCampaignHashtags: string[] = [];
+    if (campaign.linked_hashtags && Array.isArray(campaign.linked_hashtags) && campaign.linked_hashtags.length > 0) {
+      allCampaignHashtags = campaign.linked_hashtags as string[];
+    } else if (campaign.hashtags) {
+      // Fall back to JSONB hashtags if linked_hashtags is empty
+      const hashtagsJson = campaign.hashtags as string[];
+      if (Array.isArray(hashtagsJson)) {
+        allCampaignHashtags = hashtagsJson;
+      }
+    }
 
-    if (videoIds.length === 0) {
+    // Normalize hashtags (lowercase, remove #)
+    allCampaignHashtags = allCampaignHashtags.map(tag => 
+      tag.toLowerCase().replace(/^#/, '').trim()
+    ).filter(tag => tag.length > 0);
+
+    // If no hashtags, return empty array
+    if (allCampaignHashtags.length === 0) {
       return NextResponse.json({ data: [] });
     }
 
-    // Get hashtags from video_hashtag_facts for these videos
-    const { data: videoHashtags, error: vhError } = await supabaseAdmin
-      .from('video_hashtag_facts')
-      .select('hashtag, video_id')
-      .in('video_id', videoIds);
-
-    if (vhError) throw vhError;
-
-    // Get video views for accurate counts
-    const { data: videos, error: videosError } = await supabaseAdmin
-      .from('videos_hot')
-      .select('video_id, views_count')
-      .in('video_id', videoIds);
-
-    if (videosError) throw videosError;
-
-    const videoViewsMap = new Map(
-      videos?.map((v) => [v.video_id, v.views_count || 0]) || []
-    );
-
-    // Aggregate by hashtag (only for hashtags in campaign)
+    // Initialize stats for all campaign hashtags (even if they have 0 stats)
     const hashtagStats = new Map<
       string,
       { total_views: number; video_count: number }
     >();
 
-    videoHashtags?.forEach((vh) => {
-      // Only count hashtags that are in the campaign's hashtag list
-      if (!campaignHashtags.includes(vh.hashtag)) return;
-
-      const existing =
-        hashtagStats.get(vh.hashtag) || { total_views: 0, video_count: 0 };
-      const views = videoViewsMap.get(vh.video_id) || 0;
-      existing.total_views += views;
-      
-      // Count unique videos per hashtag
-      if (!hashtagStats.has(vh.hashtag)) {
-        existing.video_count = 1;
-      } else {
-        // We need to track unique videos, so we'll do a second pass
-        existing.video_count += 1;
-      }
-      
-      hashtagStats.set(vh.hashtag, existing);
+    allCampaignHashtags.forEach(hashtag => {
+      hashtagStats.set(hashtag, { total_views: 0, video_count: 0 });
     });
 
-    // Fix video_count to be unique videos per hashtag
-    const uniqueVideoHashtags = new Map<string, Set<string>>();
-    videoHashtags?.forEach((vh) => {
-      if (!campaignHashtags.includes(vh.hashtag)) return;
-      if (!uniqueVideoHashtags.has(vh.hashtag)) {
-        uniqueVideoHashtags.set(vh.hashtag, new Set());
-      }
-      uniqueVideoHashtags.get(vh.hashtag)?.add(vh.video_id);
-    });
+    // If there are videos, calculate stats from them
+    if (videoIds.length > 0) {
+      // Get hashtags from video_hashtag_facts for these videos
+      const { data: videoHashtags, error: vhError } = await supabaseAdmin
+        .from('video_hashtag_facts')
+        .select('hashtag, video_id')
+        .in('video_id', videoIds);
 
-    // Update video_count with unique counts
-    uniqueVideoHashtags.forEach((videoSet, hashtag) => {
-      const stats = hashtagStats.get(hashtag);
-      if (stats) {
-        stats.video_count = videoSet.size;
-      }
-    });
+      if (vhError) throw vhError;
 
-    // Sort by total views (descending)
-    const sortedHashtags = Array.from(hashtagStats.entries())
-      .sort((a, b) => b[1].total_views - a[1].total_views)
-      .slice(0, 50);
+      // Get video views for accurate counts
+      const { data: videos, error: videosError } = await supabaseAdmin
+        .from('videos_hot')
+        .select('video_id, views_count')
+        .in('video_id', videoIds);
 
-    if (sortedHashtags.length === 0) {
-      return NextResponse.json({ data: [] });
+      if (videosError) throw videosError;
+
+      const videoViewsMap = new Map(
+        videos?.map((v) => [v.video_id, v.views_count || 0]) || []
+      );
+
+      // Track unique videos per hashtag
+      const uniqueVideoHashtags = new Map<string, Set<string>>();
+
+      videoHashtags?.forEach((vh) => {
+        const normalizedHashtag = vh.hashtag.toLowerCase().replace(/^#/, '').trim();
+        
+        // Only count hashtags that are in the campaign's hashtag list
+        if (!allCampaignHashtags.includes(normalizedHashtag)) return;
+
+        const stats = hashtagStats.get(normalizedHashtag) || { total_views: 0, video_count: 0 };
+        const views = videoViewsMap.get(vh.video_id) || 0;
+        stats.total_views += views;
+
+        // Track unique videos
+        if (!uniqueVideoHashtags.has(normalizedHashtag)) {
+          uniqueVideoHashtags.set(normalizedHashtag, new Set());
+        }
+        uniqueVideoHashtags.get(normalizedHashtag)?.add(vh.video_id);
+
+        hashtagStats.set(normalizedHashtag, stats);
+      });
+
+      // Update video_count with unique counts
+      uniqueVideoHashtags.forEach((videoSet, hashtag) => {
+        const stats = hashtagStats.get(hashtag);
+        if (stats) {
+          stats.video_count = videoSet.size;
+        }
+      });
     }
 
-    // Get hashtag details for global stats
-    const hashtagNames = sortedHashtags.map(([hashtag]) => hashtag);
+    // Get hashtag details for global stats (for all campaign hashtags)
     const { data: hashtags } = await supabaseAdmin
       .from('hashtags_hot')
       .select('hashtag, hashtag_norm, views_total, videos_count')
-      .in('hashtag', hashtagNames);
+      .in('hashtag', allCampaignHashtags);
 
-    // Format response
-    const formattedData = sortedHashtags.map(([hashtag, stats]) => {
-      const hashtagDetails = hashtags?.find((h) => h.hashtag === hashtag);
-      return {
-        hashtag,
-        hashtag_norm: hashtagDetails?.hashtag_norm || hashtag,
-        total_views: stats.total_views,
-        video_count: stats.video_count,
-        global_views: hashtagDetails?.views_total || 0,
-        global_videos: hashtagDetails?.videos_count || 0,
-      };
-    });
+    // Format response - include ALL campaign hashtags, even with 0 stats
+    const formattedData = Array.from(hashtagStats.entries())
+      .map(([hashtag, stats]) => {
+        const hashtagDetails = hashtags?.find((h) => 
+          h.hashtag.toLowerCase() === hashtag.toLowerCase()
+        );
+        return {
+          hashtag,
+          hashtag_norm: hashtagDetails?.hashtag_norm || hashtag,
+          total_views: stats.total_views,
+          video_count: stats.video_count,
+          global_views: hashtagDetails?.views_total || 0,
+          global_videos: hashtagDetails?.videos_count || 0,
+        };
+      })
+      // Sort by total views (descending), but keep all hashtags
+      .sort((a, b) => b.total_views - a.total_views);
 
     return NextResponse.json({ data: formattedData });
   } catch (error) {

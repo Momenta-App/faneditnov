@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { getServerUserId } from '@/lib/supabase-server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -9,18 +8,11 @@ export const dynamic = 'force-dynamic';
  * GET /api/homepage
  * Returns all homepage data from cache in a single request
  * Much faster than individual API calls
- * Requires authentication
+ * Public endpoint - no authentication required
  */
 export async function GET(request: NextRequest) {
   try {
-    // Check authentication using Supabase
-    const userId = await getServerUserId();
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized', code: 'UNAUTHORIZED' },
-        { status: 401 }
-      );
-    }
+    // Homepage data is public - no authentication required
     const { searchParams } = new URL(request.url);
     const timeRange = searchParams.get('timeRange') || 'all';
     
@@ -28,6 +20,8 @@ export async function GET(request: NextRequest) {
     const timeRangeSuffix = timeRange === 'all' ? 'alltime' : 
                            timeRange === '1y' || timeRange === 'year' ? 'year' : 
                            'month';
+    
+    console.log('[Homepage API] Fetching cache with timeRange:', timeRange, 'suffix:', timeRangeSuffix);
     
     // Fetch from homepage cache
     const { data: cache, error } = await supabaseAdmin
@@ -44,26 +38,89 @@ export async function GET(request: NextRequest) {
       `)
       .eq('id', 'singleton')
       .single();
+    
+    console.log('[Homepage API] Cache fetch result:', { 
+      hasCache: !!cache, 
+      error: error?.message,
+      total_videos: cache?.total_videos,
+      total_views: cache?.total_views,
+      total_creators: cache?.total_creators
+    });
 
     if (error) {
       console.error('Error fetching homepage cache:', error);
       
-      // Fallback to empty data structure if cache doesn't exist yet
-      // Return 200 with error flag instead of 503 to prevent retry loops
+      // If cache doesn't exist, calculate stats directly from database
+      console.log('Cache not found, calculating stats directly from database...');
+      
+      // Get total number of videos (edits)
+      const { count: videosCount, error: videosError } = await supabaseAdmin
+        .from('videos_hot')
+        .select('*', { count: 'exact', head: true });
+
+      if (videosError) {
+        console.error('Error fetching videos count:', videosError);
+      }
+
+      // Get total number of creators
+      const { count: creatorsCount, error: creatorsError } = await supabaseAdmin
+        .from('creators_hot')
+        .select('*', { count: 'exact', head: true });
+
+      if (creatorsError) {
+        console.error('Error fetching creators count:', creatorsError);
+      }
+
+      // Get total views across all videos
+      const { data: viewsData, error: viewsError } = await supabaseAdmin
+        .from('videos_hot')
+        .select('views_count');
+
+      if (viewsError) {
+        console.error('Error fetching total views:', viewsError);
+      }
+
+      const totalViews = viewsData?.reduce((sum, video) => sum + (video.views_count || 0), 0) || 0;
+
+      // Format numbers for display
+      const formatStat = (num: number): string => {
+        if (num >= 1000000000000) {
+          return `${(num / 1000000000000).toFixed(1)}T+`;
+        } else if (num >= 1000000000) {
+          return `${(num / 1000000000).toFixed(1)}B+`;
+        } else if (num >= 1000000) {
+          return `${(num / 1000000).toFixed(1)}M+`;
+        } else if (num >= 1000) {
+          return `${(num / 1000).toFixed(1)}K+`;
+        }
+        return `${num}+`;
+      };
+
       return NextResponse.json({
-        success: false,
-        error: 'Cache not initialized. Please run refresh_homepage_cache()',
+        success: true,
         data: {
           stats: {
-            videos: { count: 0, formatted: '0+', label: 'Clips' },
-            views: { count: 0, formatted: '0+', label: 'Global Views' },
-            creators: { count: 0, formatted: '0+', label: 'Talented Creators' }
+            videos: {
+              count: videosCount || 0,
+              formatted: formatStat(videosCount || 0),
+              label: 'Clips'
+            },
+            views: {
+              count: totalViews,
+              formatted: formatStat(totalViews),
+              label: 'Global Views'
+            },
+            creators: {
+              count: creatorsCount || 0,
+              formatted: formatStat(creatorsCount || 0),
+              label: 'Talented Creators'
+            }
           },
           topVideos: [],
           topCreators: [],
-          cacheStatus: 'not_initialized'
+          cacheStatus: 'fallback'
         }
-      }, { status: 200 }); // Changed from 503 to 200 to prevent retry loops
+      }, { status: 200 });
     }
 
     // Format numbers for display
@@ -80,23 +137,29 @@ export async function GET(request: NextRequest) {
       return `${num}+`;
     };
 
-    return NextResponse.json({
+    // Always use cache values directly from homepage_cache table
+    // Use 0 as default if null (0 is a valid value meaning no data yet)
+    const totalVideos = cache.total_videos ?? 0;
+    const totalViews = cache.total_views ?? 0;
+    const totalCreators = cache.total_creators ?? 0;
+
+    const responseData = {
       success: true,
       data: {
         stats: {
           videos: {
-            count: cache.total_videos || 0,
-            formatted: formatStat(cache.total_videos || 0),
+            count: totalVideos,
+            formatted: formatStat(totalVideos),
             label: 'Clips'
           },
           views: {
-            count: cache.total_views || 0,
-            formatted: formatStat(cache.total_views || 0),
+            count: totalViews,
+            formatted: formatStat(totalViews),
             label: 'Global Views'
           },
           creators: {
-            count: cache.total_creators || 0,
-            formatted: formatStat(cache.total_creators || 0),
+            count: totalCreators,
+            formatted: formatStat(totalCreators),
             label: 'Talented Creators'
           }
         },
@@ -109,7 +172,15 @@ export async function GET(request: NextRequest) {
           creators: (cache as any)[`creators_${timeRangeSuffix}_updated_at`]
         }
       }
+    };
+
+    console.log('[Homepage API] Returning response:', {
+      videos: responseData.data.stats.videos.formatted,
+      views: responseData.data.stats.views.formatted,
+      creators: responseData.data.stats.creators.formatted
     });
+
+    return NextResponse.json(responseData);
 
   } catch (error) {
     console.error('Homepage API error:', error);

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { CreatorCard } from '../../components/CreatorCard';
@@ -9,7 +9,7 @@ import { Button } from '../../components/Button';
 import { Badge } from '../../components/Badge';
 import { ContactCreatorModal } from '../../components/ContactCreatorModal';
 import { LoginRequiredModal } from '../../components/LoginRequiredModal';
-import { useVideos, useCreators } from '../../hooks/useData';
+import { useCreator, useCreatorVideos } from '../../hooks/useData';
 import { VideoCardSkeleton } from '../../components/Skeleton';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabaseClient } from '@/lib/supabase-client';
@@ -24,11 +24,8 @@ export default function CreatorPage() {
   const [hasContacted, setHasContacted] = useState(false);
   const [isCheckingContact, setIsCheckingContact] = useState(false);
   
-  const { data: creators, loading: creatorsLoading } = useCreators('', 'views', 'all', 100);
-  const { data: allVideos } = useVideos('', 'views', 'all', 100, 0);
-  
-  const creator = creators.find((c) => c.id === creatorId || c.username === creatorId);
-  const creatorVideos = allVideos.filter((v) => v.creator?.username === creator?.username);
+  const { data: creator, loading: creatorsLoading, error: creatorError } = useCreator(creatorId);
+  const { data: creatorVideos, loading: videosLoading } = useCreatorVideos(creatorId, '', 'views', 'all', 1000, 0);
   
   // Check if user has contacted this creator
   useEffect(() => {
@@ -94,11 +91,13 @@ export default function CreatorPage() {
     );
   }
 
-  if (!creator) {
+  if (creatorError || !creator) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--color-background)' }}>
         <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>Creator Not Found</h2>
+          <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>
+            {creatorError || 'Creator Not Found'}
+          </h2>
           <Button onClick={() => router.push('/creators')}>
             Back to Creators
           </Button>

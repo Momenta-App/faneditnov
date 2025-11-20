@@ -58,8 +58,32 @@ export async function getSupabaseFromRequest(request: NextRequest) {
     return client;
   }
 
-  // Fallback to cookie-based session
-  return getSupabaseServer();
+  // For cookie-based session, extract cookies from the request
+  // Prefer request cookies (from fetch) over server cookies (from next/headers)
+  const requestCookieHeader = request.headers.get('cookie');
+  const cookieStore = await cookies();
+  const serverCookieHeader = cookieStore.toString();
+  
+  // Use request cookies if available, otherwise fall back to server cookies
+  const cookieHeader = requestCookieHeader || serverCookieHeader;
+  
+  const client = createClient(
+    envClient.NEXT_PUBLIC_SUPABASE_URL,
+    envClient.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+      global: {
+        headers: {
+          Cookie: cookieHeader,
+        },
+      },
+    }
+  );
+
+  return client;
 }
 
 /**
@@ -74,7 +98,7 @@ export async function getServerSession() {
 
 /**
  * Get the authenticated user from the server-side session using a request
- * Supports Authorization bearer token header.
+ * Supports Authorization bearer token header and cookies.
  */
 export async function getServerSessionFromRequest(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -111,9 +135,15 @@ export async function getServerSessionFromRequest(request: NextRequest) {
     } as any;
   }
   
-  // Fallback to cookie-based
-  const supabase = await getSupabaseServer();
-  const { data: { session } } = await supabase.auth.getSession();
+  // For cookie-based session, use the request's cookies
+  const supabase = await getSupabaseFromRequest(request);
+  const { data: { session }, error } = await supabase.auth.getSession();
+  
+  if (error) {
+    console.error('Error getting session from cookies:', error);
+    return null;
+  }
+  
   return session;
 }
 

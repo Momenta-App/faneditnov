@@ -35,6 +35,11 @@ const TARGET_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const DATA_SOURCE_URL = process.env.MIGRATION_SOURCE_SUPABASE_URL;
 const DATA_SOURCE_KEY = process.env.MIGRATION_SOURCE_SUPABASE_SERVICE_ROLE_KEY;
 
+if (!TARGET_URL || !TARGET_KEY || !DATA_SOURCE_URL || !DATA_SOURCE_KEY) {
+  console.error('❌ Missing required Supabase environment variables');
+  process.exit(1);
+}
+
 const targetSupabase = createClient(TARGET_URL, TARGET_KEY);
 const dataSourceSupabase = createClient(DATA_SOURCE_URL, DATA_SOURCE_KEY);
 

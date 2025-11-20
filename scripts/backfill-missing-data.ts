@@ -64,8 +64,11 @@ async function backfillMissingCreators(): Promise<number> {
   
   try {
     // Find videos with creator_ids that don't exist in creators_hot
-    const { data: videosWithMissingCreators, error } = await targetSupabase
-      .rpc('exec_sql', {
+    let videosWithMissingCreators: any[] | null = null;
+    let rpcError: { message: string } | null = null;
+
+    try {
+      const { data, error } = await targetSupabase.rpc('exec_sql', {
         query: `
           SELECT DISTINCT v.creator_id
           FROM videos_hot v
@@ -73,12 +76,16 @@ async function backfillMissingCreators(): Promise<number> {
           WHERE c.creator_id IS NULL
           LIMIT 1000;
         `
-      }).catch(() => {
-        // If RPC doesn't work, use a different approach
-        return { data: null, error: { message: 'RPC not available' } };
       });
+      videosWithMissingCreators = data;
+      if (error) {
+        rpcError = { message: error.message };
+      }
+    } catch {
+      rpcError = { message: 'RPC not available' };
+    }
     
-    if (error || !videosWithMissingCreators) {
+    if (rpcError || !videosWithMissingCreators) {
       // Alternative approach: Get all unique creator_ids from videos
       const { data: videos } = await targetSupabase
         .from('videos_hot')

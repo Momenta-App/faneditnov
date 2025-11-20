@@ -18,6 +18,11 @@ import {
 } from '../../hooks/useData';
 import { generateCampaignRequestEmail } from '@/lib/email-utils';
 
+type DemographicLocation = {
+  name: string;
+  percentage: number;
+};
+
 // Helper function for formatting numbers
 const formatNumber = (num: number) => {
   if (num >= 1000000000000) return `${(num / 1000000000000).toFixed(1)}T`;
@@ -151,6 +156,58 @@ export default function CampaignPage() {
   // Extract display name from AI payload
   const aiPayload = campaign.ai_payload as any;
   let displayName = campaign.name;
+  const demographicLocations = (campaign.demographics?.locations ?? []) as DemographicLocation[];
+  const hasDemographics = demographicLocations.length > 0;
+
+  const renderDemographicLocation = (location: DemographicLocation, index: number) => {
+    const isOther = location.name === 'Other';
+    return (
+      <motion.div
+        key={location.name}
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5, delay: 0.4 + index * 0.1 }}
+        className="relative"
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-2 h-2 rounded-full"
+              style={{
+                background: isOther
+                  ? 'var(--color-text-muted)'
+                  : `hsl(${(index * 60) % 360}, 70%, 50%)`,
+              }}
+            />
+            <span className="text-base sm:text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+              {location.name}
+            </span>
+          </div>
+          <span className="text-base sm:text-lg font-bold" style={{ color: 'var(--color-primary)' }}>
+            {location.percentage.toFixed(1)}%
+          </span>
+        </div>
+        <div
+          className="h-3 sm:h-4 rounded-full overflow-hidden relative"
+          style={{
+            background: 'var(--color-border)',
+          }}
+        >
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${location.percentage}%` }}
+            transition={{ duration: 1, delay: 0.5 + index * 0.1, ease: 'easeOut' }}
+            className="h-full rounded-full"
+            style={{
+              background: isOther
+                ? 'linear-gradient(90deg, var(--color-text-muted) 0%, var(--color-text-muted-light) 100%)'
+                : `linear-gradient(90deg, hsl(${(index * 60) % 360}, 70%, 50%) 0%, hsl(${(index * 60) % 360}, 70%, 65%) 100%)`,
+            }}
+          />
+        </div>
+      </motion.div>
+    );
+  };
   
   if (aiPayload) {
     if (aiPayload.category === 'media') {
@@ -254,7 +311,7 @@ export default function CampaignPage() {
       </div>
 
       {/* Demographics Section */}
-      {campaign.demographics && campaign.demographics.locations && campaign.demographics.locations.length > 0 && (
+      {hasDemographics && (
         <div className="mt-8" style={{ background: 'var(--color-background)' }}>
           <div className="container-page">
             <motion.div
@@ -286,55 +343,7 @@ export default function CampaignPage() {
                 </div>
 
                 <div className="space-y-4">
-                  {campaign.demographics.locations.map((location, index) => {
-                    const isOther = location.name === 'Other';
-                    return (
-                      <motion.div
-                        key={location.name}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.5, delay: 0.4 + index * 0.1 }}
-                        className="relative"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-2 h-2 rounded-full"
-                              style={{
-                                background: isOther
-                                  ? 'var(--color-text-muted)'
-                                  : `hsl(${(index * 60) % 360}, 70%, 50%)`,
-                              }}
-                            />
-                            <span className="text-base sm:text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                              {location.name}
-                            </span>
-                          </div>
-                          <span className="text-base sm:text-lg font-bold" style={{ color: 'var(--color-primary)' }}>
-                            {location.percentage.toFixed(1)}%
-                          </span>
-                        </div>
-                        <div
-                          className="h-3 sm:h-4 rounded-full overflow-hidden relative"
-                          style={{
-                            background: 'var(--color-border)',
-                          }}
-                        >
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${location.percentage}%` }}
-                            transition={{ duration: 1, delay: 0.5 + index * 0.1, ease: 'easeOut' }}
-                            className="h-full rounded-full"
-                            style={{
-                              background: isOther
-                                ? 'linear-gradient(90deg, var(--color-text-muted) 0%, var(--color-text-muted-light) 100%)'
-                                : `linear-gradient(90deg, hsl(${(index * 60) % 360}, 70%, 50%) 0%, hsl(${(index * 60) % 360}, 70%, 65%) 100%)`,
-                            }}
-                          />
-                        </div>
-                      </motion.div>
-                    );
-                  })}
+                  {demographicLocations.map(renderDemographicLocation)}
                 </div>
               </div>
               <div

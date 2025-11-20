@@ -40,10 +40,10 @@ function loadEnv() {
 
 loadEnv();
 
-const TARGET_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const TARGET_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const SOURCE_URL = process.env.SOURCE_SUPABASE_URL;
-const SOURCE_KEY = process.env.SOURCE_SUPABASE_SERVICE_ROLE_KEY;
+const TARGET_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+const TARGET_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+const SOURCE_URL = process.env.SOURCE_SUPABASE_URL ?? '';
+const SOURCE_KEY = process.env.SOURCE_SUPABASE_SERVICE_ROLE_KEY ?? '';
 
 if (!TARGET_URL || !TARGET_KEY || !SOURCE_URL || !SOURCE_KEY) {
   console.error('❌ Missing required environment variables');
@@ -60,6 +60,31 @@ interface MigrationStats {
   videos: { migrated: number; errors: number; skipped: number };
 }
 
+function normalizeBioLinks(value: unknown): any {
+  if (value === null || value === undefined) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  if (typeof value === 'object') {
+    return value;
+  }
+
+  return [];
+}
+
 function transformCreatorRow(row: any): any {
   // Map source fields to target schema
   return {
@@ -72,7 +97,7 @@ function transformCreatorRow(row: any): any {
     videos_count: row.videos_count || 0,
     likes_total: row.likes_total || row.total_likes || 0,
     bio: row.bio || null,
-    bio_links: row.bio_links || '[]'::JSONB || [],
+    bio_links: normalizeBioLinks(row.bio_links),
     is_private: row.is_private || false,
     is_business_account: row.is_business_account || false,
     first_seen_at: row.first_seen_at || row.created_at || new Date().toISOString(),

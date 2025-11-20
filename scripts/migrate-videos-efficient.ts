@@ -34,10 +34,10 @@ function loadEnv() {
 
 loadEnv();
 
-const SOURCE_URL = process.env.MIGRATION_SOURCE_SUPABASE_URL;
-const SOURCE_KEY = process.env.MIGRATION_SOURCE_SUPABASE_SERVICE_ROLE_KEY;
-const TARGET_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const TARGET_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SOURCE_URL = process.env.MIGRATION_SOURCE_SUPABASE_URL ?? '';
+const SOURCE_KEY = process.env.MIGRATION_SOURCE_SUPABASE_SERVICE_ROLE_KEY ?? '';
+const TARGET_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+const TARGET_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
 if (!SOURCE_URL || !SOURCE_KEY || !TARGET_URL || !TARGET_KEY) {
   console.error('❌ Missing environment variables');
@@ -158,18 +158,19 @@ async function migrateVideosEfficient() {
       // Check if creator exists, if not, we'll create it
       if (!creatorSet.has(video.creator_id)) {
         // Fetch creator data from source
-        const creatorPromise = sourceSupabase
-          .from('creators_hot')
-          .select('*')
-          .eq('creator_id', video.creator_id)
-          .single()
-          .then(async ({ data: creatorData }) => {
-            const createdId = await getOrCreateCreator(video.creator_id, creatorData);
-            if (createdId) {
-              creatorSet.add(createdId);
-            }
-            return createdId;
-          });
+        const creatorPromise = (async (): Promise<string | null> => {
+          const { data: creatorData } = await sourceSupabase
+            .from('creators_hot')
+            .select('*')
+            .eq('creator_id', video.creator_id)
+            .single();
+
+          const createdId = await getOrCreateCreator(video.creator_id, creatorData);
+          if (createdId) {
+            creatorSet.add(createdId);
+          }
+          return createdId;
+        })();
         creatorPromises.push(creatorPromise);
       }
       

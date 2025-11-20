@@ -38,8 +38,8 @@ function loadEnv() {
 
 loadEnv();
 
-const SOURCE_URL = process.env.SOURCE_SUPABASE_URL;
-const SOURCE_KEY = process.env.SOURCE_SUPABASE_SERVICE_ROLE_KEY;
+const SOURCE_URL = process.env.SOURCE_SUPABASE_URL ?? '';
+const SOURCE_KEY = process.env.SOURCE_SUPABASE_SERVICE_ROLE_KEY ?? '';
 
 if (!SOURCE_URL || !SOURCE_KEY) {
   console.error('❌ Missing required environment variables:');

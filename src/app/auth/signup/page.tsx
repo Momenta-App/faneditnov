@@ -16,6 +16,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [emailConfirmationRequired, setEmailConfirmationRequired] = useState(false);
@@ -31,6 +32,7 @@ export default function SignupPage() {
     const passwordValue = (formData.get('password') as string) || password;
     const confirmPasswordValue = (formData.get('confirmPassword') as string) || confirmPassword;
     const displayNameValue = (formData.get('displayName') as string) || displayName;
+    const inviteCodeValue = (formData.get('inviteCode') as string) || inviteCode;
 
     // Update state with the form values in case they were autofilled
     if (emailValue && !email) setEmail(emailValue);
@@ -58,7 +60,12 @@ export default function SignupPage() {
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: emailValue, password: passwordValue, display_name: displayNameValue }),
+        body: JSON.stringify({ 
+          email: emailValue, 
+          password: passwordValue, 
+          display_name: displayNameValue,
+          invite_code: inviteCodeValue,
+        }),
       });
 
       const data = await response.json();
@@ -138,6 +145,7 @@ export default function SignupPage() {
                   setPassword('');
                   setConfirmPassword('');
                   setDisplayName('');
+                  setInviteCode('');
                 }}
                 className="w-full text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
               >
@@ -191,6 +199,18 @@ export default function SignupPage() {
               disabled={isLoading}
               autoComplete="email"
               placeholder="you@example.com"
+            />
+
+            <Input
+              label="Invite Code"
+              type="text"
+              name="inviteCode"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              required
+              disabled={isLoading}
+              autoComplete="off"
+              placeholder="Enter your invite code"
             />
 
             <Input

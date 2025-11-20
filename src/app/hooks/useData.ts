@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export function useVideos(search = '', sortBy = 'views', timeRange = 'all', limit = 50, offset = 0) {
   const [data, setData] = useState<any[]>([]);
@@ -495,8 +495,17 @@ export function useHomepage(timeRange = 'all') {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    // Cancel previous request if still pending
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     const fetchHomepage = async () => {
       setLoading(true);
       setError(null);
@@ -509,10 +518,62 @@ export function useHomepage(timeRange = 'all') {
         const params = new URLSearchParams({ 
           timeRange: apiTimeRange
         });
-        const response = await fetch(`/api/homepage?${params}`);
-        if (!response.ok) throw new Error('Failed to fetch homepage data');
+        
+        const response = await fetch(`/api/homepage?${params}`, {
+          signal: abortController.signal,
+          cache: 'no-store', // Prevent caching issues
+        });
+        
+        // Check if request was aborted
+        if (abortController.signal.aborted) {
+          return;
+        }
+        
         const result = await response.json();
+        // Always set data even if success is false (API returns 200 with error flag)
         setData(result.data || null);
+        // Only set error if there's a network error, not if API returns error data
+        if (!response.ok && response.status >= 500) {
+          setError(result.error || 'Failed to fetch homepage data');
+        }
+      } catch (err: any) {
+        // Don't set error if request was aborted
+        if (err.name !== 'AbortError') {
+          setError(err instanceof Error ? err.message : 'An error occurred');
+        }
+      } finally {
+        // Only update loading state if request wasn't aborted
+        if (!abortController.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchHomepage();
+
+    // Cleanup: abort request on unmount or dependency change
+    return () => {
+      abortController.abort();
+    };
+  }, [timeRange]);
+
+  return { data, loading, error };
+}
+
+export function useCampaigns() {
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCampaigns = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch('/api/campaigns');
+        if (!response.ok) throw new Error('Failed to fetch campaigns');
+        const result = await response.json();
+        setData(result.data || []);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
@@ -520,8 +581,136 @@ export function useHomepage(timeRange = 'all') {
       }
     };
 
-    fetchHomepage();
-  }, [timeRange]);
+    fetchCampaigns();
+  }, []);
+
+  return { data, loading, error };
+}
+
+export function useCampaign(campaignId: string) {
+  const [data, setData] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCampaign = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`/api/campaigns/${campaignId}`);
+        if (!response.ok) throw new Error('Failed to fetch campaign');
+        const result = await response.json();
+        setData(result);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (campaignId) {
+      fetchCampaign();
+    }
+  }, [campaignId]);
+
+  return { data, loading, error };
+}
+
+export function useCampaignVideos(
+  campaignId: string,
+  search = '',
+  sortBy = 'views',
+  timeRange = 'all',
+  limit = 100
+) {
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchVideos = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams({
+          search,
+          sort: sortBy,
+          timeRange,
+          limit: limit.toString(),
+        });
+        const response = await fetch(`/api/campaigns/${campaignId}/videos?${params}`);
+        if (!response.ok) throw new Error('Failed to fetch campaign videos');
+        const result = await response.json();
+        setData(result.data || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (campaignId) {
+      fetchVideos();
+    }
+  }, [campaignId, search, sortBy, timeRange, limit]);
+
+  return { data, loading, error };
+}
+
+export function useCampaignCreators(campaignId: string) {
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCreators = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`/api/campaigns/${campaignId}/creators`);
+        if (!response.ok) throw new Error('Failed to fetch campaign creators');
+        const result = await response.json();
+        setData(result.data || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (campaignId) {
+      fetchCreators();
+    }
+  }, [campaignId]);
+
+  return { data, loading, error };
+}
+
+export function useCampaignHashtags(campaignId: string) {
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchHashtags = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`/api/campaigns/${campaignId}/hashtags`);
+        if (!response.ok) throw new Error('Failed to fetch campaign hashtags');
+        const result = await response.json();
+        setData(result.data || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (campaignId) {
+      fetchHashtags();
+    }
+  }, [campaignId]);
 
   return { data, loading, error };
 }

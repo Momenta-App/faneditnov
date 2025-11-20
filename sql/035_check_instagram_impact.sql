@@ -63,3 +63,6 @@ FROM videos_hot
 ORDER BY impact_score DESC NULLS LAST
 LIMIT 20;
 
+
+
+

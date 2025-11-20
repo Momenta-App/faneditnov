@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { envClient } from '@/lib/env-client';
+import { envServer } from '@/lib/env-server';
 import { validatePassword } from '@/lib/password-utils';
 import { getClientIP, checkAuthRateLimit, recordAuthAttempt } from '@/lib/rate-limit';
 
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { email, password, display_name } = body;
+    const { email, password, display_name, invite_code } = body;
 
     // Validate input
     if (!email || !password) {
@@ -49,6 +50,31 @@ export async function POST(request: NextRequest) {
           code: 'VALIDATION_ERROR',
         },
         { status: 400 }
+      );
+    }
+
+    // Validate invite code
+    if (!invite_code) {
+      await recordAuthAttempt(ip, 'signup', false);
+      return NextResponse.json(
+        {
+          error: 'Invite code is required',
+          code: 'VALIDATION_ERROR',
+        },
+        { status: 400 }
+      );
+    }
+
+    // Check invite code against environment variable
+    const validInviteCode = envServer.SIGNUP_INVITE_CODE;
+    if (invite_code !== validInviteCode) {
+      await recordAuthAttempt(ip, 'signup', false);
+      return NextResponse.json(
+        {
+          error: 'Invalid invite code',
+          code: 'INVALID_INVITE_CODE',
+        },
+        { status: 403 }
       );
     }
 
@@ -93,7 +119,7 @@ export async function POST(request: NextRequest) {
     // Create user in Supabase Auth
     console.log('Attempting to create user with email:', email);
     
-    // Set redirect URL for email verification
+    // Set redirect URL for email verification (if enabled in Supabase)
     // Get from request origin first (most reliable), then env vars
     const requestOrigin = request.headers.get('origin') || request.nextUrl.origin;
     const baseUrl = 
@@ -102,8 +128,9 @@ export async function POST(request: NextRequest) {
         : (process.env.NEXT_PUBLIC_APP_URL || 
            (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'));
     
-    console.log('Using redirect URL for email verification:', `${baseUrl}/auth/callback`);
+    console.log('Creating user account (email confirmation should be disabled in Supabase dashboard)');
     
+    // Sign up user - if email confirmation is disabled in Supabase, session will be returned
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -111,6 +138,8 @@ export async function POST(request: NextRequest) {
         data: {
           display_name: display_name || null,
         },
+        // Only set emailRedirectTo if email confirmation is enabled
+        // If disabled in Supabase dashboard, this won't be used
         emailRedirectTo: `${baseUrl}/auth/callback`,
       },
     });

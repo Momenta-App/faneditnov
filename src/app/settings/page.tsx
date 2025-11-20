@@ -3,8 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
+import { useCampaigns } from '../hooks/useData';
 import { Card } from '../components/Card';
 import { Page, PageSection, Stack } from '../components/layout';
+import { Button } from '../components/Button';
+import { Skeleton } from '../components/Skeleton';
 
 export default function SettingsPage() {
   const { user, isLoading } = useAuth();
@@ -38,24 +41,97 @@ export default function SettingsPage() {
       <PageSection variant="content">
         <div className="max-w-3xl mx-auto">
           <ProfileSection />
+          <SavedCampaignsSection />
         </div>
       </PageSection>
     </Page>
   );
 }
 
-function ProfileSection() {
-  const { profile, user } = useAuth();
-  const [showCreatorInfo, setShowCreatorInfo] = useState(false);
-  const [showBrandInfo, setShowBrandInfo] = useState(false);
+function SavedCampaignsSection() {
+  const router = useRouter();
+  const { data: campaigns, loading } = useCampaigns();
 
-  // Map role to display name (frontend only)
-  const getRoleDisplayName = (role: string) => {
-    if (role === 'standard') return 'Fan';
-    return role.charAt(0).toUpperCase() + role.slice(1);
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
-  if (!profile || !user) {
+  return (
+    <Card>
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-1">
+            Saved Campaigns
+          </h2>
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Your generated campaigns
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <Skeleton key={i} className="h-20" />
+            ))}
+          </div>
+        ) : campaigns && campaigns.length > 0 ? (
+          <div className="space-y-4">
+            {campaigns.map((campaign: any) => {
+              // Extract name from AI payload if available
+              const aiPayload = campaign.ai_payload;
+              const displayName = aiPayload
+                ? `${aiPayload.sport} - ${aiPayload.league}`
+                : campaign.name;
+
+              return (
+                <div
+                  key={campaign.id}
+                  className="p-4 rounded-lg border flex items-center justify-between"
+                  style={{
+                    background: 'var(--color-surface)',
+                    borderColor: 'var(--color-border)',
+                  }}
+                >
+                  <div>
+                    <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                      {displayName}
+                    </h3>
+                    <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                      Created {formatDate(campaign.created_at)}
+                    </p>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => router.push(`/campaigns/${campaign.id}`)}
+                  >
+                    View Campaign
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+              No saved campaigns yet. Create one from the Campaign page.
+            </p>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function ProfileSection() {
+  const { user, profile } = useAuth();
+
+  if (!user || !profile) {
     return null;
   }
 
@@ -98,22 +174,11 @@ function ProfileSection() {
               </div>
             </div>
 
-            {/* Display Name */}
-            {profile.display_name && (
-              <div>
-                <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-2 uppercase tracking-wide">
-                  Display Name
-                </label>
-                <div className="text-[var(--color-text-primary)] font-medium">
-                  {profile.display_name}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </Card>
 
-      {/* Account Role */}
+      {/* Account Role - Simplified for simple auth */}
       <Card>
         <div className="space-y-6">
           <div>
@@ -121,194 +186,31 @@ function ProfileSection() {
               Account Role
             </h2>
             <p className="text-sm text-[var(--color-text-muted)]">
-              Your current role and available roles
+              Your current role: {profile.role}
             </p>
           </div>
-
-          <div className="space-y-3">
-            {/* Fan Role */}
-            <div className={`relative p-5 rounded-[var(--radius-lg)] border-2 transition-all ${
-              profile.role === 'standard'
-                ? 'bg-[var(--color-primary)]/5 border-[var(--color-primary)] shadow-[var(--shadow-sm)]'
-                : 'bg-[var(--color-surface)] border-[var(--color-border)]'
-            }`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
-                    profile.role === 'standard'
-                      ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'
-                      : 'bg-[var(--color-surface)] text-[var(--color-text-muted)]'
-                  }`}>
-                    F
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-base font-semibold ${
-                        profile.role === 'standard'
-                          ? 'text-[var(--color-primary)]'
-                          : 'text-[var(--color-text-primary)]'
-                      }`}>
-                        Fan
-                      </span>
-                      {profile.role === 'standard' && (
-                        <span className="px-2 py-0.5 bg-[var(--color-primary)] text-white text-xs font-bold rounded-full">
-                          Current
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                      Standard account with basic features
-                    </p>
-                  </div>
+          <div className={`p-5 rounded-[var(--radius-lg)] border-2 bg-[var(--color-primary)]/5 border-[var(--color-primary)] shadow-[var(--shadow-sm)]`}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-[var(--color-primary)]/20 text-[var(--color-primary)]">
+                {profile.role.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-base font-semibold text-[var(--color-primary)]">
+                    {profile.role.charAt(0).toUpperCase() + profile.role.slice(1)}
+                  </span>
+                  <span className="px-2 py-0.5 bg-[var(--color-primary)] text-white text-xs font-bold rounded-full">
+                    Current
+                  </span>
                 </div>
+                <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                  {profile.role === 'admin' ? 'Full system access and administration' :
+                   profile.role === 'brand' ? 'Tools and features for brands' :
+                   profile.role === 'creator' ? 'Enhanced features for content creators' :
+                   'Standard account with basic features'}
+                </p>
               </div>
             </div>
-
-            {/* Creator Role */}
-            <div className="relative">
-              <div className={`relative p-5 rounded-[var(--radius-lg)] border-2 transition-all ${
-                profile.role === 'creator'
-                  ? 'bg-[var(--color-primary)]/5 border-[var(--color-primary)] shadow-[var(--shadow-sm)]'
-                  : 'bg-[var(--color-surface)] border-[var(--color-border)]'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
-                      profile.role === 'creator'
-                        ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'
-                        : 'bg-[var(--color-surface)] text-[var(--color-text-muted)]'
-                    }`}>
-                      C
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-base font-semibold ${
-                          profile.role === 'creator'
-                            ? 'text-[var(--color-primary)]'
-                            : 'text-[var(--color-text-primary)]'
-                        }`}>
-                          Creator
-                        </span>
-                        <div className="relative">
-                          <button
-                            type="button"
-                            onClick={() => setShowCreatorInfo(!showCreatorInfo)}
-                            onBlur={() => setTimeout(() => setShowCreatorInfo(false), 200)}
-                            className="p-1 rounded-full hover:bg-[var(--color-surface)] transition-colors focus-ring"
-                            aria-label="Creator role information"
-                          >
-                            <svg className="w-4 h-4 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.829V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                          {showCreatorInfo && (
-                            <div className="absolute right-0 bottom-full mb-2 z-20 w-80 p-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-lg)] shadow-[var(--shadow-xl)]">
-                              <p className="text-sm text-[var(--color-text-primary)] leading-relaxed">
-                                Want to become a Creator? Reach out to us to get Creator privileges.
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                        {profile.role === 'creator' && (
-                          <span className="px-2 py-0.5 bg-[var(--color-primary)] text-white text-xs font-bold rounded-full">
-                            Current
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                        Enhanced features for content creators
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Brand Role */}
-            <div className="relative">
-              <div className={`relative p-5 rounded-[var(--radius-lg)] border-2 transition-all ${
-                profile.role === 'brand'
-                  ? 'bg-[var(--color-primary)]/5 border-[var(--color-primary)] shadow-[var(--shadow-sm)]'
-                  : 'bg-[var(--color-surface)] border-[var(--color-border)]'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
-                      profile.role === 'brand'
-                        ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'
-                        : 'bg-[var(--color-surface)] text-[var(--color-text-muted)]'
-                    }`}>
-                      B
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-base font-semibold ${
-                          profile.role === 'brand'
-                            ? 'text-[var(--color-primary)]'
-                            : 'text-[var(--color-text-primary)]'
-                        }`}>
-                          Brand
-                        </span>
-                        <div className="relative">
-                          <button
-                            type="button"
-                            onClick={() => setShowBrandInfo(!showBrandInfo)}
-                            onBlur={() => setTimeout(() => setShowBrandInfo(false), 200)}
-                            className="p-1 rounded-full hover:bg-[var(--color-surface)] transition-colors focus-ring"
-                            aria-label="Brand role information"
-                          >
-                            <svg className="w-4 h-4 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.829V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                          {showBrandInfo && (
-                            <div className="absolute right-0 bottom-full mb-2 z-20 w-80 p-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-lg)] shadow-[var(--shadow-xl)]">
-                              <p className="text-sm text-[var(--color-text-primary)] leading-relaxed">
-                                Want to gain Brand privileges? Reach out to us to get Brand privileges.
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                        {profile.role === 'brand' && (
-                          <span className="px-2 py-0.5 bg-[var(--color-primary)] text-white text-xs font-bold rounded-full">
-                            Current
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                        Tools and features for brands
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Admin Role - Only visible to admin users */}
-            {profile.role === 'admin' && (
-              <div className={`relative p-5 rounded-[var(--radius-lg)] border-2 bg-[var(--color-primary)]/5 border-[var(--color-primary)] shadow-[var(--shadow-sm)]`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-[var(--color-primary)]/20 text-[var(--color-primary)]">
-                      A
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-base font-semibold text-[var(--color-primary)]">
-                          Admin
-                        </span>
-                        <span className="px-2 py-0.5 bg-[var(--color-primary)] text-white text-xs font-bold rounded-full">
-                          Current
-                        </span>
-                      </div>
-                      <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                        Full system access and administration
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </Card>

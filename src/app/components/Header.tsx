@@ -18,6 +18,8 @@ export function Header() {
     { name: 'Videos', href: '/edits' },
     { name: 'Creators', href: '/creators' },
     { name: 'Hashtags', href: '/hashtags' },
+    { name: 'Communities', href: '/communities' },
+    { name: 'Campaign', href: '/campaign' },
     { name: 'Upload', href: '/upload' },
   ];
 
@@ -236,24 +238,6 @@ export function Header() {
                       )}
                     </button>
                   )}
-                  <Link href="/auth/login" onClick={() => setMobileMenuOpen(false)}>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] w-full"
-                    >
-                      Login
-                    </Button>
-                  </Link>
-                  <Link href="/auth/signup" onClick={() => setMobileMenuOpen(false)}>
-                    <Button 
-                      variant="secondary" 
-                      size="sm"
-                      className="w-full"
-                    >
-                      Sign Up
-                    </Button>
-                  </Link>
                 </div>
               )}
             </div>

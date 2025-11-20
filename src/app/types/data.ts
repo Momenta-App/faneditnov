@@ -129,6 +129,20 @@ export interface CommunityHashtag {
   global_videos: number;
 }
 
+export interface Campaign {
+  id: string;
+  user_id: string;
+  name: string;
+  input_text: string;
+  ai_payload: any;
+  hashtags: string[];
+  video_ids: string[];
+  created_at: string;
+  total_views?: number;
+  total_videos?: number;
+  total_creators?: number;
+}
+
 export type UserRole = 'standard' | 'creator' | 'brand' | 'admin';
 
 export interface Profile {

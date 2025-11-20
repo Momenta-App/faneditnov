@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { getServerUserId } from '@/lib/supabase-server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -8,9 +9,18 @@ export const dynamic = 'force-dynamic';
  * GET /api/homepage
  * Returns all homepage data from cache in a single request
  * Much faster than individual API calls
+ * Requires authentication
  */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
+    // Check authentication using Supabase
+    const userId = await getServerUserId();
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      );
+    }
     const { searchParams } = new URL(request.url);
     const timeRange = searchParams.get('timeRange') || 'all';
     
@@ -39,6 +49,7 @@ export async function GET(request: Request) {
       console.error('Error fetching homepage cache:', error);
       
       // Fallback to empty data structure if cache doesn't exist yet
+      // Return 200 with error flag instead of 503 to prevent retry loops
       return NextResponse.json({
         success: false,
         error: 'Cache not initialized. Please run refresh_homepage_cache()',
@@ -52,7 +63,7 @@ export async function GET(request: Request) {
           topCreators: [],
           cacheStatus: 'not_initialized'
         }
-      }, { status: 503 });
+      }, { status: 200 }); // Changed from 503 to 200 to prevent retry loops
     }
 
     // Format numbers for display
@@ -117,7 +128,7 @@ export async function GET(request: Request) {
           cacheStatus: 'error'
         }
       },
-      { status: 500 }
+      { status: 200 } // Changed from 500 to 200 to prevent retry loops
     );
   }
 }

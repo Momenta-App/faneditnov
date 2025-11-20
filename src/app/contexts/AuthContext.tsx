@@ -53,15 +53,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadSession = async () => {
     try {
-      const { data: { session } } = await supabaseClient.auth.getSession();
+      // Get session from Supabase - this reads from localStorage/cookies
+      const { data: { session }, error } = await supabaseClient.auth.getSession();
+      
+      if (error) {
+        console.error('Error getting session:', error);
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setIsLoading(false);
+        return;
+      }
+
       setSession(session);
       setUser(session?.user ?? null);
 
       if (session?.user) {
         await fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
       }
     } catch (error) {
       console.error('Error loading session:', error);
+      setSession(null);
+      setUser(null);
+      setProfile(null);
     } finally {
       setIsLoading(false);
     }
@@ -81,20 +97,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Add timeout to prevent hanging
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout (reduced from 10)
       
       try {
         const response = await fetch('/api/auth/session', {
           headers: { Authorization: `Bearer ${accessToken}` },
           signal: controller.signal,
+          // Add cache control to prevent stale requests
+          cache: 'no-store',
         });
         
         clearTimeout(timeoutId);
         
+        // Don't throw on non-ok responses, just handle gracefully
         if (!response.ok) {
-          console.error('Session API error:', response.status, response.statusText);
+          console.warn('Session API returned non-ok status:', response.status);
           const errorData = await response.json().catch(() => ({}));
-          console.error('Error details:', errorData);
           setProfile(null);
           return;
         }

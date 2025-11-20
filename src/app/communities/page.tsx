@@ -40,6 +40,7 @@ export default function CommunitiesPage() {
   const [isCreating, setIsCreating] = useState(false);
   
   // Check if user can create communities (admin role only)
+  // Check if user can create communities (admin role only)
   const canCreateCommunity = profile && profile.role === 'admin';
   const [formData, setFormData] = useState({
     name: '',

@@ -11,8 +11,10 @@ export const envServer = {
   SUPABASE_STORAGE_BUCKET: process.env.SUPABASE_STORAGE_BUCKET || "brightdata-results",
   CRON_SECRET: process.env.CRON_SECRET!,
   RESEND_API_KEY: process.env.RESEND_API_KEY!,
+  OPEN_AI_KEY: process.env.OPEN_AI_KEY!,
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'),
+  SIGNUP_INVITE_CODE: process.env.SIGNUP_INVITE_CODE || 'CHANGE_ME_IN_PRODUCTION',
 };
 
 // Validate required environment variables (excluding optional ones with defaults)
@@ -22,7 +24,9 @@ for (const [k, v] of Object.entries(envServer)) {
       k === 'BRIGHT_DATA_MOCK_MODE' || 
       k === 'BRIGHT_DATA_TIKTOK_POST_SCRAPER_ID' ||
       k === 'BRIGHT_DATA_INSTAGRAM_POST_SCRAPER_ID' ||
-      k === 'BRIGHT_DATA_YOUTUBE_SHORTS_SCRAPER_ID') {
+      k === 'BRIGHT_DATA_YOUTUBE_SHORTS_SCRAPER_ID' ||
+      k === 'OPEN_AI_KEY' ||
+      k === 'SIGNUP_INVITE_CODE') {
     continue;
   }
   if (!v) throw new Error(`Missing env ${k}`);

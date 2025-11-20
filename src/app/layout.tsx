@@ -5,6 +5,7 @@ import { Providers } from "./providers";
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
 import { ModalRenderer } from "./components/ModalRenderer";
+import { AuthGuard } from "./components/AuthGuard";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -32,16 +33,18 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.variable} antialiased`}>
         <Providers>
-          <a href="#main-content" className="skip-link">
-            Skip to main content
-          </a>
-          <Header />
-          <main id="main-content" className="min-h-screen">
-            {children}
-          </main>
-          <Footer />
-          <ModalRenderer />
-          <div aria-live="polite" className="sr-only" aria-atomic="true" />
+          <AuthGuard>
+            <a href="#main-content" className="skip-link">
+              Skip to main content
+            </a>
+            <Header />
+            <main id="main-content" className="min-h-screen">
+              {children}
+            </main>
+            <Footer />
+            <ModalRenderer />
+            <div aria-live="polite" className="sr-only" aria-atomic="true" />
+          </AuthGuard>
         </Providers>
       </body>
     </html>

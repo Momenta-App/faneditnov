@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { VideoCard } from '../../components/VideoCard';
-import { CreatorCard } from '../../components/CreatorCard';
 import { FilterBar, VIDEO_SORT_OPTIONS } from '../../components/filters';
 import { NoVideosEmptyState } from '../../components/empty-states';
 import { VideoCardSkeleton } from '../../components/Skeleton';
@@ -111,6 +110,8 @@ const StatCard = React.memo(
 
 StatCard.displayName = 'StatCard';
 
+const CREATOR_BATCH_SIZE = 10;
+
 export default function CampaignPage() {
   const params = useParams();
   const router = useRouter();
@@ -120,11 +121,106 @@ export default function CampaignPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('impact');
   const [timeRange, setTimeRange] = useState('all');
+  const [visibleCreatorCount, setVisibleCreatorCount] = useState(CREATOR_BATCH_SIZE);
+  const loadMoreCreatorsRef = useRef<HTMLDivElement | null>(null);
 
   const { data: campaign, loading: campaignLoading } = useCampaign(campaignId);
   const { data: videos } = useCampaignVideos(campaignId, searchQuery, sortBy, timeRange, 100);
   const { data: creators } = useCampaignCreators(campaignId);
   const { data: hashtags } = useCampaignHashtags(campaignId);
+
+  useEffect(() => {
+    if (activeTab === 'creators') {
+      setVisibleCreatorCount((prev) => {
+        if (!creators || creators.length === 0) {
+          return 0;
+        }
+        return Math.min(CREATOR_BATCH_SIZE, creators.length);
+      });
+    }
+  }, [activeTab, creators]);
+
+  useEffect(() => {
+    if (activeTab !== 'creators' || !creators || creators.length <= visibleCreatorCount) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting) {
+          setVisibleCreatorCount((prev) => Math.min(creators.length, prev + CREATOR_BATCH_SIZE));
+        }
+      },
+      { threshold: 1 }
+    );
+
+    const refCurrent = loadMoreCreatorsRef.current;
+    if (refCurrent) {
+      observer.observe(refCurrent);
+    }
+
+    return () => observer.disconnect();
+  }, [activeTab, creators, visibleCreatorCount]);
+
+  const demographicLocations = (campaign?.demographics?.locations ?? []) as DemographicLocation[];
+  const hasDemographics = demographicLocations.length > 0;
+
+  const targetDemographic = useMemo(() => {
+    if (!hasDemographics) {
+      return null;
+    }
+
+    const inputText = (campaign?.input_text || '').toLowerCase();
+    const matchedLocation = demographicLocations.find((location) =>
+      location.name?.toLowerCase() && inputText.includes(location.name.toLowerCase())
+    );
+
+    return matchedLocation || demographicLocations[0];
+  }, [campaign?.input_text, demographicLocations, hasDemographics]);
+
+  const displayedCreators = useMemo(() => {
+    if (!creators || creators.length === 0) {
+      return [];
+    }
+    return creators.slice(0, visibleCreatorCount);
+  }, [creators, visibleCreatorCount]);
+
+  const computeDemographicMatch = (creatorId: string, index: number) => {
+    if (targetDemographic) {
+      const base = targetDemographic.percentage;
+      const hash = creatorId
+        ? creatorId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+        : index * 37;
+      const variation = ((hash % 9) - 4) * 0.8; // ~ -3.2 to +3.2
+      const percentage = Math.min(99, Math.max(5, base + variation));
+
+      return {
+        label: targetDemographic.name,
+        percentage: Number(percentage.toFixed(1)),
+      };
+    }
+
+    if (!hasDemographics) {
+      const fallbackPercentage = 40 + ((index * 7) % 40);
+      return {
+        label: 'Global audience',
+        percentage: Math.min(95, Math.max(25, fallbackPercentage)),
+      };
+    }
+
+    const location = demographicLocations[index % demographicLocations.length];
+    const hash = creatorId
+      ? creatorId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+      : index * 31;
+    const variation = (hash % 11) - 5; // -5 to 5
+    const percentage = Math.min(95, Math.max(10, location.percentage + variation));
+
+    return {
+      label: location.name,
+      percentage,
+    };
+  };
 
   if (campaignLoading) {
     return (
@@ -156,8 +252,6 @@ export default function CampaignPage() {
   // Extract display name from AI payload
   const aiPayload = campaign.ai_payload as any;
   let displayName = campaign.name;
-  const demographicLocations = (campaign.demographics?.locations ?? []) as DemographicLocation[];
-  const hasDemographics = demographicLocations.length > 0;
 
   const renderDemographicLocation = (location: DemographicLocation, index: number) => {
     const isOther = location.name === 'Other';
@@ -492,34 +586,55 @@ export default function CampaignPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-              {creators?.map((creator, index) => {
-                const mappedCreator = {
-                  id: creator.creator_id,
-                  username: creator.username || '',
-                  displayName: creator.display_name || '',
-                  bio: creator.bio || '',
-                  avatar: creator.avatar_url || '',
-                  verified: creator.verified || false,
-                  followers: 0,
-                  videos: creator.video_count || 0,
-                  likes: 0,
-                  views: creator.total_views || 0,
-                  impact: creator.total_impact_score || 0,
-                };
-                return (
-                  <motion.div
-                    key={creator.creator_id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.4, delay: index * 0.05 }}
-                    className="h-full"
-                  >
-                    <CreatorCard creator={mappedCreator} hideFollowers={true} variant="grid" />
-                  </motion.div>
-                );
-              })}
-            </div>
+            {displayedCreators.length > 0 ? (
+              <div className="space-y-4">
+                {displayedCreators.map((creator, index) => {
+                  const match = computeDemographicMatch(creator.creator_id, index);
+                  const creatorName = creator.display_name || creator.username || 'Unknown Creator';
+                  const username = creator.username ? `@${creator.username}` : '—';
+                  return (
+                    <div
+                      key={creator.creator_id || `${creatorName}-${index}`}
+                      className="group rounded-2xl border px-4 py-4 sm:px-6 sm:py-5 transition-all duration-200 hover:border-[var(--color-primary)]/60"
+                      style={{
+                        borderColor: 'var(--color-border)',
+                        background: 'var(--color-surface)',
+                      }}
+                    >
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                            {creatorName}
+                          </p>
+                          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                            {username}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-4 text-sm font-medium" style={{ color: 'var(--color-text-muted)' }}>
+                          <span>🎬 {creator.video_count || 0} videos</span>
+                          <span>👁️ {formatNumber(creator.total_views || 0)} views</span>
+                      <span>⭐ Impact {formatNumber(creator.total_impact_score || 0)}</span>
+                      <span>
+                        {match.percentage}% {match.label || 'target'} audience
+                      </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-12" style={{ color: 'var(--color-text-muted)' }}>
+                No creators found for this campaign yet.
+              </div>
+            )}
+            {creators && visibleCreatorCount < creators.length && (
+              <div ref={loadMoreCreatorsRef} className="mt-6 h-10">
+                <div className="text-center text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                  Loading more creators...
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
 

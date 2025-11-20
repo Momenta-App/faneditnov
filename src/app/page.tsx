@@ -1,1323 +1,363 @@
 'use client';
-// Build timestamp: 2025-10-31 - CSS fix deployed
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import Link from 'next/link';
-import { VideoCard } from './components/VideoCard';
-import { CreatorCard } from './components/CreatorCard';
-import { ContactBrandModal } from './components/ContactBrandModal';
-import { useHomepage } from './hooks/useData';
-
-type TimeFilter = 'all' | 'year' | 'month';
-
-interface Stat {
-  value: string;
-  label: string;
-}
+import React, { useState } from 'react';
+import { useCampaignGenerator } from './hooks/useCampaignGenerator';
 
 export default function Home() {
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
-  const [creatorTimeFilter, setCreatorTimeFilter] = useState<TimeFilter>('all');
-  // Use homepage cache for fast loading
-  const { data: homepageData, loading: loadingVideos, error: videosError } = useHomepage(timeFilter);
-  const { data: creatorHomepageData, loading: loadingCreators, error: creatorsError } = useHomepage(creatorTimeFilter);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  const gridRef = useRef<HTMLDivElement>(null);
-  const [gridHeight, setGridHeight] = useState(700);
-  const [mounted, setMounted] = useState(false);
-  const [isBrandModalOpen, setIsBrandModalOpen] = useState(false);
-  const [loadingProgress, setLoadingProgress] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
-  const [isSmallMobile, setIsSmallMobile] = useState(false);
-  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
+  const { isGenerating, loadingMessage, error, setError, generateCampaign } = useCampaignGenerator();
 
-  // Track when component is mounted and styles are loaded
-  useEffect(() => {
-    // Wait for next tick to ensure React has hydrated and styled-jsx styles are injected
-    // This prevents flash of unstyled content
-    if (typeof window !== 'undefined') {
-      requestAnimationFrame(() => {
-        setMounted(true);
-      });
-
-      // Check if mobile on mount and resize
-      const checkMobile = () => {
-        const width = window.innerWidth;
-        setIsMobile(width <= 768);
-        setIsSmallMobile(width <= 600);
-      };
-      checkMobile();
-      window.addEventListener('resize', checkMobile);
-      return () => window.removeEventListener('resize', checkMobile);
-    }
-  }, []);
-
-  // Track when initial data has loaded (only set once)
-  // Also set loaded if there's an error (so we can show content anyway)
-  useEffect(() => {
-    if (mounted && (!loadingVideos && !loadingCreators) && !hasInitiallyLoaded) {
-      setHasInitiallyLoaded(true);
-    }
-    // If there's an error, still mark as loaded so we can show fallback content
-    if (mounted && (videosError || creatorsError) && !hasInitiallyLoaded) {
-      setHasInitiallyLoaded(true);
-    }
-  }, [mounted, loadingVideos, loadingCreators, hasInitiallyLoaded, videosError, creatorsError]);
-
-  // Show loading state only until component is mounted and initial data is loaded
-  // After initial load, don't show full loading screen for filter changes
-  // Also stop loading if there's an error (show content anyway)
-  const isLoading = !mounted || (!hasInitiallyLoaded && (loadingVideos || loadingCreators) && !videosError && !creatorsError);
-
-  // Progress bar animation with easing that slows down near the end
-  useEffect(() => {
-    if (!isLoading) {
-      setLoadingProgress(0);
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!searchInput.trim() || isGenerating) {
       return;
     }
-
-    let progress = 0;
-    const duration = 2500; // 2.5 seconds total
-    const startTime = Date.now();
-
-    const updateProgress = () => {
-      const elapsed = Date.now() - startTime;
-      const rawProgress = Math.min(elapsed / duration, 1);
-      
-      // Easing function that slows down significantly as it approaches 100%
-      // Using ease-out quartic function for more pronounced slowdown: 1 - (1 - t)^4
-      // This makes it much slower near the end
-      const easedProgress = 1 - Math.pow(1 - rawProgress, 4);
-      
-      progress = Math.min(easedProgress * 100, 99); // Cap at 99% to never fully complete
-      setLoadingProgress(progress);
-
-      if (progress < 99) {
-        requestAnimationFrame(updateProgress);
-      } else {
-        setLoadingProgress(100);
-      }
-    };
-
-    updateProgress();
-  }, [isLoading]);
-  // Hardcoded stats (doubled from cache values)
-  const stats = useMemo<Stat[]>(() => {
-    return [
-      { value: '18.0K+', label: 'Clips' },
-      { value: '58.6B+', label: 'Global Views' },
-      { value: '7.1K+', label: 'Talented Creators' },
-    ];
-  }, []);
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY });
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
-
-  useEffect(() => {
-    const updateHeight = () => {
-      if (gridRef.current) {
-        const height = gridRef.current.offsetHeight;
-        setGridHeight(height);
-      }
-    };
-
-    const timer = setTimeout(updateHeight, 100);
-    window.addEventListener('resize', updateHeight);
-    
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', updateHeight);
-    };
-  }, []);
-
-  // Use videos from homepage cache (already deduplicated by creator)
-  const filteredVideos = homepageData?.topVideos || [];
-  
-  // Transform creators from cache to match CreatorCard expected format
-  const transformedCreators = useMemo(() => {
-    return (creatorHomepageData?.topCreators || []).map((creator: any) => ({
-      id: creator.unique_id || creator.id || '',
-      username: creator.username || '',
-      displayName: creator.displayName || creator.username || 'Unknown',
-      bio: creator.bio || '',
-      avatar: creator.avatarUrl || creator.avatar || '',
-      verified: creator.verified || false,
-      followers: creator.followerCount || creator.followers || 0,
-      videos: creator.videoCount || creator.videos || 0,
-      likes: creator.totalLikes || creator.likes || 0,
-      views: creator.totalViews || creator.views || 0,
-      impact: creator.impactScore || creator.impact || 0,
-    }));
-  }, [creatorHomepageData]);
-
-  if (isLoading) {
-    return (
-      <>
-        <style jsx>{`
-          .loading-container {
-            background: #000000;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-          }
-
-          .loading-bar-wrapper {
-            width: 100%;
-            max-width: 400px;
-            padding: 0 2rem;
-          }
-
-          .loading-bar-track {
-            width: 100%;
-            height: 3px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 2px;
-            overflow: hidden;
-            position: relative;
-          }
-
-          .loading-bar-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #007AFF, #0051D5);
-            border-radius: 2px;
-            transition: width 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 0 12px rgba(0, 122, 255, 0.6);
-          }
-
-          .loading-bar-fill::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(
-              90deg,
-              transparent,
-              rgba(255, 255, 255, 0.3),
-              transparent
-            );
-            animation: shimmer 2s ease-in-out infinite;
-          }
-
-          @keyframes shimmer {
-            0% {
-              transform: translateX(-100%);
-            }
-            100% {
-              transform: translateX(100%);
-            }
-          }
-        `}</style>
-        <div className="loading-container">
-          <div className="loading-bar-wrapper">
-            <div className="loading-bar-track">
-              <div 
-                className="loading-bar-fill"
-                style={{ width: `${loadingProgress}%` }}
-              ></div>
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }
+    generateCampaign(searchInput.trim());
+  };
 
   return (
-    <div className="landing-page">
+    <div className="presentation-home">
       <style jsx>{`
-        .landing-page {
-          background: #000000;
-          color: #ffffff;
+        .presentation-home {
           min-height: 100vh;
+          width: 100%;
+          background: radial-gradient(circle at top, #0b1220, #010104 65%);
+          color: #f5f5f5;
           position: relative;
-          overflow-x: hidden;
+          overflow: hidden;
         }
 
-        /* Acid distorted animated background */
-        .acid-background {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          z-index: 0;
-          overflow: hidden;
+        .aurora {
+          position: absolute;
+          inset: 0;
           pointer-events: none;
         }
 
-        .acid-blob {
+        .aurora span {
           position: absolute;
-          border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
-          mix-blend-mode: screen;
-          filter: blur(60px);
-          animation: morph 20s ease-in-out infinite, float 30s ease-in-out infinite;
-          opacity: 0.4;
+          width: 40vw;
+          height: 40vw;
+          background: radial-gradient(circle, rgba(0, 255, 204, 0.25), transparent 60%);
+          filter: blur(50px);
+          animation: float 18s ease-in-out infinite;
         }
 
-        .acid-blob-1 {
-          width: 600px;
-          height: 600px;
+        .aurora span:nth-child(1) {
           top: -10%;
           left: -10%;
-          background: linear-gradient(45deg, #00ffff, #0066ff);
-          animation-delay: 0s;
         }
 
-        .acid-blob-2 {
-          width: 500px;
-          height: 500px;
-          top: 40%;
-          right: -10%;
-          background: linear-gradient(135deg, #00ff88, #0088ff);
+        .aurora span:nth-child(2) {
+          top: 10%;
+          right: -15%;
           animation-delay: 3s;
+          background: radial-gradient(circle, rgba(0, 122, 255, 0.3), transparent 60%);
         }
 
-        .acid-blob-3 {
-          width: 700px;
-          height: 700px;
-          bottom: -20%;
-          left: 30%;
-          background: linear-gradient(225deg, #0099ff, #ff8800);
+        .aurora span:nth-child(3) {
+          bottom: -15%;
+          left: 15%;
           animation-delay: 6s;
-        }
-
-        @keyframes morph {
-          0%, 100% {
-            border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
-          }
-          25% {
-            border-radius: 58% 42% 75% 25% / 76% 46% 54% 24%;
-          }
-          50% {
-            border-radius: 50% 50% 33% 67% / 55% 27% 73% 45%;
-          }
-          75% {
-            border-radius: 33% 67% 58% 42% / 63% 68% 32% 37%;
-          }
+          background: radial-gradient(circle, rgba(255, 102, 204, 0.2), transparent 60%);
         }
 
         @keyframes float {
           0%, 100% {
-            transform: translate(0, 0) scale(1);
+            transform: translate3d(0, 0, 0) scale(1);
           }
-          33% {
-            transform: translate(100px, -50px) scale(1.1);
-          }
-          66% {
-            transform: translate(-50px, 100px) scale(0.9);
+          50% {
+            transform: translate3d(5%, -5%, 0) scale(1.1);
           }
         }
 
-        /* Grid overlay */
-        .grid-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background-image: 
+        .grid {
+          position: absolute;
+          inset: 0;
+          background-image:
             linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
             linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-          background-size: 50px 50px;
-          z-index: 1;
-          pointer-events: none;
+          background-size: 80px 80px;
+          opacity: 0.6;
+          mix-blend-mode: screen;
         }
 
-        /* Content wrapper */
-        .content-wrapper {
-          position: relative;
-          z-index: 10;
-        }
-
-        /* Hero section */
         .hero {
-          min-height: 90vh;
+          position: relative;
+          z-index: 5;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 4rem 1.5rem 4rem;
-          text-align: center;
+          padding: 8rem 1.5rem 5rem;
+          min-height: 100vh;
         }
 
-        .hero-content {
-          max-width: 1200px;
-          animation: fadeInUp 1s ease-out;
+        .hero-card {
+          max-width: 820px;
+          width: 100%;
+          text-align: center;
         }
 
         .badge {
-          display: inline-block;
-          padding: 0.75rem 1.5rem;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 50px;
-          font-size: 0.875rem;
-          font-weight: 500;
-          margin-bottom: 2rem;
-          backdrop-filter: blur(10px);
-          animation: glow 3s ease-in-out infinite;
-        }
-
-        @keyframes glow {
-          0%, 100% {
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
-          }
-          50% {
-            box-shadow: 0 0 40px rgba(0, 255, 255, 0.5);
-          }
-        }
-
-        .hero-title {
-          font-size: clamp(3rem, 8vw, 6rem);
-          font-weight: 900;
-          line-height: 1.1;
-          margin-bottom: 1.25rem;
-          background: linear-gradient(135deg, #fff, #00ffff, #0066ff, #fff);
-          background-size: 300% 300%;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          animation: gradientShift 8s ease infinite;
-        }
-
-        @keyframes gradientShift {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-
-        .hero-subtitle {
-          font-size: clamp(1rem, 2vw, 1.25rem);
-          color: rgba(255, 255, 255, 0.7);
-          margin-bottom: 2rem;
-          max-width: 700px;
-          margin-left: auto;
-          margin-right: auto;
-          line-height: 1.6;
-        }
-
-        .cta-buttons {
-          display: flex;
-          gap: 1rem;
-          justify-content: center;
-          flex-wrap: wrap;
-          margin-bottom: 3rem;
-        }
-
-        .btn {
-          padding: 1.25rem 3rem;
-          font-size: 1.125rem;
-          font-weight: 700;
-          border-radius: 50px;
-          border: none;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          text-decoration: none;
-          display: inline-block;
-          animation: subtle-pulse 3s ease-in-out infinite;
-        }
-
-        @keyframes subtle-pulse {
-          0%, 100% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.02);
-          }
-        }
-
-        .btn-primary {
-          background: linear-gradient(135deg, #0066ff, #00ffff);
-          color: #000;
-          box-shadow: 0 12px 35px rgba(0, 102, 255, 0.4), 0 0 20px rgba(0, 255, 255, 0.3);
-        }
-
-        .btn-primary:hover {
-          transform: translateY(-3px) scale(1.05);
-          box-shadow: 0 18px 50px rgba(0, 102, 255, 0.6), 0 0 30px rgba(0, 255, 255, 0.5);
-          animation: none;
-        }
-
-        .btn-secondary {
-          background: rgba(255, 255, 255, 0.15);
-          color: #fff;
-          border: 2px solid rgba(255, 255, 255, 0.3);
-          backdrop-filter: blur(10px);
-          box-shadow: 0 8px 25px rgba(255, 255, 255, 0.1);
-        }
-
-        .shine-text-bold {
-          font-weight: 900 !important;
-          background: linear-gradient(
-            90deg,
-            #a0a0a0 0%,
-            #c0c0c0 20%,
-            #e8e8e8 40%,
-            #c0c0c0 60%,
-            #a0a0a0 80%,
-            #c0c0c0 100%
-          );
-          background-size: 200% 100%;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          animation: shine-text 3s ease-in-out infinite;
-        }
-
-        @keyframes shine-text {
-          0%, 100% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-        }
-
-        .btn-secondary:hover {
-          background: rgba(255, 255, 255, 0.25);
-          border-color: rgba(255, 255, 255, 0.5);
-          transform: translateY(-3px) scale(1.05);
-          box-shadow: 0 12px 35px rgba(255, 255, 255, 0.2);
-          animation: none;
-        }
-
-        /* Stats section */
-        .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 1.5rem;
-          max-width: 900px;
-          margin: 0 auto;
-          margin-top: 2rem;
-        }
-
-        .stat-card {
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 20px;
-          padding: 1.75rem 1.5rem;
-          text-align: center;
-          backdrop-filter: blur(20px);
-          transition: all 0.3s ease;
-          animation: fadeIn 1s ease-out backwards;
-        }
-
-        .stat-card:nth-child(1) { animation-delay: 0.1s; }
-        .stat-card:nth-child(2) { animation-delay: 0.2s; }
-        .stat-card:nth-child(3) { animation-delay: 0.3s; }
-
-        .stat-card:hover {
-          transform: translateY(-5px);
-          background: rgba(255, 255, 255, 0.05);
-          border-color: rgba(0, 255, 255, 0.3);
-          box-shadow: 0 20px 50px rgba(0, 255, 255, 0.2);
-        }
-
-        .stat-value {
-          font-size: 2.5rem;
-          font-weight: 900;
-          background: linear-gradient(135deg, #0066ff, #00ffff);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          margin-bottom: 0.5rem;
-        }
-
-        .stat-label {
-          font-size: 0.875rem;
-          color: rgba(255, 255, 255, 0.6);
-          font-weight: 500;
-        }
-
-        /* Section styling */
-        .section {
-          display: flex;
+          display: inline-flex;
           align-items: center;
-          justify-content: center;
-          padding: 5rem 1.5rem;
-          position: relative;
-        }
-
-        .section-header {
-          text-align: center;
-          margin-bottom: 3rem;
-        }
-
-        .section-title {
-          font-size: clamp(2rem, 4vw, 3rem);
-          font-weight: 900;
-          margin-bottom: 0.75rem;
-          background: linear-gradient(135deg, #fff, #00ffff);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-
-        .section-subtitle {
-          font-size: 1rem;
-          color: rgba(255, 255, 255, 0.6);
-          max-width: 700px;
-          margin: 0 auto;
-          margin-top: 0.75rem;
-        }
-
-        /* Filter buttons */
-        .filter-buttons {
-          display: flex;
-          gap: 0.75rem;
-          justify-content: center;
-          flex-wrap: nowrap;
-          margin-bottom: 2.5rem;
-        }
-
-        /* Reduce margin on mobile */
-        @media (max-width: 768px) {
-          .filter-buttons {
-            margin-bottom: 1.25rem;
-            gap: 0.5rem;
-          }
-        }
-
-        .filter-btn {
-          padding: 0.75rem 1.75rem;
-          font-size: 0.875rem;
-          font-weight: 600;
-          border-radius: 50px;
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          background: rgba(255, 255, 255, 0.05);
-          color: rgba(255, 255, 255, 0.8);
-          cursor: pointer;
-          transition: all 0.3s ease;
-          backdrop-filter: blur(10px);
-          white-space: nowrap;
-        }
-
-        @media (max-width: 768px) {
-          .filter-btn {
-            padding: 0.625rem 1rem;
-            font-size: 0.75rem;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .filter-btn {
-            padding: 0.5rem 0.75rem;
-            font-size: 0.7rem;
-          }
-        }
-
-        .filter-btn.active {
-          background: linear-gradient(135deg, #0066ff, #00ffff);
-          color: #000;
-          border-color: transparent;
-          box-shadow: 0 10px 30px rgba(0, 102, 255, 0.3);
-        }
-
-        .filter-btn:hover:not(.active) {
-          background: rgba(255, 255, 255, 0.1);
-          border-color: rgba(0, 255, 255, 0.3);
-        }
-
-        /* How it works section */
-        .how-it-works {
-          max-width: 1400px;
-          margin: 0 auto;
-          width: 100%;
-          padding: 0 2rem;
-        }
-
-        .how-it-works-intro {
-          text-align: center;
-          margin-bottom: 4rem;
-        }
-
-        .how-it-works-intro h3 {
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: rgba(255, 255, 255, 0.6);
+          gap: 0.5rem;
+          font-size: 0.9rem;
+          letter-spacing: 0.08em;
           text-transform: uppercase;
-          letter-spacing: 0.1em;
-          margin-bottom: 0.5rem;
+          color: rgba(255, 255, 255, 0.85);
+          padding: 0.9rem 1.5rem;
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          background: rgba(255, 255, 255, 0.03);
+          backdrop-filter: blur(16px);
+          margin-bottom: 2rem;
         }
 
-        .how-it-works-intro h2 {
-          font-size: clamp(1.75rem, 3.5vw, 2.5rem);
-          font-weight: 900;
-          margin-bottom: 1rem;
-          background: linear-gradient(135deg, #fff, #00ffff);
+        .badge-dot {
+          width: 0.5rem;
+          height: 0.5rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #00ffe0, #0070f3);
+          box-shadow: 0 0 12px rgba(0, 255, 224, 0.8);
+        }
+
+        h1 {
+          font-size: clamp(3rem, 8vw, 5.8rem);
+          font-weight: 800;
+          margin-bottom: 1.25rem;
+          line-height: 1.05;
+          color: transparent;
+          background: linear-gradient(120deg, #ffffff 0%, #9fbaff 45%, #00ffe0 100%);
           -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
           background-clip: text;
         }
 
-        .how-it-works-intro p {
-          font-size: 0.95rem;
+        p.hero-copy {
+          font-size: clamp(1.1rem, 2vw, 1.45rem);
+          color: rgba(255, 255, 255, 0.75);
+          margin-bottom: 3rem;
           line-height: 1.6;
-          color: rgba(255, 255, 255, 0.7);
-          max-width: 800px;
-          margin: 0 auto 0.75rem;
         }
 
-        .features-grid-wrapper {
-          position: relative;
+        form {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          align-items: stretch;
+        }
+
+        .input-wrap {
           width: 100%;
-        }
-
-        .video-background-layer {
-          position: absolute;
-          top: -120px;
-          right: 0;
-          left: 0;
+          background: rgba(3, 7, 18, 0.6);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          border-radius: 999px;
+          padding: 0.5rem;
           display: flex;
-          justify-content: center;
-          align-items: center;
-          z-index: 1;
+          gap: 0.25rem;
+          box-shadow: 0 20px 80px rgba(0, 0, 0, 0.45);
+          backdrop-filter: blur(20px);
         }
 
-        .feature-video {
-          object-fit: contain;
-          opacity: 0.9;
+        input {
+          flex: 1;
+          border: none;
           background: transparent;
-          width: 600px;
-          height: auto;
+          color: #fff;
+          font-size: 1rem;
+          padding: 1.25rem 1.5rem;
+          outline: none;
         }
 
-        .features-grid {
-          display: grid;
-          grid-template-columns: 1fr 400px 1fr;
-          gap: 2rem;
-          max-width: 1400px;
-          margin: 0 auto;
-          align-items: center;
-          position: relative;
-          z-index: 10;
-          min-height: 500px;
+        input::placeholder {
+          color: rgba(255, 255, 255, 0.5);
         }
 
-        .features-column {
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-          height: 100%;
-          justify-content: space-between;
-        }
-
-        .features-center {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          height: 100%;
-        }
-
-        .feature-card {
-          background: rgba(255, 255, 255, 0.1);
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          border-radius: 20px;
-          padding: 2rem;
-          transition: all 0.3s ease;
-          box-shadow: 0px -2px 40px 0px rgba(187, 155, 255, 0.15),
-                      0px -2px 10px 0px rgba(233, 223, 255, 0.3),
-                      inset 0px 0.5px 0px 0px rgba(255, 255, 255, 0.5);
-        }
-
-        .feature-card:hover {
-          transform: translateY(-5px);
-          background: rgba(255, 255, 255, 0.05);
-          border-color: rgba(0, 255, 255, 0.3);
-          box-shadow: 0 20px 50px rgba(0, 255, 255, 0.2);
-        }
-
-        .feature-icon {
-          width: 50px;
-          height: 50px;
-          border-radius: 10px;
-          background: linear-gradient(135deg, rgba(0, 102, 255, 0.2), rgba(0, 255, 255, 0.2));
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-bottom: 1rem;
-          font-size: 1.5rem;
-        }
-
-        .feature-card h4 {
-          font-size: 1.5rem;
+        button {
+          border: none;
+          border-radius: 999px;
+          padding: 1.1rem 2.5rem;
+          font-size: 1rem;
           font-weight: 600;
-          color: #ECECEC;
-          margin-bottom: 0.75rem;
-          letter-spacing: -0.5px;
-          line-height: 1.3;
+          cursor: pointer;
+          background: linear-gradient(120deg, #00ffe0, #0070f3);
+          color: #020611;
+          transition: transform 200ms ease, box-shadow 200ms ease;
         }
 
-        .feature-card p {
-          font-size: 0.875rem;
-          line-height: 1.5;
-          color: #ECECEC;
+        button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          transform: none;
+          box-shadow: none;
         }
 
-        /* Video and creator grids */
-        .content-grid {
-          max-width: 1400px;
-          margin: 0 auto;
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-          gap: 2rem;
-          padding: 0 1.5rem;
+        button:not(:disabled):hover {
+          transform: translateY(-2px);
+          box-shadow: 0 18px 40px rgba(0, 112, 243, 0.45);
         }
 
-        /* Video grid - always 5 columns */
-        .video-grid {
-          max-width: 1400px;
-          margin: 0 auto;
-          display: grid;
-          grid-template-columns: repeat(5, 1fr);
+        .supporting-copy {
+          display: flex;
+          justify-content: center;
           gap: 1.5rem;
-          padding: 0 1.5rem;
-          transform: scale(0.85);
-          transform-origin: center;
+          margin-top: 2rem;
+          flex-wrap: wrap;
+          color: rgba(255, 255, 255, 0.55);
+          font-size: 0.95rem;
         }
 
-        /* Force dark mode styling for video cards on home page */
-        /* Override CSS variables used by card-base to always use dark mode values */
-        .video-grid :global(.card-base) {
-          background: #1c1c1e !important; /* Dark mode surface */
-          border-color: #38383a !important; /* Dark mode border */
-          --color-surface: #1c1c1e !important;
-          --color-border: #38383a !important;
-          --color-text-primary: #ffffff !important;
-          --color-text-muted: #98989d !important;
-          --card-bg: #1c1c1e !important;
-          --border: #38383a !important;
-          --foreground: #ffffff !important;
-          --muted: #98989d !important;
+        .supporting-copy span {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
         }
 
-        /* Creator grid - 3 columns, 2 rows for top 6 */
-        .creator-grid {
-          max-width: 1400px;
-          margin: 0 auto;
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 2rem;
-          padding: 0 1.5rem;
+        .supporting-copy span::before {
+          content: '';
+          width: 0.35rem;
+          height: 0.35rem;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.35);
         }
 
-        /* Animations */
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(40px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        /* Cursor follow effect */
-        .cursor-glow {
+        .loading-overlay {
           position: fixed;
-          width: 400px;
-          height: 400px;
-          background: radial-gradient(circle, rgba(0, 102, 255, 0.1) 0%, transparent 70%);
-          pointer-events: none;
-          z-index: 5;
-          transform: translate(-50%, -50%);
-          transition: opacity 0.3s ease;
-        }
-
-        /* View more button */
-        .view-more-container {
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(1, 1, 5, 0.85);
+          backdrop-filter: blur(8px);
+          z-index: 50;
+          color: #fff;
           text-align: center;
-          margin-top: 2.5rem;
         }
 
-        /* Responsive */
-        @media (max-width: 1400px) {
-          .video-grid {
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1.25rem;
-          }
+        .loading-card {
+          padding: 2rem 2.5rem;
+          border-radius: 24px;
+          background: rgba(3, 7, 18, 0.9);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          box-shadow: 0 25px 70px rgba(0, 0, 0, 0.35);
+          width: min(420px, calc(100% - 2rem));
         }
 
-        @media (max-width: 1200px) {
-          .video-grid {
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
-          }
-          
-          .creator-grid {
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1.5rem;
-          }
+        .loading-spinner {
+          width: 48px;
+          height: 48px;
+          border-radius: 999px;
+          border: 3px solid rgba(255, 255, 255, 0.15);
+          border-top-color: #00ffe0;
+          margin: 0 auto 1.25rem;
+          animation: spin 1s linear infinite;
         }
 
-        @media (max-width: 1000px) {
-          .creator-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1.25rem;
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
           }
         }
 
-        @media (max-width: 900px) {
-          .video-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1rem;
-          }
-          
-          .creator-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1rem;
-          }
-
-          .how-it-works {
-            padding: 0 1.5rem;
-          }
-
-          .features-grid {
-            grid-template-columns: 1fr;
-            gap: 1.5rem;
-          }
-
-          .video-background-layer {
-            display: none;
-          }
-
-          .features-column {
-            order: 1;
-          }
-
-          .features-center {
-            order: 2;
-            display: none;
-          }
-
-          /* Hide feature icons on mobile */
-          .feature-icon {
-            display: none;
-          }
-
-          .feature-card {
-            padding: 1.25rem;
-          }
-
-          .feature-card h4 {
-            font-size: 1.25rem;
-          }
-
-          .feature-card p {
-            font-size: 0.8rem;
-          }
+        .error-banner {
+          margin-top: 1.5rem;
+          padding: 1rem 1.5rem;
+          border-radius: 16px;
+          border: 1px solid rgba(255, 94, 94, 0.4);
+          background: rgba(255, 94, 94, 0.08);
+          color: #ffc7c7;
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 640px) {
           .hero {
-            padding: 3rem 1.5rem 4rem;
-            min-height: auto;
-          }
-          
-          .section {
-            padding: 4rem 1.5rem;
-          }
-          
-          .section-header {
-            margin-bottom: 2rem;
-          }
-          
-          .view-more-container {
-            margin-top: 2rem;
+            padding-top: 5rem;
           }
 
-          .content-grid {
-            grid-template-columns: 1fr;
-            gap: 1.5rem;
+          .input-wrap {
+            flex-direction: column;
+            border-radius: 32px;
+            padding: 0.75rem;
           }
 
-          .stats-grid {
-            grid-template-columns: repeat(3, 1fr);
+          input {
+            padding: 1rem;
+          }
+
+          button {
+            width: 100%;
+          }
+
+          .supporting-copy {
+            flex-direction: column;
             gap: 0.75rem;
-            max-width: 100%;
+            align-items: flex-start;
           }
 
-          .stat-card {
-            padding: 1rem 0.5rem;
-          }
-
-          .stat-value {
-            font-size: 1.25rem;
-            margin-bottom: 0.25rem;
-          }
-
-          .stat-label {
-            font-size: 0.7rem;
-          }
-
-          .video-grid {
-            grid-template-columns: repeat(4, 1fr);
-            gap: 0.75rem;
-            transform: scale(1);
-          }
-
-          .creator-grid {
-            grid-template-columns: 1fr;
-            gap: 1rem;
-          }
-
-          /* Ensure creator cards are fully visible on mobile */
-          .creator-grid :global(.creator-card-frosted) {
-            min-height: auto;
-            height: auto;
-            padding: 1.25rem;
-          }
-
-          .how-it-works {
-            padding: 0 1.5rem;
-          }
-
-          .how-it-works-intro {
-            margin-bottom: 0;
-          }
-
-          .how-it-works-intro h2 {
-            margin-bottom: 0.75rem;
-          }
-
-          .how-it-works-intro p {
-            font-size: 1rem;
-          }
-
-          .features-grid {
-            grid-template-columns: 1fr;
-            gap: 2rem;
-            min-height: auto;
-          }
-
-          .features-center {
-            order: -1;
-            margin-bottom: 1rem;
+          .supporting-copy span::before {
             display: none;
-          }
-
-          .feature-video {
-            max-width: 100%;
-          }
-
-          .features-column {
-            order: 1;
-            gap: 1.25rem;
-          }
-
-          .feature-card {
-            padding: 1.25rem;
-          }
-        }
-
-        @media (max-width: 600px) {
-          .video-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0.75rem;
           }
         }
       `}</style>
 
-      {/* Acid animated background */}
-      <div className="acid-background">
-        <div className="acid-blob acid-blob-1"></div>
-        <div className="acid-blob acid-blob-2"></div>
-        <div className="acid-blob acid-blob-3"></div>
+      <div className="aurora">
+        <span />
+        <span />
+        <span />
       </div>
+      <div className="grid" />
 
-      {/* Grid overlay */}
-      <div className="grid-overlay"></div>
+      <section className="hero">
+        <div className="hero-card">
+          <div className="badge">
+            <span className="badge-dot" />
+            Instant campaign intelligence
+          </div>
+          <h1>Create campaigns like magic.</h1>
+          <p className="hero-copy">
+            Type any fandom, region, or franchise. We conjure the perfect SportClips campaign, find the
+            right creators, and guide you straight to the live playbook.
+          </p>
 
-      {/* Cursor glow effect */}
-      <div 
-        className="cursor-glow" 
-        style={{ 
-          left: `${mousePosition.x}px`, 
-          top: `${mousePosition.y}px` 
-        }}
-      ></div>
-
-      {/* Content */}
-      <div className="content-wrapper">
-        {/* Hero Section */}
-        <section className="hero">
-          <div className="hero-content">
-            <div className="badge">
-              Connect Brands with Top Fans
+          <form onSubmit={handleSubmit}>
+            <div className="input-wrap">
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(event) => {
+                  if (error) {
+                    setError(null);
+                  }
+                  setSearchInput(event.target.value);
+                }}
+                placeholder="e.g. Canada hockey fans, Marvel superfans, NBA x Mexico City"
+                disabled={isGenerating}
+                aria-label="Describe your campaign"
+                required
+              />
+              <button type="submit" disabled={!searchInput.trim() || isGenerating}>
+                {isGenerating ? 'Summoning...' : 'Generate'}
+              </button>
             </div>
-            
-            <h1 className="hero-title">
-              Find the Top Fans<br />for Your Activation
-            </h1>
-            
-            <p className="hero-subtitle">
-              We help brands discover and connect with the most engaged sports fans and creators for their activation campaigns. 
-              Access our network of {stats[2]?.value || '7.1K+'} talented creators generating {stats[1]?.value || '58.6B+'} views across {stats[0]?.value || '18.0K+'} pieces of content. 
-              Find the perfect fans to amplify your brand message.
-            </p>
+            {error && <div className="error-banner">{error}</div>}
+          </form>
 
-            <div className="cta-buttons">
-              <Link href="/communities" className="btn btn-primary">
-                Find Top Fans
-              </Link>
-              <Link href="/campaigns" className="btn btn-secondary">
-                Start Your Activation
-              </Link>
-            </div>
+          <div className="supporting-copy">
+            <span>AI-crafted strategy</span>
+            <span>Instant demographic insights</span>
+            <span>Direct link to campaign room</span>
+          </div>
+        </div>
+      </section>
 
-            <div className="stats-grid">
-              {stats.map((stat, index) => (
-                <div key={index} className="stat-card">
-                  <div className="stat-value">{stat.value}</div>
-                  <div className="stat-label">{stat.label}</div>
-                </div>
-              ))}
-            </div>
+      {isGenerating && (
+        <div className="loading-overlay" role="status" aria-live="polite">
+          <div className="loading-card">
+            <div className="loading-spinner" />
+            <p>{loadingMessage}</p>
           </div>
-        </section>
-
-        {/* COMMENTED OUT: Featured Sports Clips Section (Hall of Fame) - Can be restored later */}
-        {/* <section className="section">
-          <div style={{ width: '100%' }}>
-          <div className="section-header">
-            <h2 className="section-title">Hall of Fame</h2>
-          </div>
-
-          <div className="filter-buttons">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setTimeFilter('all');
-              }}
-              className={`filter-btn ${timeFilter === 'all' ? 'active' : ''}`}
-            >
-              All Time
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setTimeFilter('year');
-              }}
-              className={`filter-btn ${timeFilter === 'year' ? 'active' : ''}`}
-            >
-              This Year
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setTimeFilter('month');
-              }}
-              className={`filter-btn ${timeFilter === 'month' ? 'active' : ''}`}
-            >
-              This Month
-            </button>
-          </div>
-
-          <div className="video-grid">
-            {filteredVideos.slice(0, isMobile ? 4 : 5).map((video: any, index: number) => (
-              <VideoCard key={video.id} video={video} rank={index + 1} homepageVariant={true} />
-            ))}
-          </div>
-
-          <div className="view-more-container">
-            <Link href="/edits" className="btn btn-secondary shine-text-bold">
-              Explore More Masterpieces
-            </Link>
-          </div>
-          </div>
-        </section> */}
-
-        {/* COMMENTED OUT: Top Creators Section (World's Best Creators) - Can be restored later */}
-        {/* <section className="section">
-          <div style={{ width: '100%' }}>
-          <div className="section-header">
-            <h2 className="section-title">World&apos;s Best Creators</h2>
-            <p className="section-subtitle">
-              Meet the visionaries pushing boundaries and redefining what&apos;s possible. Your masterpiece could be next.
-            </p>
-          </div>
-
-          <div className="filter-buttons">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setCreatorTimeFilter('all');
-              }}
-              className={`filter-btn ${creatorTimeFilter === 'all' ? 'active' : ''}`}
-            >
-              All Time
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setCreatorTimeFilter('year');
-              }}
-              className={`filter-btn ${creatorTimeFilter === 'year' ? 'active' : ''}`}
-            >
-              This Year
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setCreatorTimeFilter('month');
-              }}
-              className={`filter-btn ${creatorTimeFilter === 'month' ? 'active' : ''}`}
-            >
-              This Month
-            </button>
-          </div>
-
-          <div className="creator-grid">
-            {transformedCreators.slice(0, isMobile ? 3 : 6).map((creator: any, index: number) => (
-              <CreatorCard key={creator.id} creator={creator} rank={index + 1} frostedGlass={true} />
-            ))}
-          </div>
-
-          <div className="view-more-container">
-            <Link href="/creators" className="btn btn-primary shine-text-bold">
-              Meet All Creators
-            </Link>
-          </div>
-          </div>
-        </section> */}
-
-        {/* COMMENTED OUT: Section Divider - Can be restored later */}
-        {/* <div style={{
-          height: '2px',
-          background: 'linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.2), rgba(0, 102, 255, 0.2), transparent)',
-          margin: '3rem auto',
-          maxWidth: '1400px',
-          width: 'calc(100% - 6rem)',
-          borderRadius: '1px'
-        }}></div> */}
-
-        {/* COMMENTED OUT: Final CTA Section (Choose Your Path) - Can be restored later */}
-        {/* <section className="section" style={{ 
-          backgroundColor: 'rgba(0, 0, 0, 0.3)',
-          paddingTop: '8rem',
-          paddingBottom: '8rem',
-          marginTop: '4rem',
-          marginBottom: '4rem',
-          position: 'relative'
-        }}>
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'radial-gradient(circle at 50% 50%, rgba(0, 102, 255, 0.05) 0%, transparent 70%)',
-            pointerEvents: 'none'
-          }}></div>
-          <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center', width: '100%', position: 'relative', zIndex: 1 }}>
-            <h2 className="section-title" style={{ marginBottom: '1.5rem' }}>
-              Choose Your Path
-            </h2>
-            
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: '2rem',
-              padding: '0 1.5rem',
-              marginTop: '2rem'
-            }}>
-              {([
-                {
-                  title: 'For Fans',
-                  description: 'Dive into a world of incredible fan edits. Vote, share, and support the creators making magic happen every day.',
-                  link: '/edits',
-                  linkText: 'Explore Now',
-                  isBrand: false
-                },
-                {
-                  title: 'For Creators',
-                  description: 'Unleash your creativity. Upload your fan edits, build your audience, and rise through the ranks. Turn your passion into recognition.',
-                  link: '/auth/signup',
-                  linkText: 'Start Creating',
-                  isBrand: false
-                },
-                {
-                  title: 'For Brands',
-                  description: 'Connect with top-tier creative talent. Find your next collaborator and bring groundbreaking projects to life.',
-                  link: '/communities',
-                  linkText: 'Partner With Us',
-                  isBrand: true
-                }
-              ] as Array<{ title: string; description: string; link: string; linkText: string; isBrand: boolean }>).map((item, index) => (
-                <div key={index} className="stat-card" style={{ animation: `fadeIn 1s ease-out ${0.2 + index * 0.1}s backwards`, padding: '2rem 1.5rem', position: 'relative', zIndex: 1 }}>
-                  <h3 style={{ 
-                    fontSize: '1.25rem', 
-                    fontWeight: '700', 
-                    marginBottom: '0.5rem',
-                    color: '#fff'
-                  }}>
-                    {item.title}
-                  </h3>
-                  <p style={{ 
-                    color: 'rgba(255, 255, 255, 0.7)', 
-                    marginBottom: '1rem',
-                    lineHeight: '1.5',
-                    fontSize: '0.875rem'
-                  }}>
-                    {item.description}
-                  </p>
-                  {item.isBrand ? (
-                    <button
-                      onClick={() => setIsBrandModalOpen(true)}
-                      className="btn btn-primary"
-                      style={{ fontSize: '0.875rem', padding: '0.75rem 2rem' }}
-                    >
-                      {item.linkText}
-                    </button>
-                  ) : (
-                    <Link href={item.link} className="btn btn-primary" style={{ fontSize: '0.875rem', padding: '0.75rem 2rem' }}>
-                      {item.linkText}
-                    </Link>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </section> */}
-      </div>
-      
-      <ContactBrandModal
-        isOpen={isBrandModalOpen}
-        onClose={() => setIsBrandModalOpen(false)}
-      />
+        </div>
+      )}
     </div>
   );
 }
+
+

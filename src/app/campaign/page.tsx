@@ -7,25 +7,16 @@ import { Button } from '../components/Button';
 import { Skeleton } from '../components/Skeleton';
 import { supabaseClient } from '@/lib/supabase-client';
 import type { CampaignSuggestion } from '@/lib/openai';
-
-const LOADING_MESSAGES = [
-  'Initializing campaign parameters...',
-  'Analyzing market opportunities...',
-  'Scanning creator networks...',
-  'Compiling content database...',
-  'Finalizing campaign structure...',
-];
+import { useCampaignGenerator } from '../hooks/useCampaignGenerator';
 
 export default function CampaignPage() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [searchInput, setSearchInput] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
-  const [error, setError] = useState<string | null>(null);
   const [deletingCampaignId, setDeletingCampaignId] = useState<string | null>(null);
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [campaignsLoading, setCampaignsLoading] = useState(true);
+  const { isGenerating, loadingMessage, error, setError, generateCampaign } = useCampaignGenerator();
 
   // Fetch campaigns
   React.useEffect(() => {
@@ -67,100 +58,10 @@ export default function CampaignPage() {
     }
   }, [user, authLoading, router]);
 
-  // Cycle through loading messages
-  useEffect(() => {
-    if (!isGenerating) {
-      setLoadingMessageIndex(0);
-      return;
-    }
-
-    const interval = setInterval(() => {
-      setLoadingMessageIndex((prev) => {
-        if (prev < LOADING_MESSAGES.length - 1) {
-          return prev + 1;
-        }
-        return prev; // Stay on last message
-      });
-    }, 1000); // Change message every second
-
-    return () => clearInterval(interval);
-  }, [isGenerating]);
-
   // Show loading or nothing while checking auth
   if (authLoading || !user) {
     return null;
   }
-
-  const handleGenerate = async (query: string) => {
-    if (!query.trim()) {
-      return;
-    }
-
-    setIsGenerating(true);
-    setError(null);
-    setLoadingMessageIndex(0);
-
-    try {
-      // Get session token from Supabase client
-      const { data: { session } } = await supabaseClient.auth.getSession();
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      
-      // Add authorization header if we have a session
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-      }
-
-      // Step 1: Generate AI suggestion
-      const generateResponse = await fetch('/api/campaigns/generate', {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify({ input_text: query }),
-      });
-
-      if (!generateResponse.ok) {
-        const errorData = await generateResponse.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to generate campaign');
-      }
-
-      const generateResult = await generateResponse.json();
-      const suggestion = generateResult.suggestions?.[0];
-
-      if (!suggestion) {
-        throw new Error('No suggestion generated');
-      }
-
-      // Step 2: Create campaign
-      const createResponse = await fetch('/api/campaigns', {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify({
-          input_text: query,
-          ai_payload: suggestion,
-        }),
-      });
-
-      if (!createResponse.ok) {
-        const errorData = await createResponse.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to create campaign');
-      }
-
-      const campaign = await createResponse.json();
-      
-      // Step 3: Wait a bit for backfill to start, then redirect
-      // Give it a moment for the backfill to begin processing
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Redirect to campaign results page
-      router.push(`/campaigns/${campaign.id}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      setIsGenerating(false);
-    }
-  };
 
   const handleDelete = async (campaignId: string, campaignName: string) => {
     if (!confirm(`Are you sure you want to delete "${campaignName}"? This action cannot be undone.`)) {
@@ -259,7 +160,7 @@ export default function CampaignPage() {
                   }}></div>
                 </div>
                 <p className="text-lg font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                  {LOADING_MESSAGES[loadingMessageIndex]}
+                  {loadingMessage}
                 </p>
               </div>
             </div>
@@ -272,7 +173,7 @@ export default function CampaignPage() {
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (searchInput.trim() && !isGenerating) {
-                    handleGenerate(searchInput);
+                    generateCampaign(searchInput);
                   }
                 }}
               >

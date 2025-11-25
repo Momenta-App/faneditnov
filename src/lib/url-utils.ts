@@ -14,16 +14,37 @@ export type Platform = 'tiktok' | 'instagram' | 'youtube' | 'unknown';
  * @returns The detected platform or 'unknown'
  */
 export function detectPlatform(url: string): Platform {
-  if (/tiktok\.com/.test(url) || /vm\.tiktok\.com/.test(url)) {
+  if (!url) return 'unknown';
+
+  const normalized = url.toLowerCase();
+
+  if (
+    normalized.includes('tiktok.com') ||
+    normalized.includes('vm.tiktok.com') ||
+    normalized.includes('tiktokcdn.com') ||
+    normalized.includes('ttwstatic.com') ||
+    /tiktok\.com\/t\/[a-z0-9]+/i.test(url)
+  ) {
     return 'tiktok';
   }
-  if (/instagram\.com\/(p|reel)\//.test(url)) {
+
+  if (
+    normalized.includes('instagram.com') ||
+    normalized.includes('instagr.am') ||
+    normalized.includes('cdninstagram.com')
+  ) {
     return 'instagram';
   }
-  // Only detect YouTube if it's a Shorts URL (not regular videos)
-  if (/youtube\.com\/shorts\//.test(url) || /youtu\.be\//.test(url)) {
+
+  if (
+    normalized.includes('youtube.com') ||
+    normalized.includes('youtu.be') ||
+    normalized.includes('googlevideo.com') ||
+    normalized.includes('ytimg.com')
+  ) {
     return 'youtube';
   }
+
   return 'unknown';
 }
 

@@ -9,6 +9,7 @@ import { Tabs, TabList, Tab, TabPanels, TabPanel } from '../components/Tabs';
 import { BulkUploadPanel } from '../components/BulkUploadPanel';
 import { standardizeUrl, detectPlatform } from '@/lib/url-utils';
 import { supabaseClient } from '@/lib/supabase-client';
+import { CampaignTabs } from '../components/CampaignTabs';
 
 export default function UploadPage() {
   const router = useRouter();
@@ -122,6 +123,11 @@ export default function UploadPage() {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Campaign / Upload tabs */}
+      <div className="container-base max-w-[1100px] mx-auto mt-6 flex justify-center">
+        <CampaignTabs active="upload" />
       </div>
 
       {/* Main Content */}

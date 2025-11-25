@@ -8,6 +8,7 @@ import { Skeleton } from '../components/Skeleton';
 import { supabaseClient } from '@/lib/supabase-client';
 import type { CampaignSuggestion } from '@/lib/openai';
 import { useCampaignGenerator } from '../hooks/useCampaignGenerator';
+import { CampaignTabs } from '../components/CampaignTabs';
 
 export default function CampaignPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -147,6 +148,11 @@ export default function CampaignPage() {
             </p>
           </div>
 
+          {/* Campaign / Upload tabs */}
+          <div className="flex justify-center mb-8">
+            <CampaignTabs active="campaign" />
+          </div>
+
           {/* Loading State */}
           {isGenerating && (
             <div className="mb-8">
@@ -266,7 +272,7 @@ export default function CampaignPage() {
                           <button
                             onClick={() => handleDelete(campaign.id, displayName)}
                             disabled={deletingCampaignId === campaign.id}
-                            className="p-2 rounded-lg transition-all duration-200 hover:bg-[var(--color-danger)]/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="p-2 rounded-lg transition-all duration-200 hover:bg-(--color-danger)/10 disabled:opacity-50 disabled:cursor-not-allowed"
                             style={{
                               color: 'var(--color-danger)',
                             }}

@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Video } from '../types/data';
 import { useModal } from '../contexts/ModalContext';
 import { CreatorLink } from './CreatorLink';
 import { ImpactBadge } from './ImpactBadge';
+import { detectPlatform } from '../../lib/url-utils';
+import type { Platform } from '../../lib/url-utils';
 
 interface VideoCardProps {
   video: Video;
@@ -18,6 +20,62 @@ interface VideoCardProps {
 export function VideoCard({ video, rank, homepageVariant = false, ranked = false, hideLikes = false }: VideoCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const { openModal } = useModal();
+
+  const platformMeta: Record<Platform, { label: string; bg: string; color: string; icon: JSX.Element }> = {
+    tiktok: {
+      label: 'TikTok',
+      bg: 'rgba(0,0,0,0.75)',
+      color: '#fff',
+      icon: (
+        <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor" aria-hidden="true">
+          <path d="M16 4.5c1 .9 2.2 1.5 3.5 1.5v3.4c-1.3.1-2.7-.3-3.9-1V16a5.5 5.5 0 11-5.5-5.5c.3 0 .6 0 .9.1v3.3a2.1 2.1 0 00-1-.2 2.2 2.2 0 102.2 2.2V4.5h3.2Z" />
+        </svg>
+      ),
+    },
+    instagram: {
+      label: 'Instagram',
+      bg: 'rgba(255,255,255,0.9)',
+      color: '#000',
+      icon: (
+        <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+          <rect x="4" y="4" width="16" height="16" rx="4" />
+          <circle cx="12" cy="12" r="3.5" />
+          <circle cx="17" cy="7" r="1" fill="currentColor" stroke="none" />
+        </svg>
+      ),
+    },
+    youtube: {
+      label: 'YouTube',
+      bg: 'rgba(255,0,0,0.85)',
+      color: '#fff',
+      icon: (
+        <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor" aria-hidden="true">
+          <path d="M21.5 7.5a2.7 2.7 0 00-1.9-1.9C17.3 5 12 5 12 5s-5.3 0-7.6.6A2.7 2.7 0 002.5 7.4 28.8 28.8 0 002 12a28.8 28.8 0 00.5 4.6 2.7 2.7 0 001.9 1.9C6.7 19 12 19 12 19s5.3 0 7.6-.6a2.7 2.7 0 001.9-1.9 28.8 28.8 0 00.5-4.6 28.8 28.8 0 00-.5-4.4zM10 15.2V8.8l5 3.2-5 3.2z" />
+        </svg>
+      ),
+    },
+    unknown: {
+      label: 'Unknown',
+      bg: 'rgba(0,0,0,0.65)',
+      color: '#fff',
+      icon: (
+        <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <path d="M9 9a3 3 0 116 0c0 2-3 2-3 4" />
+          <circle cx="12" cy="17" r="1" />
+        </svg>
+      ),
+    },
+  };
+
+  const videoPlatform: Platform = useMemo(() => {
+    if (video.platform && video.platform !== 'unknown') {
+      return video.platform;
+    }
+    if (video.videoUrl) {
+      return detectPlatform(video.videoUrl);
+    }
+    return 'unknown';
+  }, [video.platform, video.videoUrl]);
 
   const formatNumber = (num: number) => {
     if (num >= 1000000000000) return `${(num / 1000000000000).toFixed(1)}T`;
@@ -80,6 +138,20 @@ export function VideoCard({ video, rank, homepageVariant = false, ranked = false
               }
             }}
           />
+          {videoPlatform !== 'unknown' && (
+            <div
+              className="absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1 shadow-lg border backdrop-blur-sm"
+              style={{
+                background: platformMeta[videoPlatform].bg,
+                color: platformMeta[videoPlatform].color,
+                borderColor: platformMeta[videoPlatform].color,
+              }}
+              aria-label={`Platform: ${platformMeta[videoPlatform].label}`}
+            >
+              {platformMeta[videoPlatform].icon}
+              <span>{platformMeta[videoPlatform].label}</span>
+            </div>
+          )}
           {/* Rank overlay (top-left) */}
           {rank && (
             <div 

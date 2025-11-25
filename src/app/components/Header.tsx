@@ -17,7 +17,10 @@ export function Header() {
     return pathname === href || (href !== '/' && pathname.startsWith(href));
   };
 
-  const campaignNav = [{ name: 'Campaign', href: '/campaign' }];
+  const navItems = [
+    { name: 'Campaign', href: '/campaign' },
+    { name: 'Upload', href: '/upload' },
+  ];
 
   return (
     <header 
@@ -38,7 +41,7 @@ export function Header() {
           {/* Desktop Navigation + Controls */}
           <div className="hidden lg:flex lg:items-center lg:gap-3 grow justify-end">
             <div className="flex items-center gap-3">
-              {campaignNav.map((item) => (
+              {navItems.map((item) => (
                 <Link
                   key={item.name}
                   href={item.href}
@@ -142,7 +145,7 @@ export function Header() {
         {mobileMenuOpen && (
           <div className="lg:hidden pb-4 border-t border-[var(--color-border)] mt-2">
             <div className="flex flex-col space-y-2 pt-2">
-              {campaignNav.map((item) => (
+              {navItems.map((item) => (
                 <Link
                   key={item.name}
                   href={item.href}

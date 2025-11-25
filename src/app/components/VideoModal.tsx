@@ -40,6 +40,12 @@ function extractYouTubeVideoId(url: string): string | null {
     if (embedMatch && embedMatch[1]) {
       return embedMatch[1];
     }
+
+    // Handle live URLs: youtube.com/live/{videoId}
+    const liveMatch = url.match(/youtube\.com\/live\/([A-Za-z0-9_-]+)/);
+    if (liveMatch && liveMatch[1]) {
+      return liveMatch[1];
+    }
     
     // Try to extract from URL parameters
     try {
@@ -59,6 +65,65 @@ function extractYouTubeVideoId(url: string): string | null {
   }
 }
 
+function extractTikTokPostId(video: Video): string | null {
+  const numeric = (value: string | undefined) =>
+    value && /^\d+$/.test(value.trim()) ? value.trim() : null;
+
+  const fromPostId = numeric(video.postId);
+  if (fromPostId) {
+    return fromPostId;
+  }
+
+  if (!video.videoUrl) return null;
+
+  const explicitMatch = video.videoUrl.match(/tiktok\.com\/@[^\/]+\/video\/(\d+)/i);
+  if (explicitMatch && explicitMatch[1]) {
+    return explicitMatch[1];
+  }
+
+  const genericMatch = video.videoUrl.match(/video\/(\d+)/i);
+  if (genericMatch && genericMatch[1]) {
+    return genericMatch[1];
+  }
+
+  return null;
+}
+
+function extractInstagramEmbedData(video: Video): { shortcode: string | null; isReel: boolean } {
+  let isReel = video.videoUrl ? /\/reel[s]?\//i.test(video.videoUrl) : false;
+  let shortcode: string | null = null;
+
+  if (video.videoUrl) {
+    const match = video.videoUrl.match(/instagram\.com\/(reel|reels|p)\/([A-Za-z0-9_-]+)/i);
+    if (match && match[2]) {
+      shortcode = match[2];
+      isReel = match[1] !== 'p';
+    }
+  }
+
+  if (!shortcode) {
+    const sanitizedPostId = video.postId?.trim();
+    if (sanitizedPostId && !/^\d+$/.test(sanitizedPostId)) {
+      shortcode = sanitizedPostId;
+    }
+  }
+
+  return { shortcode, isReel };
+}
+
+function resolvePlatform(video: Video): Platform {
+  if (video.platform && video.platform !== 'unknown') {
+    return video.platform;
+  }
+  if (video.videoUrl) {
+    const detected = detectPlatform(video.videoUrl);
+    if (detected !== 'unknown') {
+      return detected;
+    }
+  }
+  return 'unknown';
+}
+
 export function VideoModal({ video, onClose }: VideoModalProps) {
   const [iframeUrl, setIframeUrl] = useState<string | null>(null);
   const [platform, setPlatform] = useState<Platform>('unknown');
@@ -74,23 +139,13 @@ export function VideoModal({ video, onClose }: VideoModalProps) {
       return;
     }
 
-    // For YouTube, the videoUrl might be a googlevideo.com CDN URL
-    // We need to use postId as the video ID, or detect platform from the stored platform field
-    // If platform is unknown but we have a postId, assume it's YouTube if videoUrl contains googlevideo
     const isGooglevideoUrl = video.videoUrl?.includes('googlevideo.com') || false;
-    
-    // Use platform from video object if available, otherwise detect from URL
-    let detectedPlatform = video.platform && video.platform !== 'unknown'
-      ? video.platform
-      : (video.videoUrl ? detectPlatform(video.videoUrl) : 'unknown');
-    
-    // Special handling: if we have googlevideo.com URL and platform is unknown, it's likely YouTube
-    // and the postId should be the YouTube video ID
+    let detectedPlatform = resolvePlatform(video);
+
     if (detectedPlatform === 'unknown' && isGooglevideoUrl && video.postId) {
-      console.log('Detected googlevideo.com URL, assuming YouTube. Using postId as video ID:', video.postId);
       detectedPlatform = 'youtube';
     }
-    
+
     setPlatform(detectedPlatform);
     setIsLoading(true);
     setHasError(false);
@@ -98,45 +153,13 @@ export function VideoModal({ video, onClose }: VideoModalProps) {
     let embedUrl: string | null = null;
 
     if (detectedPlatform === 'tiktok') {
-      // TikTok embed: https://www.tiktok.com/embed/v2/{postId}
-      if (video.postId) {
-        embedUrl = `https://www.tiktok.com/embed/v2/${video.postId}`;
+      const tikTokId = extractTikTokPostId(video);
+      if (tikTokId) {
+        embedUrl = `https://www.tiktok.com/embed/v2/${tikTokId}`;
       }
     } else if (detectedPlatform === 'instagram') {
-      // Instagram embed: supports both posts (/p/) and reels (/reel/)
-      // Instagram embeds require the shortcode (alphanumeric), not the numeric post_id
-      // Extract shortcode from URL if postId is numeric
-      let instagramShortcode: string | null = null;
-      let isReel = false;
-      
-      if (video.videoUrl) {
-        // Check if videoUrl is a CDN URL (scontent-*.cdninstagram.com)
-        const isCdnUrl = video.videoUrl.includes('cdninstagram.com');
-        
-        if (isCdnUrl) {
-          // If it's a CDN URL, we can't extract shortcode from it
-          // Use postId if it's already a shortcode, otherwise we need the post URL
-          console.warn('Instagram: videoUrl is a CDN URL, cannot extract shortcode. postId:', video.postId);
-        } else {
-          // Try to extract shortcode from post URL: /p/{shortcode} or /reel/{shortcode}
-          const urlMatch = video.videoUrl.match(/instagram\.com\/(p|reel)\/([A-Za-z0-9_-]+)/);
-          if (urlMatch && urlMatch[2]) {
-            instagramShortcode = urlMatch[2];
-            isReel = urlMatch[1] === 'reel';
-          }
-        }
-      }
-      
-      // Use shortcode from URL if available, otherwise check if postId is already a shortcode
-      // If postId is numeric (all digits), it's not a valid shortcode for embeds
-      const isNumericPostId = video.postId && /^\d+$/.test(video.postId);
-      const shortcode = instagramShortcode || (isNumericPostId ? null : video.postId);
-      
+      const { shortcode, isReel } = extractInstagramEmbedData(video);
       if (shortcode) {
-        // Determine if it's a reel or post
-        if (!isReel && video.videoUrl) {
-          isReel = video.videoUrl.includes('/reel/');
-        }
         const embedType = isReel ? 'reel' : 'p';
         embedUrl = `https://www.instagram.com/${embedType}/${shortcode}/embed`;
       } else {
@@ -145,26 +168,20 @@ export function VideoModal({ video, onClose }: VideoModalProps) {
         setIsLoading(false);
       }
     } else if (detectedPlatform === 'youtube') {
-      // YouTube embed: https://www.youtube.com/embed/{videoId}
-      // Try to extract from videoUrl first, but if it's a googlevideo.com URL, use postId
       let videoId: string | null = null;
-      
+
       if (isGooglevideoUrl) {
-        // If it's a googlevideo.com URL, the postId should be the YouTube video ID
-        videoId = video.postId || null;
-        console.log('YouTube: Using postId as video ID (googlevideo.com detected):', videoId);
-      } else {
-        // Try to extract from the URL
-        videoId = video.videoUrl ? extractYouTubeVideoId(video.videoUrl) : null;
+        videoId = video.postId?.trim() || null;
       }
-      
-      console.log('YouTube video detection:', { 
-        videoUrl: video.videoUrl, 
-        videoId, 
-        postId: video.postId,
-        isGooglevideoUrl 
-      });
-      
+
+      if (!videoId && video.videoUrl) {
+        videoId = extractYouTubeVideoId(video.videoUrl);
+      }
+
+      if (!videoId && video.postId) {
+        videoId = video.postId;
+      }
+
       if (videoId) {
         embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`;
       } else {
@@ -175,7 +192,6 @@ export function VideoModal({ video, onClose }: VideoModalProps) {
     }
 
     if (embedUrl) {
-      console.log('Setting embed URL:', embedUrl);
       setIframeUrl(embedUrl);
     } else {
       console.error('Failed to generate embed URL for platform:', detectedPlatform, video);

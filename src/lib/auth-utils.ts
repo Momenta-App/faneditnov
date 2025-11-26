@@ -33,14 +33,21 @@ export async function getSessionUser(
     }
 
     // Fetch profile from database using admin client to bypass RLS
+    // Explicitly select all fields including role to ensure role is always included
     const { data: profile, error } = await supabaseAdmin
       .from('profiles')
-      .select('*')
+      .select('id, email, display_name, avatar_url, role, email_verified, created_at, updated_at')
       .eq('id', userId)
       .single();
 
     if (error) {
-      console.error('[getSessionUser] Error fetching profile:', error);
+      console.error('[getSessionUser] Error fetching profile:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        userId,
+      });
       return null;
     }
 
@@ -49,7 +56,22 @@ export async function getSessionUser(
       return null;
     }
 
-    console.log('[getSessionUser] Profile found - Role:', profile.role, 'Email:', profile.email);
+    // Validate that role field exists and is valid
+    if (!profile.role) {
+      console.error('[getSessionUser] Profile missing role field!', {
+        userId,
+        profileKeys: Object.keys(profile),
+        profile,
+      });
+    }
+
+    console.log('[getSessionUser] Profile found:', {
+      userId: profile.id,
+      email: profile.email,
+      role: profile.role,
+      roleType: typeof profile.role,
+      displayName: profile.display_name,
+    });
 
     return profile as SessionUser;
   } catch (error) {
@@ -79,16 +101,38 @@ export async function requireRole(
   ...roles: UserRole[]
 ): Promise<SessionUser> {
   const user = await requireAuth(request);
-  console.log('[requireRole] User role:', user.role, 'Required roles:', roles);
+  
+  console.log('[requireRole] Checking role access:', {
+    userId: user.id,
+    userEmail: user.email,
+    userRole: user.role,
+    userRoleType: typeof user.role,
+    requiredRoles: roles,
+    roleMatch: roles.includes(user.role),
+  });
+  
   if (!roles.includes(user.role)) {
-    console.log('[requireRole] Access denied - user role does not match required roles');
+    console.error('[requireRole] Access denied:', {
+      userId: user.id,
+      userEmail: user.email,
+      userRole: user.role,
+      requiredRoles: roles,
+      path: request.nextUrl.pathname,
+    });
     throw new AuthError(
       `Forbidden: Requires one of roles: ${roles.join(', ')}. Current role: ${user.role}`,
       'FORBIDDEN',
       403
     );
   }
-  console.log('[requireRole] Access granted');
+  
+  console.log('[requireRole] Access granted:', {
+    userId: user.id,
+    userEmail: user.email,
+    userRole: user.role,
+    path: request.nextUrl.pathname,
+  });
+  
   return user;
 }
 

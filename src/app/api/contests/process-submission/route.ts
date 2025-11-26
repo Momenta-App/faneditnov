@@ -168,14 +168,56 @@ async function triggerBrightDataCollection(
     return crypto.randomUUID();
   }
 
-  // Get webhook URL
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  const webhookUrl = `${appUrl}/api/brightdata/contest-webhook`;
+  // Get webhook URL - use NEXT_PUBLIC_APP_URL (e.g., https://faneditnov.vercel.app)
+  // This should be set in environment variables and can change per deployment
+  let appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
-  // Trigger BrightData collection
-  const triggerUrl = `https://api.brightdata.com/datasets/v3/trigger?dataset_id=${datasetId}&format=json&uncompressed_webhook=true&webhook_url=${encodeURIComponent(webhookUrl)}&include_errors=true`;
+  if (!appUrl) {
+    // Fallback to VERCEL_URL if available (for Vercel deployments)
+    if (process.env.VERCEL_URL) {
+      appUrl = `https://${process.env.VERCEL_URL}`;
+    } else {
+      // Default to localhost for local development
+      appUrl = 'http://localhost:3000';
+    }
+  }
 
-  const requestBody = [{ url, country: '' }];
+  // Ensure URL has protocol
+  if (appUrl && !appUrl.startsWith('http://') && !appUrl.startsWith('https://')) {
+    appUrl = `https://${appUrl}`;
+  }
+
+  // Legacy domain redirects (can be removed if not needed)
+  if (appUrl === 'https://sportsclips.io' || appUrl === 'https://sportsclips.io/') {
+    appUrl = 'https://www.sportsclips.io';
+  }
+
+  if (
+    appUrl === 'https://fanedit.com' ||
+    appUrl === 'https://fanedit.com/' ||
+    appUrl === 'https://www.fanedit.com' ||
+    appUrl === 'https://www.fanedit.com/'
+  ) {
+    appUrl = 'https://www.sportsclips.io';
+  }
+
+  // Remove trailing slashes
+  appUrl = appUrl.replace(/\/+$/, '');
+
+  const webhookUrl = encodeURIComponent(`${appUrl}/api/brightdata/contest-webhook`);
+
+  // Trigger BrightData collection - use endpoint and notify parameters like the upload flow
+  const triggerUrl = `https://api.brightdata.com/datasets/v3/trigger?dataset_id=${datasetId}&endpoint=${webhookUrl}&notify=${webhookUrl}&format=json&uncompressed_webhook=true&include_errors=true`;
+
+  console.log('[Process Submission] BrightData trigger details:', {
+    platform,
+    datasetId,
+    webhookUrl: `${appUrl}/api/brightdata/contest-webhook`,
+    triggerUrl: triggerUrl.substring(0, 200) + '...',
+  });
+
+  // Use same payload format as upload flow - just { url }, no country field
+  const requestBody = [{ url }];
 
   try {
     const response = await fetch(triggerUrl, {
@@ -194,14 +236,21 @@ async function triggerBrightDataCollection(
     }
 
     const triggerData = await response.json();
+    console.log('[Process Submission] BrightData trigger response:', JSON.stringify(triggerData, null, 2));
 
     // Extract snapshot ID
     let snapshotId: string | undefined;
     if (Array.isArray(triggerData) && triggerData.length > 0) {
       const firstItem = triggerData[0];
       snapshotId = firstItem?.snapshot_id || firstItem?.id || firstItem?.collection_id;
+      console.log('[Process Submission] Extracted snapshot_id from array:', snapshotId);
     } else if (triggerData && typeof triggerData === 'object') {
       snapshotId = triggerData.snapshot_id || triggerData.id || triggerData.collection_id;
+      console.log('[Process Submission] Extracted snapshot_id from object:', snapshotId);
+    }
+
+    if (!snapshotId) {
+      console.warn('[Process Submission] No snapshot_id found in response, generating UUID');
     }
 
     return snapshotId || crypto.randomUUID();

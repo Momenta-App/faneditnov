@@ -80,9 +80,21 @@ export default function AdminReviewPage() {
   const fetchSubmissions = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await authFetch('/api/admin/review/submissions');
       if (!response.ok) {
-        throw new Error('Failed to fetch submissions');
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 403) {
+          setError('Access denied. Admin role required.');
+          router.push('/');
+          return;
+        }
+        if (response.status === 401) {
+          setError('Please sign in to continue.');
+          router.push('/auth/login');
+          return;
+        }
+        throw new Error(errorData.error || 'Failed to fetch submissions');
       }
       const data = await response.json();
       setSubmissions(data.data || []);
@@ -96,6 +108,9 @@ export default function AdminReviewPage() {
       }
     } catch (err) {
       console.error('Error fetching submissions:', err);
+      if (err instanceof Error && !err.message.includes('Access denied') && !err.message.includes('sign in')) {
+        setError(err.message || 'Failed to load submissions');
+      }
     } finally {
       setLoading(false);
     }

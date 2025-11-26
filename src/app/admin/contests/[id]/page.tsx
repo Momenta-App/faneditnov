@@ -106,14 +106,29 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
 
   const fetchContest = async () => {
     try {
+      setError(null);
       const response = await authFetch(`/api/admin/contests/${contestId}`);
       if (!response.ok) {
-        throw new Error('Failed to fetch contest');
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 403) {
+          setError('Access denied. Admin role required.');
+          router.push('/');
+          return;
+        }
+        if (response.status === 401) {
+          setError('Please sign in to continue.');
+          router.push('/auth/login');
+          return;
+        }
+        throw new Error(errorData.error || 'Failed to fetch contest');
       }
       const data = await response.json();
       setContest(data.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load contest');
+      console.error('Error fetching contest:', err);
+      if (err instanceof Error && !err.message.includes('Access denied') && !err.message.includes('sign in')) {
+        setError(err.message || 'Failed to load contest');
+      }
     }
   };
   const handleDeleteContest = async () => {
@@ -166,6 +181,16 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        if (response.status === 403) {
+          setError('Access denied. Admin role required.');
+          router.push('/');
+          return;
+        }
+        if (response.status === 401) {
+          setError('Please sign in to continue.');
+          router.push('/auth/login');
+          return;
+        }
         const errorMessage = errorData.error || errorData.details || `HTTP ${response.status}: ${response.statusText}`;
         console.error('[Admin Contest Page] Failed to fetch submissions:', {
           status: response.status,
@@ -190,7 +215,9 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
         contestId,
         err,
       });
-      setSubmissionsError(errorMessage);
+      if (err instanceof Error && !err.message.includes('Access denied') && !err.message.includes('sign in')) {
+        setSubmissionsError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }

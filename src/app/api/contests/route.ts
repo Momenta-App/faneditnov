@@ -85,12 +85,12 @@ export async function GET(request: NextRequest) {
     // Get submission counts and total prize pool for each contest
     const contestsWithStats = await Promise.all(
       (contests || []).map(async (contest) => {
+        // Count all submissions that have been content-approved (regardless of processing status)
         const { count: totalSubmissions } = await supabaseAdmin
           .from('contest_submissions')
           .select('*', { count: 'exact', head: true })
           .eq('contest_id', contest.id)
-          .eq('content_review_status', 'approved')
-          .eq('processing_status', 'approved');
+          .eq('content_review_status', 'approved');
 
         // Calculate total prize pool
         const { data: totalPool } = await supabaseAdmin.rpc('get_contest_total_prize_pool', {

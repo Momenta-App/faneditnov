@@ -75,12 +75,27 @@ export default function ContestReviewPage() {
   const fetchContest = async () => {
     try {
       const response = await authFetch(`/api/admin/contests/${contestId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setContest({ id: data.data.id, title: data.data.title });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 403) {
+          setError('Access denied. Admin role required.');
+          router.push('/');
+          return;
+        }
+        if (response.status === 401) {
+          setError('Please sign in to continue.');
+          router.push('/auth/login');
+          return;
+        }
+        throw new Error(errorData.error || 'Failed to fetch contest');
       }
+      const data = await response.json();
+      setContest({ id: data.data.id, title: data.data.title });
     } catch (err) {
       console.error('Error fetching contest:', err);
+      if (err instanceof Error && !err.message.includes('Access denied') && !err.message.includes('sign in')) {
+        setError(err.message || 'Failed to load contest');
+      }
     }
   };
 
@@ -91,13 +106,25 @@ export default function ContestReviewPage() {
       const response = await authFetch(`/api/admin/contests/${contestId}/review/submissions`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        if (response.status === 403) {
+          setError('Access denied. Admin role required.');
+          router.push('/');
+          return;
+        }
+        if (response.status === 401) {
+          setError('Please sign in to continue.');
+          router.push('/auth/login');
+          return;
+        }
         throw new Error(errorData.error || 'Failed to fetch submissions');
       }
       const data = await response.json();
       setSubmissions(data.data || []);
     } catch (err) {
       console.error('Error fetching submissions:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load submissions');
+      if (err instanceof Error && !err.message.includes('Access denied') && !err.message.includes('sign in')) {
+        setError(err.message || 'Failed to load submissions');
+      }
     } finally {
       setLoading(false);
     }
@@ -205,7 +232,7 @@ export default function ContestReviewPage() {
             <div className="lg:col-span-1">
               <Card>
                 <h2 className="text-lg font-bold text-[var(--color-text-primary)] mb-4">
-                  Pending Review ({submissions.length})
+                  All Submissions ({submissions.length})
                 </h2>
                 {loading ? (
                   <div className="space-y-2">
@@ -215,7 +242,7 @@ export default function ContestReviewPage() {
                   </div>
                 ) : submissions.length === 0 ? (
                   <p className="text-[var(--color-text-muted)] text-sm">
-                    No submissions pending review for this contest
+                    No submissions for this contest
                   </p>
                 ) : (
                   <div className="space-y-2">

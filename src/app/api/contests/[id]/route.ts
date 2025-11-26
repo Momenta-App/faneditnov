@@ -54,13 +54,12 @@ export async function GET(
       throw contestError;
     }
 
-    // Get approved submission count
+    // Get approved submission count (content-approved, regardless of processing status)
     const { count: approvedSubmissions } = await supabaseAdmin
       .from('contest_submissions')
       .select('*', { count: 'exact', head: true })
       .eq('contest_id', id)
-      .eq('content_review_status', 'approved')
-      .eq('processing_status', 'approved');
+      .eq('content_review_status', 'approved');
 
     // Check if there are multiple contests for the same movie
     let subContests = null;

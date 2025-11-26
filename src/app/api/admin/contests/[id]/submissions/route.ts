@@ -90,8 +90,35 @@ export async function GET(
     if (verificationStatus) {
       query = query.eq('verification_status', verificationStatus);
     }
+    // Handle category filtering - check both direct category_id and junction table
+    let submissionIdsForCategory: number[] | null = null;
     if (categoryId) {
-      query = query.eq('category_id', categoryId);
+      // Get submission IDs that are associated with this category either:
+      // 1. Directly via category_id column, OR
+      // 2. Via contest_submission_categories junction table
+      const { data: directSubmissions } = await supabaseAdmin
+        .from('contest_submissions')
+        .select('id')
+        .eq('contest_id', id)
+        .eq('category_id', categoryId);
+      
+      const { data: junctionSubmissions } = await supabaseAdmin
+        .from('contest_submission_categories')
+        .select('submission_id')
+        .eq('category_id', categoryId);
+      
+      const directIds = directSubmissions?.map(s => s.id) || [];
+      const junctionIds = junctionSubmissions?.map(s => s.submission_id) || [];
+      const allIds = [...new Set([...directIds, ...junctionIds])];
+      
+      if (allIds.length > 0) {
+        submissionIdsForCategory = allIds;
+        query = query.in('id', allIds);
+      } else {
+        // No submissions match this category, return empty result
+        submissionIdsForCategory = [];
+        query = query.eq('id', -1); // Impossible condition to return no results
+      }
     }
 
     // Apply sorting
@@ -176,8 +203,13 @@ export async function GET(
     if (verificationStatus) {
       countQuery = countQuery.eq('verification_status', verificationStatus);
     }
-    if (categoryId) {
-      countQuery = countQuery.eq('category_id', categoryId);
+    // Apply same category filter to count query
+    if (categoryId && submissionIdsForCategory !== null) {
+      if (submissionIdsForCategory.length > 0) {
+        countQuery = countQuery.in('id', submissionIdsForCategory);
+      } else {
+        countQuery = countQuery.eq('id', -1); // Impossible condition
+      }
     }
 
     const { count } = await countQuery;

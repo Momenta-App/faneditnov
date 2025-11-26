@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/admin/contests/[id]/review/submissions
- * Get submissions pending manual review for a specific contest
+ * Get all submissions for a specific contest
  */
 export async function GET(
   request: NextRequest,
@@ -23,8 +23,7 @@ export async function GET(
     const { id: contestId } = await params;
     console.log('[Contest Review API] Contest ID:', contestId);
 
-    // Get submissions that need review for this specific contest
-    // Filter by contest_id AND any of the review status conditions
+    // Get all submissions for this specific contest
     const { data: submissions, error } = await supabaseAdmin
       .from('contest_submissions')
       .select(`
@@ -42,7 +41,6 @@ export async function GET(
         )
       `)
       .eq('contest_id', contestId)
-      .or('hashtag_status.eq.pending_review,description_status.eq.pending_review,content_review_status.eq.pending,mp4_ownership_status.eq.contested')
       .order('created_at', { ascending: false });
 
     if (error) {

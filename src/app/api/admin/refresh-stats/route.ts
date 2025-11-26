@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { getServerUserId } from '@/lib/supabase-server';
+import { requireRole, handleAuthError, AuthError } from '@/lib/auth-utils';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -8,18 +8,12 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/admin/refresh-stats
  * Manually refresh homepage statistics
- * Requires authentication
+ * Requires admin role
  */
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
-    const userId = await getServerUserId();
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized', code: 'UNAUTHORIZED' },
-        { status: 401 }
-      );
-    }
+    // Check authentication and admin role
+    await requireRole(request, 'admin');
 
     // Refresh stats
     const { data, error } = await supabaseAdmin.rpc('update_homepage_stats');
@@ -39,6 +33,10 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
+    if (error instanceof AuthError) {
+      return handleAuthError(error);
+    }
+    
     console.error('Admin refresh stats error:', error);
     return NextResponse.json(
       {
@@ -53,17 +51,12 @@ export async function POST(request: NextRequest) {
 /**
  * GET /api/admin/refresh-stats
  * Get current stats and cache status
+ * Requires admin role
  */
 export async function GET(request: NextRequest) {
   try {
-    // Check authentication
-    const userId = await getServerUserId();
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized', code: 'UNAUTHORIZED' },
-        { status: 401 }
-      );
-    }
+    // Check authentication and admin role
+    await requireRole(request, 'admin');
 
     // Get current cache values
     const { data: cache, error } = await supabaseAdmin
@@ -115,6 +108,10 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
+    if (error instanceof AuthError) {
+      return handleAuthError(error);
+    }
+    
     console.error('Admin get stats error:', error);
     return NextResponse.json(
       {

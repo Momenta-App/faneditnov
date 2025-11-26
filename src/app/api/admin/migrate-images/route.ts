@@ -1,31 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { downloadAndStoreImage, isSupabaseUrl } from '@/lib/image-storage';
-import { getSupabaseServer } from '@/lib/supabase-server';
+import { requireRole, handleAuthError, AuthError } from '@/lib/auth-utils';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5 minutes for Vercel Pro
 
 export async function POST(request: NextRequest) {
   try {
-    // Authentication check
-    const supabase = await getSupabaseServer();
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (profile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Admin only' }, { status: 403 });
-    }
+    // Check authentication and admin role
+    await requireRole(request, 'admin');
 
     const { type, limit = 100, offset = 0 } = await request.json();
 
@@ -172,6 +156,10 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
+    if (error instanceof AuthError) {
+      return handleAuthError(error);
+    }
+    
     console.error('Migration error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error' },

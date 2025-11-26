@@ -40,12 +40,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Try to query with asset links, fall back to basic query if table doesn't exist
+    // Try to query with slug, fall back to basic query if column doesn't exist
     let query = supabaseAdmin
       .from('contests')
       .select(`
         *,
-        slug,
         contest_categories (
           id,
           name,

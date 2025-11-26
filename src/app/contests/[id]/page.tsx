@@ -4,10 +4,15 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import Link from 'next/link';
+import Image from 'next/image';
+import { motion } from 'framer-motion';
 import { Card } from '../../components/Card';
 import { Page, PageSection } from '../../components/layout';
 import { Button } from '../../components/Button';
 import { ContestVideoPlayer } from '../../components/ContestVideoPlayer';
+import { ContestSubmissionCard } from '../../components/ContestSubmissionCard';
+import { VideoCard } from '../../components/VideoCard';
+import { Video } from '../../types/data';
 import { getContestVideoUrl } from '@/lib/storage-utils';
 import { isAdmin as isAdminRole } from '@/lib/role-utils';
 
@@ -21,11 +26,19 @@ interface ContestCategory {
   ranking_method?: 'manual' | 'views' | 'likes' | 'comments' | 'shares' | 'impact_score';
 }
 
+interface ContestAssetLink {
+  id: string;
+  name: string;
+  url: string;
+  display_order: number;
+}
+
 interface Contest {
   id: string;
   title: string;
   description: string;
   movie_identifier?: string;
+  slug?: string;
   start_date: string;
   end_date: string;
   status: 'upcoming' | 'live' | 'closed';
@@ -33,7 +46,11 @@ interface Contest {
   required_description_template?: string;
   submission_count: number;
   total_prize_pool?: number;
-  sub_contests?: Array<{ id: string; title: string; status: string }>;
+  profile_image_url?: string;
+  cover_image_url?: string;
+  display_stats?: boolean;
+  contest_asset_links?: ContestAssetLink[];
+  sub_contests?: Array<{ id: string; title: string; status: string; slug?: string }>;
   contest_categories?: Array<{
     id: string;
     name: string;
@@ -138,6 +155,63 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
     }
   };
 
+  // Map contest submission to Video format for VideoCard
+  const mapSubmissionToVideo = (submission: any): Video => {
+    const creator = submission.profiles ? {
+      id: submission.profiles.id,
+      username: submission.profiles.display_name || submission.profiles.email || 'Unknown',
+      avatar: submission.profiles.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(submission.profiles.display_name || submission.profiles.email || 'U')}&background=120F23&color=fff`,
+      verified: submission.profiles.is_verified || false,
+    } : {
+      id: '',
+      username: 'Unknown',
+      avatar: 'https://ui-avatars.com/api/?name=U&background=120F23&color=fff',
+      verified: false,
+    };
+
+    // Generate thumbnail URL based on platform and video URL
+    let thumbnail = '';
+    const videoUrl = submission.original_video_url || '';
+    if (videoUrl) {
+      if (videoUrl.includes('tiktok.com')) {
+        // TikTok thumbnail - would need to be fetched or use a service
+        thumbnail = `https://www.tiktok.com/api/img/?itemId=${submission.video_id || ''}`;
+      } else if (videoUrl.includes('instagram.com')) {
+        // Instagram thumbnail
+        thumbnail = '';
+      } else if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
+        // YouTube thumbnail
+        const videoId = submission.video_id || videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/)?.[1] || '';
+        thumbnail = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
+      }
+    }
+
+    // Use default thumbnail if none found
+    if (!thumbnail) {
+      thumbnail = 'https://via.placeholder.com/400x600?text=Video';
+    }
+
+    return {
+      id: submission.id.toString(),
+      postId: submission.video_id || submission.id.toString(),
+      title: videoUrl || 'Contest Submission',
+      description: '',
+      thumbnail,
+      videoUrl,
+      platform: (submission.platform as 'tiktok' | 'instagram' | 'youtube') || 'unknown',
+      creator,
+      views: submission.views_count || 0,
+      likes: submission.likes_count || 0,
+      comments: submission.comments_count || 0,
+      shares: submission.shares_count || 0,
+      saves: submission.saves_count || 0,
+      impact: Number(submission.impact_score) || 0,
+      duration: 0,
+      createdAt: submission.created_at || new Date().toISOString(),
+      hashtags: [],
+    };
+  };
+
   const fetchContest = async () => {
     try {
       setLoading(true);
@@ -200,27 +274,13 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
     });
   };
 
-  const handleSubmitClick = () => {
-    if (!user) {
-      router.push('/auth/login?redirect=' + encodeURIComponent(`/contests/${contestId}/submit`));
-      return;
-    }
-
-    const targetContestId = selectedSubContest || contestId;
-    router.push(`/contests/${targetContestId}/submit`);
-  };
-
   if (loading || !contest) {
     return (
-      <Page>
-        <PageSection variant="content">
-          <div className="max-w-4xl mx-auto">
-            <Card className="h-64 animate-pulse">
-              <div />
-            </Card>
-          </div>
-        </PageSection>
-      </Page>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--color-background)' }}>
+        <div className="text-center">
+          <div className="h-64 w-64 animate-pulse rounded-lg" style={{ background: 'var(--color-surface)' }} />
+        </div>
+      </div>
     );
   }
 
@@ -229,65 +289,437 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
   const requireSocialVerification = contest.require_social_verification ?? false;
   const requireMp4Upload = contest.require_mp4_upload ?? false;
   const submissionVisibility = contest.public_submissions_visibility || 'public_hide_metrics';
-  return (
-    <Page>
-      <PageSection variant="header">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-            <div className="flex items-center gap-4">
-              <Link href="/contests">
-                <Button variant="ghost" size="sm">
-                  ← Back to Contests
-                </Button>
-              </Link>
-            </div>
-            {isAdmin && (
-              <Link href="/admin/contests/create">
-                <Button variant="primary" size="sm">
-                  Create Contest
-                </Button>
-              </Link>
-            )}
-          </div>
-          <h1 className="text-4xl font-bold text-[var(--color-text-primary)] mb-2">
-            {contest.title}
-          </h1>
-          <p className="text-[var(--color-text-muted)]">{contest.description}</p>
-        </div>
-      </PageSection>
+  const displayStats = contest.display_stats ?? true;
+  const assetLinks = contest.contest_asset_links || [];
 
-      <PageSection variant="content">
-        <div className="max-w-4xl mx-auto space-y-6">
+  const handleSubmitClick = () => {
+    if (!user) {
+      const submitUrl = contest?.slug ? `/contests/${contest.slug}/submit` : `/contests/${contestId}/submit`;
+    router.push('/auth/login?redirect=' + encodeURIComponent(submitUrl));
+      return;
+    }
+
+    const targetContestId = selectedSubContest || contestId;
+    const targetContest = contest?.sub_contests?.find((sc: any) => sc.id === targetContestId);
+    const submitUrl = targetContest?.slug ? `/contests/${targetContest.slug}/submit` : `/contests/${targetContestId}/submit`;
+    router.push(submitUrl);
+  };
+
+  return (
+    <div className="min-h-screen" style={{ background: 'var(--color-background)' }}>
+      {/* Netflix-style Hero Section */}
+      <div className="relative overflow-hidden">
+        {/* Background Image with Gradient Overlay */}
+        {contest.cover_image_url && (
+          <div className="absolute inset-0 z-0">
+            <Image
+              src={contest.cover_image_url}
+              alt={contest.title}
+              fill
+              className="object-cover"
+              priority
+            />
+            <div 
+              className="absolute inset-0"
+              style={{
+                background: `
+                  linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 50%, rgba(0,0,0,0.3) 100%),
+                  linear-gradient(to bottom, transparent 0%, transparent 20%, rgba(0,0,0,0.2) 40%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0.8) 80%, var(--color-background) 95%, var(--color-background) 100%)
+                `
+              }}
+            />
+          </div>
+        )}
+        
+        {/* Hero Content - Netflix Style */}
+        <div className="relative z-10 container-page pt-20 pb-16 sm:pt-24 sm:pb-20 lg:pt-32 lg:pb-24">
+          <div className="flex flex-col lg:flex-row items-end gap-8 lg:gap-12">
+            {/* Movie Poster - Vertical Rectangle (2:3 aspect ratio) */}
+            {contest.profile_image_url && (
+              <motion.div
+                initial={{ opacity: 0, x: -50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                className="relative flex-shrink-0 w-32 sm:w-40 md:w-48 lg:w-56 xl:w-64"
+                style={{
+                  aspectRatio: '2/3', // Standard movie poster aspect ratio
+                }}
+              >
+                <div className="relative w-full h-full rounded-lg overflow-hidden shadow-2xl"
+                  style={{
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)'
+                  }}
+                >
+                  <Image
+                    src={contest.profile_image_url}
+                    alt={contest.title}
+                    fill
+                    className="object-cover"
+                    priority
+                    sizes="(max-width: 640px) 128px, (max-width: 768px) 160px, (max-width: 1024px) 192px, (max-width: 1280px) 224px, 256px"
+                  />
+                </div>
+              </motion.div>
+            )}
+            
+            {/* Text Content - Beside Poster */}
+            <div className="flex-1 flex flex-col justify-end pb-4 lg:pb-6">
+              {/* Contest Title */}
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold mb-4 sm:mb-6"
+                style={{ 
+                  color: '#ffffff',
+                  textShadow: '0 2px 20px rgba(0,0,0,0.8)'
+                }}
+              >
+                {contest.title}
+              </motion.h1>
+              
+              {/* Description */}
+              {contest.description && (
+                <motion.p
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.3 }}
+                  className="text-base sm:text-lg lg:text-xl max-w-2xl mb-6 leading-relaxed"
+                  style={{ 
+                    color: 'rgba(255,255,255,0.9)',
+                    textShadow: '0 1px 10px rgba(0,0,0,0.5)'
+                  }}
+                >
+                  {contest.description}
+                </motion.p>
+              )}
+
+              {/* Contest Dates and Status */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+                className="flex flex-wrap items-center gap-4 mb-6"
+              >
+                <span className="text-sm sm:text-base font-medium" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                  {formatDate(contest.start_date)} - {formatDate(contest.end_date)}
+                </span>
+                <span
+                  className={`px-3 py-1 rounded-full text-xs sm:text-sm font-medium border ${
+                    contest.status === 'live'
+                      ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                      : contest.status === 'upcoming'
+                      ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                      : 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+                  }`}
+                >
+                  {contest.status.toUpperCase()}
+                </span>
+              </motion.div>
+            </div>
+          </div>
+
+          {/* Action Buttons Row - Below Hero */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.5 }}
+            className="flex flex-wrap items-center gap-4 mt-8"
+          >
+            {/* Submit Video Button */}
+            {contest.status === 'live' && (
+              <div>
+                {user ? (
+                  <Button 
+                    variant="primary" 
+                    size="lg" 
+                    onClick={handleSubmitClick}
+                    className="px-6 py-3 text-base sm:text-lg font-bold"
+                  >
+                    🎬 Submit Your Edit
+                  </Button>
+                ) : (
+                  <Link href={`/auth/login?redirect=${encodeURIComponent(contest?.slug ? `/contests/${contest.slug}/submit` : `/contests/${contestId}/submit`)}`}>
+                    <Button 
+                      variant="primary" 
+                      size="lg"
+                      className="px-6 py-3 text-base sm:text-lg font-bold"
+                    >
+                      🔐 Login to Submit
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            )}
+
+            {/* Asset Links - In same row */}
+            {assetLinks.length > 0 && (
+              <div className="flex flex-wrap gap-3">
+                {assetLinks.map((link) => (
+                  <a
+                    key={link.id}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-3 rounded-lg font-medium transition-all hover:scale-105"
+                    style={{
+                      background: 'rgba(255,255,255,0.15)',
+                      backdropFilter: 'blur(10px)',
+                      color: '#ffffff',
+                      border: '1px solid rgba(255,255,255,0.2)'
+                    }}
+                  >
+                    📎 {link.name}
+                  </a>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Premium Stats Section - Only show if display_stats is true */}
+      {displayStats && (
+        <div className="relative -mt-16 z-20">
+          <div className="container-page">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0 }}
+                className="relative overflow-hidden rounded-2xl p-6 sm:p-8"
+                style={{
+                  background: 'linear-gradient(135deg, var(--color-surface) 0%, var(--color-background) 100%)',
+                  border: '1px solid var(--color-border)',
+                  boxShadow: 'var(--shadow-lg)'
+                }}
+              >
+                <div className="relative z-10">
+                  <p className="text-sm sm:text-base font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                    Submissions
+                  </p>
+                  <p className="text-3xl sm:text-4xl lg:text-5xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                    {contest.submission_count || 0}
+                  </p>
+                </div>
+              </motion.div>
+              
+              {contest.total_prize_pool && contest.total_prize_pool > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.1 }}
+                  className="relative overflow-hidden rounded-2xl p-6 sm:p-8"
+                  style={{
+                    background: 'linear-gradient(135deg, var(--color-surface) 0%, var(--color-background) 100%)',
+                    border: '1px solid var(--color-border)',
+                    boxShadow: 'var(--shadow-lg)'
+                  }}
+                >
+                  <div className="relative z-10">
+                    <p className="text-sm sm:text-base font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                      Prize Pool
+                    </p>
+                    <p className="text-3xl sm:text-4xl lg:text-5xl font-bold" style={{ color: 'var(--color-primary)' }}>
+                      ${contest.total_prize_pool.toFixed(0)}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="relative overflow-hidden rounded-2xl p-6 sm:p-8"
+                style={{
+                  background: 'linear-gradient(135deg, var(--color-surface) 0%, var(--color-background) 100%)',
+                  border: '1px solid var(--color-border)',
+                  boxShadow: 'var(--shadow-lg)'
+                }}
+              >
+                <div className="relative z-10">
+                  <p className="text-sm sm:text-base font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                    Status
+                  </p>
+                  <p className="text-3xl sm:text-4xl lg:text-5xl font-bold capitalize" style={{ color: 'var(--color-text-primary)' }}>
+                    {contest.status}
+                  </p>
+                </div>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.3 }}
+                className="relative overflow-hidden rounded-2xl p-6 sm:p-8"
+                style={{
+                  background: 'linear-gradient(135deg, var(--color-surface) 0%, var(--color-background) 100%)',
+                  border: '1px solid var(--color-border)',
+                  boxShadow: 'var(--shadow-lg)'
+                }}
+              >
+                <div className="relative z-10">
+                  <p className="text-sm sm:text-base font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                    Ends
+                  </p>
+                  <p className="text-lg sm:text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                    {formatDate(contest.end_date)}
+                  </p>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Premium Contest Details Section */}
+      <div className="container-page py-8 sm:py-12 lg:py-16">
+        <div className="max-w-6xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="relative overflow-hidden rounded-2xl p-6 sm:p-8 lg:p-10"
+            style={{
+              background: 'linear-gradient(135deg, var(--color-surface) 0%, var(--color-background) 100%)',
+              border: '1px solid var(--color-border)',
+              boxShadow: 'var(--shadow-lg)'
+            }}
+          >
+            <h2 className="text-2xl sm:text-3xl font-bold mb-6" style={{ color: 'var(--color-text-primary)' }}>
+              Contest Details
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              {/* Dates */}
+              <div>
+                <p className="text-sm font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                  Contest Dates
+                </p>
+                <p className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                  {formatDate(contest.start_date)} - {formatDate(contest.end_date)}
+                </p>
+              </div>
+
+              {/* Status */}
+              <div>
+                <p className="text-sm font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                  Status
+                </p>
+                <span
+                  className={`inline-block px-3 py-1 rounded-full text-sm font-medium border ${
+                    contest.status === 'live'
+                      ? 'bg-green-500/20 text-green-500 border-green-500/30'
+                      : contest.status === 'upcoming'
+                      ? 'bg-blue-500/20 text-blue-500 border-blue-500/30'
+                      : 'bg-gray-500/20 text-gray-500 border-gray-500/30'
+                  }`}
+                >
+                  {contest.status.toUpperCase()}
+                </span>
+              </div>
+
+              {/* Total Prize Pool */}
+              {contest.total_prize_pool !== undefined && contest.total_prize_pool > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                    Total Prize Pool
+                  </p>
+                  <p className="text-2xl font-bold" style={{ color: 'var(--color-primary)' }}>
+                    ${contest.total_prize_pool.toFixed(2)}
+                  </p>
+                </div>
+              )}
+
+              {/* Submission Count */}
+              {contest.submission_count > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                    Total Submissions
+                  </p>
+                  <p className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                    {contest.submission_count}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Required Hashtags */}
+            {contest.required_hashtags && contest.required_hashtags.length > 0 && (
+              <div className="mb-6">
+                <p className="text-sm font-medium mb-3" style={{ color: 'var(--color-text-muted)' }}>
+                  Required Hashtags
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {contest.required_hashtags.map((hashtag, index) => (
+                    <span
+                      key={index}
+                      className="px-4 py-2 bg-[var(--color-primary)]/10 text-[var(--color-primary)] rounded-full text-sm font-medium border border-[var(--color-primary)]/20"
+                    >
+                      {hashtag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Required Description Template */}
+            {contest.required_description_template && (
+              <div className="mb-6">
+                <p className="text-sm font-medium mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                  Description Requirements
+                </p>
+                <p className="text-base leading-relaxed" style={{ color: 'var(--color-text-primary)' }}>
+                  {contest.required_description_template}
+                </p>
+              </div>
+            )}
+
+            {/* Submission Rules */}
+            <div>
+              <p className="text-sm font-medium mb-3" style={{ color: 'var(--color-text-muted)' }}>
+                Submission Rules
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'var(--color-background)' }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>Multiple submissions</span>
+                  <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                    {allowMultipleSubmissions ? 'Yes' : 'No'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'var(--color-background)' }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>Single category</span>
+                  <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                    {forceSingleCategory ? 'Yes' : 'No'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'var(--color-background)' }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>Social verification</span>
+                  <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                    {requireSocialVerification ? 'Yes' : 'No'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'var(--color-background)' }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>MP4 upload required</span>
+                  <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                    {requireMp4Upload ? 'Yes' : 'No'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Content Section */}
+      <div className="container-page py-4 sm:py-6 lg:py-8">
+        <div className="max-w-6xl mx-auto space-y-8">
           {error && (
             <Card className="border-red-500/20 bg-red-500/5">
               <p className="text-red-500">{error}</p>
             </Card>
           )}
-
-          {/* Contest Info */}
-          <Card>
-            <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4">
-              Contest Details
-            </h2>
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm text-[var(--color-text-muted)] mb-1">Dates</p>
-                <p className="text-[var(--color-text-primary)]">
-                  {formatDate(contest.start_date)} - {formatDate(contest.end_date)}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-[var(--color-text-muted)] mb-1">Status</p>
-                <p className="text-[var(--color-text-primary)] capitalize">{contest.status}</p>
-              </div>
-              {contest.submission_count > 0 && (
-                <div>
-                  <p className="text-sm text-[var(--color-text-muted)] mb-1">Submissions</p>
-                  <p className="text-[var(--color-text-primary)]">{contest.submission_count}</p>
-                </div>
-              )}
-            </div>
-          </Card>
 
           {/* Sub-contests selector if multiple contests for same movie */}
           {contest.sub_contests && contest.sub_contests.length > 0 && (
@@ -321,93 +753,22 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
             </Card>
           )}
 
-          {/* Total Prize Pool */}
-          {contest.total_prize_pool !== undefined && contest.total_prize_pool > 0 && (
-            <Card>
-              <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-2">
-                Total Prize Pool
-              </h2>
-              <p className="text-3xl font-bold text-[var(--color-primary)]">
-                ${contest.total_prize_pool.toFixed(2)}
-              </p>
-              <p className="text-sm text-[var(--color-text-muted)] mt-2">
-                Total prize money across all categories
-              </p>
-            </Card>
-          )}
-
-          {/* Specific Categories with Prizes */}
-          {contest.contest_categories && contest.contest_categories.filter((cat: any) => !cat.is_general).length > 0 && (
-            <Card>
-              <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4">
-                Contest Categories & Prizes
-              </h2>
-              <p className="text-sm text-[var(--color-text-muted)] mb-4">
-                Select a category when submitting your edit
-              </p>
-              <div className="space-y-6">
-                {contest.contest_categories
-                  .filter((cat: any) => !cat.is_general)
-                  .sort((a: any, b: any) => a.display_order - b.display_order)
-                  .map((category: any) => (
-                    <div
-                      key={category.id}
-                      className="p-4 border border-[var(--color-border)] rounded-lg"
-                    >
-                      <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">
-                        {category.name}
-                      </h3>
-                      {category.description && (
-                        <p className="text-sm text-[var(--color-text-muted)] mb-2">
-                          {category.description}
-                        </p>
-                      )}
-                      {category.rules && (
-                        <p className="text-xs text-[var(--color-text-muted)] mb-4">
-                          Rules: {category.rules}
-                        </p>
-                      )}
-                      {category.contest_prizes && category.contest_prizes.length > 0 && (
-                        <div className="mt-4 space-y-2">
-                          <p className="text-sm font-medium text-[var(--color-text-primary)]">Prizes:</p>
-                          {category.contest_prizes
-                            .sort((a: any, b: any) => a.rank_order - b.rank_order)
-                            .map((prize: any) => {
-                              const placeNames = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth'];
-                              const placeName = placeNames[prize.rank_order - 1] || `${prize.rank_order}th`;
-                              return (
-                                <div key={prize.id} className="flex items-center justify-between p-2 bg-[var(--color-surface)] rounded">
-                                  <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                                    {placeName} Place
-                                  </p>
-                                  <p className="text-sm font-semibold text-[var(--color-primary)]">
-                                    ${prize.payout_amount.toFixed(2)}
-                                  </p>
-                                </div>
-                              );
-                            })}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-              </div>
-            </Card>
-          )}
-
-          {/* General Categories (Auto-Entry) */}
+          {/* General Categories (Always First, Full-Width, Visually Distinct) */}
           {contest.contest_categories && contest.contest_categories.filter((cat: any) => cat.is_general).length > 0 && (
-            <Card>
-              <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4">
-                General Categories (Auto-Entry)
-              </h2>
-              <p className="text-sm text-[var(--color-text-muted)] mb-4">
-                All submissions are automatically entered in these categories
-              </p>
-              <div className="space-y-6">
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                  General Categories
+                </h2>
+                <p className="text-base" style={{ color: 'var(--color-text-muted)' }}>
+                  All submissions are automatically entered in these categories
+                </p>
+              </div>
+              <div className="space-y-4">
                 {contest.contest_categories
                   .filter((cat: any) => cat.is_general)
                   .sort((a: any, b: any) => a.display_order - b.display_order)
-                  .map((category: any) => {
+                  .map((category: any, index: number) => {
                     const rankingLabels: Record<string, string> = {
                       manual: 'Manual Judging',
                       views: 'Most Views',
@@ -417,59 +778,229 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                       impact_score: 'Manual Judging',
                     };
                     return (
-                      <div
+                      <motion.div
                         key={category.id}
-                        className="p-4 border border-[var(--color-primary)]/20 bg-[var(--color-primary)]/5 rounded-lg"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: index * 0.1 }}
+                        className="relative overflow-hidden rounded-2xl p-6 sm:p-8 lg:p-10 w-full"
+                        style={{
+                          background: 'linear-gradient(135deg, rgba(var(--color-primary-rgb, 120, 15, 35), 0.1) 0%, rgba(var(--color-primary-rgb, 120, 15, 35), 0.05) 100%)',
+                          border: '2px solid var(--color-primary)',
+                          borderColor: 'var(--color-primary)',
+                          boxShadow: 'var(--shadow-lg)'
+                        }}
                       >
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                        <div className="flex flex-wrap items-center gap-3 mb-4">
+                          <h3 className="text-xl sm:text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
                             {category.name}
                           </h3>
-                          <span className="px-2 py-1 text-xs font-medium bg-[var(--color-primary)]/20 text-[var(--color-primary)] rounded">
+                          <span className="px-3 py-1 text-xs sm:text-sm font-medium rounded-full" style={{
+                            background: 'var(--color-primary)',
+                            color: '#ffffff'
+                          }}>
                             Auto-Entry
                           </span>
-                          {category.ranking_method !== 'manual' && (
-                            <span className="px-2 py-1 text-xs font-medium bg-blue-500/20 text-blue-500 rounded">
+                          {category.ranking_method && category.ranking_method !== 'manual' && (
+                            <span className="px-3 py-1 text-xs sm:text-sm font-medium rounded-full" style={{
+                              background: 'rgba(59, 130, 246, 0.2)',
+                              color: 'rgb(59, 130, 246)',
+                              border: '1px solid rgba(59, 130, 246, 0.3)'
+                            }}>
                               Ranked by: {rankingLabels[category.ranking_method] || category.ranking_method}
                             </span>
                           )}
                         </div>
                         {category.description && (
-                          <p className="text-sm text-[var(--color-text-muted)] mb-2">
+                          <p className="text-base mb-4 leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
                             {category.description}
                           </p>
                         )}
                         {category.rules && (
-                          <p className="text-xs text-[var(--color-text-muted)] mb-4">
-                            Rules: {category.rules}
-                          </p>
-                        )}
-                        {category.contest_prizes && category.contest_prizes.length > 0 && (
-                          <div className="mt-4 space-y-2">
-                            <p className="text-sm font-medium text-[var(--color-text-primary)]">Prizes:</p>
-                            {category.contest_prizes
-                              .sort((a: any, b: any) => a.rank_order - b.rank_order)
-                              .map((prize: any) => {
-                                const placeNames = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth'];
-                                const placeName = placeNames[prize.rank_order - 1] || `${prize.rank_order}th`;
-                                return (
-                                  <div key={prize.id} className="flex items-center justify-between p-2 bg-[var(--color-surface)] rounded">
-                                    <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                                      {placeName} Place
-                                    </p>
-                                    <p className="text-sm font-semibold text-[var(--color-primary)]">
-                                      ${prize.payout_amount.toFixed(2)}
-                                    </p>
-                                  </div>
-                                );
-                              })}
+                          <div className="mb-4">
+                            <p className="text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                              Rules:
+                            </p>
+                            <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
+                              {category.rules}
+                            </p>
                           </div>
                         )}
-                      </div>
+                        {category.contest_prizes && category.contest_prizes.length > 0 && (
+                          <div className="mt-6">
+                            <p className="text-base font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
+                              Prizes
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {category.contest_prizes
+                                .sort((a: any, b: any) => a.rank_order - b.rank_order)
+                                .map((prize: any) => {
+                                  const placeNames = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth'];
+                                  const placeName = placeNames[prize.rank_order - 1] || `${prize.rank_order}th`;
+                                  return (
+                                    <div key={prize.id} className="p-4 rounded-lg" style={{
+                                      background: 'var(--color-surface)',
+                                      border: '1px solid var(--color-border)'
+                                    }}>
+                                      <p className="text-sm font-medium mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                                        {placeName} Place
+                                      </p>
+                                      <p className="text-xl font-bold" style={{ color: 'var(--color-primary)' }}>
+                                        ${prize.payout_amount.toFixed(2)}
+                                      </p>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          </div>
+                        )}
+                      </motion.div>
                     );
                   })}
               </div>
-            </Card>
+            </div>
+          )}
+
+          {/* Specific Categories (Premium Cards Grid) */}
+          {contest.contest_categories && contest.contest_categories.filter((cat: any) => !cat.is_general).length > 0 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                  Contest Categories
+                </h2>
+                <p className="text-base" style={{ color: 'var(--color-text-muted)' }}>
+                  Select a category when submitting your edit
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {contest.contest_categories
+                  .filter((cat: any) => !cat.is_general)
+                  .sort((a: any, b: any) => a.display_order - b.display_order)
+                  .map((category: any, index: number) => {
+                    // Rules truncation logic (will be handled by component state if needed)
+                    const rulesTruncated = category.rules && category.rules.length > 150;
+                    
+                    const rankingLabels: Record<string, string> = {
+                      manual: 'Manual Judging',
+                      views: 'Most Views',
+                      likes: 'Most Likes',
+                      comments: 'Most Comments',
+                      shares: 'Most Shares',
+                      impact_score: 'Manual Judging',
+                    };
+
+                    return (
+                      <motion.div
+                        key={category.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: index * 0.1 }}
+                        className="relative overflow-hidden rounded-2xl p-6 h-full flex flex-col group"
+                        style={{
+                          background: 'linear-gradient(135deg, var(--color-surface) 0%, var(--color-background) 100%)',
+                          border: '1px solid var(--color-border)',
+                          boxShadow: 'var(--shadow-md)',
+                          transition: 'all 0.3s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                          e.currentTarget.style.transform = 'translateY(0)';
+                        }}
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between mb-3">
+                            <h3 className="text-xl font-bold flex-1" style={{ color: 'var(--color-text-primary)' }}>
+                              {category.name}
+                            </h3>
+                            {category.ranking_method && category.ranking_method !== 'manual' && (
+                              <span className="px-2 py-1 text-xs font-medium rounded-full ml-2 flex-shrink-0" style={{
+                                background: 'rgba(59, 130, 246, 0.2)',
+                                color: 'rgb(59, 130, 246)'
+                              }}>
+                                {rankingLabels[category.ranking_method] || category.ranking_method}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {category.description && (
+                            <p className="text-sm mb-3 leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
+                              {category.description}
+                            </p>
+                          )}
+                          
+                          {category.rules && (
+                            <div className="mb-4">
+                              <p className="text-xs font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                                Rules:
+                              </p>
+                              <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
+                                {category.rules}
+                              </p>
+                            </div>
+                          )}
+                          
+                          {category.contest_prizes && category.contest_prizes.length > 0 && (
+                            <div className="mb-4">
+                              <p className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                                Prizes
+                              </p>
+                              <div className="space-y-2">
+                                {category.contest_prizes
+                                  .sort((a: any, b: any) => a.rank_order - b.rank_order)
+                                  .slice(0, 3)
+                                  .map((prize: any) => {
+                                    const placeNames = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth'];
+                                    const placeName = placeNames[prize.rank_order - 1] || `${prize.rank_order}th`;
+                                    return (
+                                      <div key={prize.id} className="flex items-center justify-between p-2 rounded" style={{
+                                        background: 'var(--color-background)'
+                                      }}>
+                                        <p className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
+                                          {placeName}
+                                        </p>
+                                        <p className="text-sm font-bold" style={{ color: 'var(--color-primary)' }}>
+                                          ${prize.payout_amount.toFixed(2)}
+                                        </p>
+                                      </div>
+                                    );
+                                  })}
+                                {category.contest_prizes.length > 3 && (
+                                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                                    +{category.contest_prizes.length - 3} more prizes
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Submit Button */}
+                        {contest.status === 'live' && (
+                          <div className="mt-auto pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                            {user ? (
+                              <Link href={`/contests/${contest?.slug || contestId}/submit?category=${category.id}`}>
+                                <Button variant="primary" size="md" className="w-full">
+                                  Submit to This Category
+                                </Button>
+                              </Link>
+                            ) : (
+                              <Link href={`/auth/login?redirect=${encodeURIComponent(`/contests/${contest?.slug || contestId}/submit?category=${category.id}`)}`}>
+                                <Button variant="primary" size="md" className="w-full">
+                                  Login to Submit
+                                </Button>
+                              </Link>
+                            )}
+                          </div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+              </div>
+            </div>
           )}
 
           {/* Legacy Prizes (if no categories but prizes exist - backward compatibility) */}
@@ -504,93 +1035,18 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
             </Card>
           )}
 
-          {/* Required Hashtags */}
-          <Card>
-            <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4">
-              Required Hashtags
-            </h2>
-            <p className="text-sm text-[var(--color-text-muted)] mb-3">
-              Your submission must include all of these hashtags:
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {contest.required_hashtags.map((hashtag, index) => (
-                <span
-                  key={index}
-                  className="px-3 py-1 bg-[var(--color-primary)]/10 text-[var(--color-primary)] rounded-full text-sm font-medium"
-                >
-                  {hashtag}
-                </span>
-              ))}
-            </div>
-          </Card>
-
-          {/* Description Template */}
-          {contest.required_description_template && (
-            <Card>
-              <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4">
-                Description Requirements
-              </h2>
-              <p className="text-[var(--color-text-primary)]">
-                {contest.required_description_template}
-              </p>
-            </Card>
-          )}
-
-          {/* Submission Rules */}
-          <Card>
-            <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4">
-              Submission Rules
-            </h2>
-            <div className="space-y-2 text-sm">
-              <p className="flex items-center justify-between">
-                <span className="text-[var(--color-text-muted)]">Allow multiple submissions per user</span>
-                <span className="font-medium text-[var(--color-text-primary)]">
-                  {allowMultipleSubmissions ? 'Yes' : 'No'}
-                </span>
-              </p>
-              <p className="flex items-center justify-between">
-                <span className="text-[var(--color-text-muted)]">Force single category selection</span>
-                <span className="font-medium text-[var(--color-text-primary)]">
-                  {forceSingleCategory ? 'Yes' : 'No'}
-                </span>
-              </p>
-              <p className="flex items-center justify-between">
-                <span className="text-[var(--color-text-muted)]">Require social account verification</span>
-                <span className="font-medium text-[var(--color-text-primary)]">
-                  {requireSocialVerification ? 'Yes' : 'No'}
-                </span>
-              </p>
-              <p className="flex items-center justify-between">
-                <span className="text-[var(--color-text-muted)]">Require MP4 upload</span>
-                <span className="font-medium text-[var(--color-text-primary)]">
-                  {requireMp4Upload ? 'Yes' : 'No'}
-                </span>
-              </p>
-              <p className="flex items-center justify-between">
-                <span className="text-[var(--color-text-muted)]">Submission visibility</span>
-                <span className="font-medium text-[var(--color-text-primary)] capitalize">
-                  {(() => {
-                    switch (submissionVisibility) {
-                      case 'public_with_rankings':
-                        return 'Public with rankings';
-                      case 'private_judges_only':
-                        return 'Private, only judges';
-                      default:
-                        return 'Public but hide metrics';
-                    }
-                  })()}
-                </span>
-              </p>
-            </div>
-          </Card>
-
-          {/* User Submissions */}
+          {/* User Submissions - At the top, very visible */}
           {user && (userSubmissionsLoading || userSubmissions.length > 0 || userSubmissionsError) && (
-            <Card>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-[var(--color-text-primary)]">
-                  Your Submissions
-                </h2>
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                    Your Submissions
+                  </h2>
+                  <p className="text-base sm:text-lg" style={{ color: 'var(--color-text-muted)' }}>
+                    View and manage your contest submissions
+                  </p>
+                </div>
                 <Button size="sm" variant="secondary" onClick={fetchUserSubmissions} isLoading={userSubmissionsLoading}>
                   Refresh
                 </Button>
@@ -601,9 +1057,9 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                 </div>
               )}
               {userSubmissionsLoading ? (
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
                   {[...Array(2)].map((_, idx) => (
-                    <div key={idx} className="h-16 rounded border border-[var(--color-border)] animate-pulse" />
+                    <div key={idx} className="h-64 rounded border border-[var(--color-border)] animate-pulse" />
                   ))}
                 </div>
               ) : userSubmissions.length === 0 ? (
@@ -611,248 +1067,70 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                   You have not submitted to this contest yet.
                 </p>
               ) : (
-                <div className="space-y-4">
-                  {userSubmissions.map((submission) => {
-                    const allCategories = submission.contest_submission_categories || [];
-                    const primaryCategory = allCategories.find((c: any) => c.is_primary)?.contest_categories;
-                    const generalCategories = allCategories
-                      .filter((c: any) => !c.is_primary)
-                      .map((c: any) => c.contest_categories);
-
-                    const videoUrl = submission.mp4_bucket && submission.mp4_path
-                      ? getContestVideoUrl(submission.mp4_bucket, submission.mp4_path)
-                      : null;
-
-                    return (
-                      <div key={submission.id} className="p-4 border border-[var(--color-border)] rounded-lg space-y-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-medium border ${getSubmissionStatusColor(
-                              submission.processing_status
-                            )}`}
-                          >
-                            {getProcessingStatusLabel(submission.processing_status)}
-                          </span>
-                          <div className="flex gap-2 flex-wrap">
-                            <span
-                              className={`px-2 py-1 rounded text-xs font-medium border ${getSubmissionStatusColor(
-                                submission.content_review_status
-                              )}`}
-                            >
-                              Review: {submission.content_review_status}
-                            </span>
-                            <span
-                              className={`px-2 py-1 rounded text-xs font-medium border ${getSubmissionStatusColor(
-                                submission.hashtag_status
-                              )}`}
-                            >
-                              Hashtags: {submission.hashtag_status}
-                            </span>
-                            {submission.mp4_ownership_status && (
-                              <span
-                                className={`px-2 py-1 rounded text-xs font-medium border ${getSubmissionStatusColor(
-                                  submission.mp4_ownership_status
-                                )}`}
-                              >
-                                Ownership: {submission.mp4_ownership_status}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* MP4 Video Player */}
-                        {videoUrl && (
-                          <div>
-                            <h3 className="text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                              Your Uploaded Video
-                            </h3>
-                            <ContestVideoPlayer videoUrl={videoUrl} className="w-full" />
-                          </div>
-                        )}
-
-                        {/* Original Social Media URL */}
-                        <div>
-                          <h3 className="text-sm font-medium text-[var(--color-text-primary)] mb-1">
-                            Original Social Media Video
-                          </h3>
-                          <a
-                            href={submission.original_video_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-[var(--color-primary)] hover:underline break-all"
-                          >
-                            {submission.original_video_url}
-                          </a>
-                        </div>
-
-                        {/* Ownership Status Message */}
-                        {submission.mp4_ownership_status && submission.mp4_ownership_status !== 'verified' && (
-                          <div className={`p-3 rounded border ${
-                            submission.mp4_ownership_status === 'failed'
-                              ? 'border-red-500/20 bg-red-500/5'
-                              : submission.mp4_ownership_status === 'contested'
-                              ? 'border-orange-500/20 bg-orange-500/5'
-                              : 'border-yellow-500/20 bg-yellow-500/5'
-                          }`}>
-                            <p className={`text-xs font-medium ${
-                              submission.mp4_ownership_status === 'failed'
-                                ? 'text-red-600'
-                                : submission.mp4_ownership_status === 'contested'
-                                ? 'text-orange-600'
-                                : 'text-yellow-600'
-                            }`}>
-                              {submission.mp4_ownership_status === 'failed' && '❌ '}
-                              {submission.mp4_ownership_status === 'contested' && '⚠️ '}
-                              {submission.mp4_ownership_status === 'pending' && '⏳ '}
-                              {submission.mp4_ownership_reason || 
-                                (submission.mp4_ownership_status === 'pending' 
-                                  ? 'Please connect your social account to verify ownership of this video.'
-                                  : submission.mp4_ownership_status === 'contested'
-                                  ? 'Multiple users have submitted this video. Connect your social account to verify ownership.'
-                                  : 'Ownership verification failed.')}
-                            </p>
-                            {submission.mp4_ownership_status === 'pending' && (
-                              <a
-                                href="/settings?tab=connected-accounts"
-                                className="text-xs text-[var(--color-primary)] hover:underline mt-1 inline-block"
-                              >
-                                Connect your social account →
-                              </a>
-                            )}
-                          </div>
-                        )}
-                        {submission.views_count > 0 && (
-                          <div className="grid grid-cols-3 gap-4 text-sm">
-                            <div>
-                              <p className="text-[var(--color-text-muted)]">Views</p>
-                              <p className="font-medium text-[var(--color-text-primary)]">
-                                {submission.views_count.toLocaleString()}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[var(--color-text-muted)]">Likes</p>
-                              <p className="font-medium text-[var(--color-text-primary)]">
-                                {submission.likes_count.toLocaleString()}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[var(--color-text-muted)]">Comments</p>
-                              <p className="font-medium text-[var(--color-text-primary)]">
-                                {submission.comments_count.toLocaleString()}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                        {(primaryCategory || generalCategories.length > 0) && (
-                          <div className="text-xs text-[var(--color-text-muted)] space-y-1">
-                            {primaryCategory && (
-                              <p>
-                                Primary category:{' '}
-                                <span className="text-[var(--color-text-primary)] font-medium">
-                                  {primaryCategory.name}
-                                </span>
-                              </p>
-                            )}
-                            {generalCategories.length > 0 && (
-                              <p>
-                                Auto-entry:{' '}
-                                <span className="text-[var(--color-text-primary)] font-medium">
-                                  {generalCategories.map((cat: any) => cat.name).join(', ')}
-                                </span>
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </Card>
-          )}
-
-          {/* Submit Button */}
-          {contest.status === 'live' && (
-            <Card>
-              {user ? (
-                <div>
-                  <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4">
-                    Submit Your Edit
-                  </h2>
-                  <p className="text-sm text-[var(--color-text-muted)] mb-4">
-                    Upload your fan edit to compete in this contest.
-                  </p>
-                  <Button variant="primary" size="lg" onClick={handleSubmitClick}>
-                    Submit Your Edit
-                  </Button>
-                </div>
-              ) : (
-                <div>
-                  <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4">
-                    Login to Submit
-                  </h2>
-                  <p className="text-sm text-[var(--color-text-muted)] mb-4">
-                    You must be logged in to submit your edit to this contest.
-                  </p>
-                  <Link href={`/auth/login?redirect=${encodeURIComponent(`/contests/${contestId}/submit`)}`}>
-                    <Button variant="primary" size="lg">
-                      Login to Submit
-                    </Button>
-                  </Link>
-                </div>
-              )}
-            </Card>
-          )}
-
-          {/* Approved Submissions */}
-          {submissions.length > 0 && (
-            <Card>
-              <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4">
-                Top Submissions
-              </h2>
-              <p className="text-sm text-[var(--color-text-muted)] mb-4">
-                Ranked by top views
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {submissions.map((submission, index) => {
-                  // Construct video URL from Supabase storage
-                  const videoUrl = submission.mp4_bucket && submission.mp4_path
-                    ? getContestVideoUrl(submission.mp4_bucket, submission.mp4_path)
-                    : null;
-
-                  return (
-                    <div
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6 mb-12">
+                  {userSubmissions.map((submission) => (
+                    <ContestSubmissionCard
                       key={submission.id}
-                      className="border border-[var(--color-border)] rounded-lg overflow-hidden"
+                      submission={submission}
+                      showStats={displayStats}
+                      showCreator={false}
+                      isUserSubmission={true}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* All Submissions - Similar to Communities */}
+          {submissionVisibility !== 'private_judges_only' && submissions.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="space-y-6"
+            >
+              {/* Section Header */}
+              <div>
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                  Featured Submissions
+                </h2>
+                <p className="text-base sm:text-lg" style={{ color: 'var(--color-text-muted)' }}>
+                  {submissionVisibility === 'public_with_rankings' 
+                    ? 'Discover the top-performing submissions from this contest' 
+                    : 'View all contest submissions'}
+                </p>
+              </div>
+
+              {/* Video Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
+                {submissions.map((submission, index) => {
+                  const video = mapSubmissionToVideo(submission);
+                  const showStats = submissionVisibility === 'public_with_rankings' && displayStats;
+                  
+                  return (
+                    <motion.div
+                      key={submission.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: index * 0.05 }}
                     >
-                      {videoUrl && (
-                        <ContestVideoPlayer videoUrl={videoUrl} />
-                      )}
-                      <div className="p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-[var(--color-text-primary)]">
-                            #{index + 1}
-                          </span>
-                          <span className="text-sm font-semibold text-[var(--color-text-primary)]">
-                            Views: {submission.views_count.toLocaleString()}
-                          </span>
-                        </div>
-                        {submission.profiles?.display_name && (
-                          <p className="text-xs text-[var(--color-text-muted)]">
-                            by {submission.profiles.display_name}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                      <VideoCard 
+                        video={video}
+                        rank={submissionVisibility === 'public_with_rankings' && displayStats ? index + 1 : undefined}
+                        ranked={submissionVisibility === 'public_with_rankings' && displayStats}
+                        hideLikes={!showStats}
+                      />
+                    </motion.div>
                   );
                 })}
               </div>
-            </Card>
+            </motion.div>
           )}
 
         </div>
-      </PageSection>
-    </Page>
+      </div>
+    </div>
   );
 }
 

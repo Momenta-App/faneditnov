@@ -124,6 +124,36 @@ export async function POST(request: NextRequest) {
 
     // Impact score will be auto-calculated by trigger
 
+    // Extract description and hashtags from BrightData
+    const descriptionText = record.description || record.caption || record.text || '';
+    
+    // Extract hashtags from multiple sources
+    const hashtags: string[] = [];
+    
+    // 1. Check if BrightData provides a separate hashtags array
+    if (record.hashtags) {
+      if (Array.isArray(record.hashtags)) {
+        for (const item of record.hashtags) {
+          if (typeof item === 'string') {
+            hashtags.push(item);
+          } else if (item && typeof item === 'object') {
+            if (item.hashtag) {
+              hashtags.push(item.hashtag);
+            } else if (item.tag) {
+              hashtags.push(item.tag);
+            }
+          }
+        }
+      }
+    }
+    
+    // 2. Extract hashtags from description/caption text
+    const textHashtags = extractHashtags(descriptionText);
+    hashtags.push(...textHashtags);
+    
+    // Remove duplicates and normalize
+    const uniqueHashtags = [...new Set(hashtags.map(h => h.startsWith('#') ? h : `#${h}`))];
+
     // Step 3: Perform hashtag check
     const hashtagStatus = checkHashtags(
       record,
@@ -150,6 +180,8 @@ export async function POST(request: NextRequest) {
         hashtag_status: hashtagStatus,
         description_status: descriptionStatus,
         processing_status: finalStatus,
+        description_text: descriptionText || null,
+        hashtags_array: uniqueHashtags.length > 0 ? uniqueHashtags : null,
       })
       .eq('id', submission.id);
 

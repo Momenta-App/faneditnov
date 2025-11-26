@@ -22,11 +22,15 @@ export async function GET(
     const user = await requireRole(request, 'admin');
     const { id } = await params;
 
-    // Get contest with categories and nested prizes
-    const { data: contest, error: contestError } = await supabaseAdmin
+    // Check if id is a valid UUID
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    
+    // Build query - support both UUID and slug lookups
+    let query = supabaseAdmin
       .from('contests')
       .select(`
         *,
+        slug,
         contest_categories (
           id,
           name,
@@ -42,10 +46,23 @@ export async function GET(
             payout_amount,
             rank_order
           )
+        ),
+        contest_asset_links (
+          id,
+          name,
+          url,
+          display_order
         )
-      `)
-      .eq('id', id)
-      .single();
+      `);
+
+    // Query by UUID or slug
+    if (isUUID) {
+      query = query.eq('id', id);
+    } else {
+      query = query.eq('slug', id);
+    }
+
+    const { data: contest, error: contestError } = await query.single();
 
     if (contestError) {
       if (contestError.code === 'PGRST116') {
@@ -57,35 +74,43 @@ export async function GET(
       throw contestError;
     }
 
+    // Get the actual contest ID (in case we looked up by slug)
+    const contestId = contest.id;
+
     // Get detailed stats
     const { count: totalSubmissions } = await supabaseAdmin
       .from('contest_submissions')
       .select('*', { count: 'exact', head: true })
-      .eq('contest_id', id);
+      .eq('contest_id', contestId);
 
     const { count: verifiedSubmissions } = await supabaseAdmin
       .from('contest_submissions')
       .select('*', { count: 'exact', head: true })
-      .eq('contest_id', id)
+      .eq('contest_id', contestId)
       .eq('verification_status', 'verified');
 
     const { count: pendingReview } = await supabaseAdmin
       .from('contest_submissions')
       .select('*', { count: 'exact', head: true })
-      .eq('contest_id', id)
+      .eq('contest_id', contestId)
       .in('content_review_status', ['pending']);
 
     const { count: approvedSubmissions } = await supabaseAdmin
       .from('contest_submissions')
       .select('*', { count: 'exact', head: true })
-      .eq('contest_id', id)
+      .eq('contest_id', contestId)
       .eq('content_review_status', 'approved')
       .eq('processing_status', 'approved');
 
     // Calculate total prize pool
     const { data: totalPool } = await supabaseAdmin.rpc('get_contest_total_prize_pool', {
-      p_contest_id: id,
+      p_contest_id: contestId,
     });
+
+    // Sort asset links by display_order
+    const sortedAssetLinks = contest.contest_asset_links
+      ? [...contest.contest_asset_links].sort((a, b) => a.display_order - b.display_order)
+      : [];
 
     return NextResponse.json({
       data: {
@@ -97,6 +122,7 @@ export async function GET(
           pending_review: pendingReview || 0,
           approved_submissions: approvedSubmissions || 0,
         },
+        contest_asset_links: sortedAssetLinks,
       },
     });
   } catch (error) {
@@ -129,6 +155,7 @@ export async function PUT(
       title,
       description,
       movie_identifier,
+      slug,
       start_date,
       end_date,
       status,
@@ -140,6 +167,10 @@ export async function PUT(
       require_social_verification,
       require_mp4_upload,
       public_submissions_visibility,
+      profile_image_url,
+      cover_image_url,
+      display_stats,
+      asset_links,
     } = body;
 
     // Build update object (only include provided fields)
@@ -147,9 +178,13 @@ export async function PUT(
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
     if (movie_identifier !== undefined) updateData.movie_identifier = movie_identifier;
+    if (slug !== undefined) updateData.slug = slug || null;
     if (start_date !== undefined) updateData.start_date = start_date;
     if (end_date !== undefined) updateData.end_date = end_date;
     if (status !== undefined) updateData.status = status;
+    if (profile_image_url !== undefined) updateData.profile_image_url = profile_image_url;
+    if (cover_image_url !== undefined) updateData.cover_image_url = cover_image_url;
+    if (display_stats !== undefined) updateData.display_stats = display_stats;
     if (required_hashtags !== undefined) updateData.required_hashtags = required_hashtags;
     if (required_description_template !== undefined) updateData.required_description_template = required_description_template;
     if (allow_multiple_submissions !== undefined) updateData.allow_multiple_submissions = allow_multiple_submissions;
@@ -170,11 +205,34 @@ export async function PUT(
       }
     }
 
+    // Check if id is a valid UUID
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    
+    // First, get the contest ID (either from UUID or slug lookup)
+    let contestId: string;
+    if (isUUID) {
+      contestId = id;
+    } else {
+      const { data: contestLookup } = await supabaseAdmin
+        .from('contests')
+        .select('id')
+        .eq('slug', id)
+        .single();
+      
+      if (!contestLookup) {
+        return NextResponse.json(
+          { error: 'Contest not found' },
+          { status: 404 }
+        );
+      }
+      contestId = contestLookup.id;
+    }
+
     // Update contest
     const { data: contest, error: contestError } = await supabaseAdmin
       .from('contests')
       .update(updateData)
-      .eq('id', id)
+      .eq('id', contestId)
       .select()
       .single();
 
@@ -194,12 +252,12 @@ export async function PUT(
       await supabaseAdmin
         .from('contest_categories')
         .delete()
-        .eq('contest_id', id);
+        .eq('contest_id', contestId);
 
       // Create new categories with prizes
       if (categories.length > 0) {
         const categoryInserts = categories.map((category: any, index: number) => ({
-          contest_id: id,
+          contest_id: contestId,
           name: category.name,
           description: category.description || null,
           rules: category.rules || null,
@@ -250,6 +308,34 @@ export async function PUT(
       }
     }
 
+    // Update asset links if provided
+    if (Array.isArray(asset_links)) {
+      // Delete existing asset links
+      await supabaseAdmin
+        .from('contest_asset_links')
+        .delete()
+        .eq('contest_id', contestId);
+
+      // Create new asset links
+      if (asset_links.length > 0) {
+        const assetLinkInserts = asset_links.map((link: any, index: number) => ({
+          contest_id: contestId,
+          name: link.name,
+          url: link.url,
+          display_order: link.display_order ?? index,
+        }));
+
+        const { error: assetLinksError } = await supabaseAdmin
+          .from('contest_asset_links')
+          .insert(assetLinkInserts);
+
+        if (assetLinksError) {
+          console.error('Error updating asset links:', assetLinksError);
+          // Continue anyway - contest is updated
+        }
+      }
+    }
+
     // Fetch updated contest with categories and nested prizes
     const { data: contestWithData, error: fetchError } = await supabaseAdmin
       .from('contests')
@@ -270,14 +356,14 @@ export async function PUT(
           )
         )
       `)
-      .eq('id', id)
+      .eq('id', contestId)
       .single();
 
     if (fetchError) throw fetchError;
 
     // Calculate total prize pool
     const { data: totalPool } = await supabaseAdmin.rpc('get_contest_total_prize_pool', {
-      p_contest_id: id,
+      p_contest_id: contestId,
     });
 
     return NextResponse.json({
@@ -311,11 +397,34 @@ export async function DELETE(
     const user = await requireRole(request, 'admin');
     const { id } = await params;
 
+    // Check if id is a valid UUID
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    
+    // First, get the contest ID (either from UUID or slug lookup)
+    let contestId: string;
+    if (isUUID) {
+      contestId = id;
+    } else {
+      const { data: contestLookup } = await supabaseAdmin
+        .from('contests')
+        .select('id')
+        .eq('slug', id)
+        .single();
+      
+      if (!contestLookup) {
+        return NextResponse.json(
+          { error: 'Contest not found' },
+          { status: 404 }
+        );
+      }
+      contestId = contestLookup.id;
+    }
+
     // Check if contest has submissions
     const { count } = await supabaseAdmin
       .from('contest_submissions')
       .select('*', { count: 'exact', head: true })
-      .eq('contest_id', id);
+      .eq('contest_id', contestId);
 
     if (count && count > 0) {
       return NextResponse.json(

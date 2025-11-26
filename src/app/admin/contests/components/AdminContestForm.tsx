@@ -24,11 +24,15 @@ interface ContestFormState {
   title: string;
   description: string;
   movie_identifier: string;
+  slug: string;
   start_date: string;
   end_date: string;
   required_hashtags: string[];
   required_description_template: string;
   status: 'upcoming' | 'live' | 'closed';
+  profile_image_url: string;
+  cover_image_url: string;
+  display_stats: boolean;
 }
 
 interface SubmissionRulesState {
@@ -37,6 +41,13 @@ interface SubmissionRulesState {
   require_social_verification: boolean;
   require_mp4_upload: boolean;
   public_submissions_visibility: 'public_hide_metrics' | 'public_with_rankings' | 'private_judges_only';
+}
+
+interface AssetLink {
+  id?: string;
+  name: string;
+  url: string;
+  display_order: number;
 }
 
 export interface ContestSubmitPayload extends ContestFormState, SubmissionRulesState {
@@ -50,6 +61,7 @@ export interface ContestSubmitPayload extends ContestFormState, SubmissionRulesS
     ranking_method: Category['ranking_method'];
     prizes: Prize[];
   }>;
+  asset_links?: AssetLink[];
 }
 
 export interface ContestWithRelations extends ContestFormState, SubmissionRulesState {
@@ -69,6 +81,12 @@ export interface ContestWithRelations extends ContestFormState, SubmissionRulesS
       rank_order: number;
     }>;
   }>;
+  contest_asset_links?: Array<{
+    id: string;
+    name: string;
+    url: string;
+    display_order: number;
+  }>;
 }
 
 interface AdminContestFormProps {
@@ -84,11 +102,15 @@ const DEFAULT_FORM_DATA: ContestFormState = {
   title: '',
   description: '',
   movie_identifier: '',
+  slug: '',
   start_date: '',
   end_date: '',
   required_hashtags: [],
   required_description_template: '',
   status: 'upcoming',
+  profile_image_url: '',
+  cover_image_url: '',
+  display_stats: true,
 };
 
 const DEFAULT_SUBMISSION_RULES: SubmissionRulesState = {
@@ -112,15 +134,17 @@ export function AdminContestForm({
   const [formData, setFormData] = useState<ContestFormState>(DEFAULT_FORM_DATA);
   const [categories, setCategories] = useState<Category[]>([]);
   const [submissionRules, setSubmissionRules] = useState<SubmissionRulesState>(DEFAULT_SUBMISSION_RULES);
+  const [assetLinks, setAssetLinks] = useState<AssetLink[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  type SectionKey = 'basics' | 'categories' | 'rules' | 'hashtags';
+  type SectionKey = 'basics' | 'categories' | 'rules' | 'hashtags' | 'design';
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
     basics: true,
     categories: true,
     rules: true,
     hashtags: true,
+    design: true,
   });
   const toggleSection = (key: SectionKey) => {
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -147,6 +171,7 @@ export function AdminContestForm({
       title: initialContest.title || '',
       description: initialContest.description || '',
       movie_identifier: initialContest.movie_identifier || '',
+      slug: (initialContest as any).slug || '',
       start_date: initialContest.start_date ? initialContest.start_date.slice(0, 16) : '',
       end_date: initialContest.end_date ? initialContest.end_date.slice(0, 16) : '',
       required_hashtags: initialContest.required_hashtags?.length
@@ -154,6 +179,9 @@ export function AdminContestForm({
         : [''],
       required_description_template: initialContest.required_description_template || '',
       status: initialContest.status || 'upcoming',
+      profile_image_url: initialContest.profile_image_url || '',
+      cover_image_url: initialContest.cover_image_url || '',
+      display_stats: initialContest.display_stats ?? true,
     });
 
     setSubmissionRules({
@@ -184,6 +212,22 @@ export function AdminContestForm({
       );
     } else {
       setCategories([]);
+    }
+
+    // Load asset links
+    if (initialContest.contest_asset_links?.length) {
+      setAssetLinks(
+        initialContest.contest_asset_links
+          .sort((a, b) => a.display_order - b.display_order)
+          .map((link) => ({
+            id: link.id,
+            name: link.name,
+            url: link.url,
+            display_order: link.display_order,
+          }))
+      );
+    } else {
+      setAssetLinks([]);
     }
   }, [initialContest]);
 
@@ -266,6 +310,36 @@ export function AdminContestForm({
           display_order: idx + 1,
         }))
     );
+  };
+
+  const addAssetLink = () => {
+    setAssetLinks((prev) => [
+      ...prev,
+      {
+        name: '',
+        url: '',
+        display_order: prev.length,
+      },
+    ]);
+  };
+
+  const removeAssetLink = (index: number) => {
+    setAssetLinks((prev) =>
+      prev
+        .filter((_, i) => i !== index)
+        .map((link, idx) => ({
+          ...link,
+          display_order: idx,
+        }))
+    );
+  };
+
+  const handleAssetLinkChange = (index: number, field: keyof AssetLink, value: string | number) => {
+    setAssetLinks((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
   };
 
   const totalPrizePool = useMemo(
@@ -496,6 +570,7 @@ export function AdminContestForm({
       require_social_verification: submissionRules.require_social_verification,
       require_mp4_upload: submissionRules.require_mp4_upload,
       public_submissions_visibility: submissionRules.public_submissions_visibility,
+      asset_links: assetLinks.filter((link) => link.name.trim() !== '' && link.url.trim() !== ''),
     };
   };
 
@@ -565,6 +640,44 @@ export function AdminContestForm({
                   placeholder="e.g., movie-2024-001"
                   className="w-full px-4 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[var(--color-text-primary)] mb-1">
+                  URL Slug
+                  <span className="text-[var(--color-text-muted)] ml-1">(optional)</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={formData.slug}
+                    onChange={(e) => {
+                      const value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                      handleInputChange('slug', value);
+                    }}
+                    placeholder="e.g., killbill"
+                    pattern="[a-z0-9-]+"
+                    className="flex-1 px-4 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      const generatedSlug = formData.title
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, '-')
+                        .replace(/^-+|-+$/g, '');
+                      handleInputChange('slug', generatedSlug);
+                    }}
+                    className="whitespace-nowrap"
+                  >
+                    Generate from Title
+                  </Button>
+                </div>
+                <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                  Used in URL: /contests/{formData.slug || '[slug]'}
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -711,6 +824,23 @@ export function AdminContestForm({
                 <option value="private_judges_only">Private, only judges see submissions</option>
               </select>
             </div>
+
+            <div>
+              <label className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4"
+                  checked={formData.display_stats}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, display_stats: e.target.checked }))}
+                />
+                <div>
+                  <p className="text-xs font-medium text-[var(--color-text-primary)]">Display stats on submissions</p>
+                  <p className="text-[10px] text-[var(--color-text-muted)]">
+                    When enabled, stats (views, likes, comments) will be shown on contest submissions.
+                  </p>
+                </div>
+              </label>
+            </div>
           </div>
           </>
         )}
@@ -739,6 +869,118 @@ export function AdminContestForm({
                   placeholder="e.g., Must include 'fan edit' or similar phrase"
                   className="w-full px-4 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                 />
+              </div>
+            </div>
+          </>
+        )}
+
+        {renderCollapsibleCard(
+          'design',
+          'Design & Assets',
+          'Customize contest appearance and provide asset links for creators.',
+          <>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-[var(--color-text-primary)] mb-1">
+                  Profile Image URL
+                </label>
+                <input
+                  type="url"
+                  value={formData.profile_image_url}
+                  onChange={(e) => handleInputChange('profile_image_url', e.target.value)}
+                  placeholder="https://example.com/profile.jpg"
+                  className="w-full px-4 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                />
+                <p className="text-[10px] text-[var(--color-text-muted)] mt-1">
+                  Square image (recommended: 400x400px) displayed as contest logo
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[var(--color-text-primary)] mb-1">
+                  Cover Image URL
+                </label>
+                <input
+                  type="url"
+                  value={formData.cover_image_url}
+                  onChange={(e) => handleInputChange('cover_image_url', e.target.value)}
+                  placeholder="https://example.com/cover.jpg"
+                  className="w-full px-4 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                />
+                <p className="text-[10px] text-[var(--color-text-muted)] mt-1">
+                  Banner image (recommended: 1920x1080px) displayed as contest header
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[var(--color-text-primary)] mb-2">
+                  Asset Links
+                </label>
+                <p className="text-[10px] text-[var(--color-text-muted)] mb-3">
+                  Provide links to assets (logos, fonts, images, etc.) that creators can use in their submissions
+                </p>
+                <div className="space-y-3">
+                  {assetLinks.map((link, index) => (
+                    <div key={index} className="p-3 border border-[var(--color-border)] rounded-lg bg-[var(--color-surface)]">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
+                        <div>
+                          <label className="block text-[10px] font-medium text-[var(--color-text-primary)] mb-1">
+                            Asset Name
+                          </label>
+                          <input
+                            type="text"
+                            value={link.name}
+                            onChange={(e) => handleAssetLinkChange(index, 'name', e.target.value)}
+                            placeholder="e.g., Logo Pack, Font Files"
+                            className="w-full px-3 py-1.5 rounded border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-text-primary)] text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-medium text-[var(--color-text-primary)] mb-1">
+                            URL
+                          </label>
+                          <input
+                            type="url"
+                            value={link.url}
+                            onChange={(e) => handleAssetLinkChange(index, 'url', e.target.value)}
+                            placeholder="https://example.com/assets"
+                            className="w-full px-3 py-1.5 rounded border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-text-primary)] text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <label className="text-[10px] text-[var(--color-text-muted)]">Order:</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={link.display_order}
+                            onChange={(e) => handleAssetLinkChange(index, 'display_order', parseInt(e.target.value) || 0)}
+                            className="w-16 px-2 py-1 rounded border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-text-primary)] text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="xs"
+                          onClick={() => removeAssetLink(index)}
+                          className="px-2 py-1 min-h-0 min-w-0 text-[10px]"
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="xs"
+                    onClick={addAssetLink}
+                    className="px-3 py-1 min-h-0 min-w-0 text-[11px]"
+                  >
+                    + Add Asset Link
+                  </Button>
+                </div>
               </div>
             </div>
           </>

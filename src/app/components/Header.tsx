@@ -18,16 +18,21 @@ export function Header() {
     return pathname === href || (href !== '/' && pathname.startsWith(href));
   };
 
-  const navItems = [
+  const baseNavItems = [
     { name: 'Edits', href: '/edits' },
     { name: 'Creators', href: '/creators' },
     { name: 'Hashtags', href: '/hashtags' },
     { name: 'Sounds', href: '/sounds' },
     { name: 'Communities', href: '/communities' },
     { name: 'Contests', href: '/contests' },
-    { name: 'Campaign', href: '/campaign' },
     { name: 'Upload', href: '/upload' },
   ];
+
+  // Only show Campaign link for admin users
+  const campaignItem = { name: 'Campaign', href: '/campaign' };
+  const navItems = !isLoading && isAdminRole(profile?.role)
+    ? [...baseNavItems, campaignItem]
+    : baseNavItems;
 
   const adminNavItems =
     !isLoading && isAdminRole(profile?.role)

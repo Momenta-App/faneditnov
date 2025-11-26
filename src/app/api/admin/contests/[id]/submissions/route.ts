@@ -24,7 +24,11 @@ export async function GET(
     console.log('[Admin Submissions API] Contest ID:', id);
 
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '50');
+    // When "All" is selected (no categoryId), get all submissions without pagination limit
+    const categoryId = searchParams.get('category_id');
+    const limit = categoryId 
+      ? parseInt(searchParams.get('limit') || '50')
+      : parseInt(searchParams.get('limit') || '1000'); // Higher limit for "All" to show all submissions
     const offset = parseInt(searchParams.get('offset') || '0');
     
     // Filters
@@ -33,7 +37,7 @@ export async function GET(
     const contentReviewStatus = searchParams.get('content_review_status');
     const processingStatus = searchParams.get('processing_status');
     const verificationStatus = searchParams.get('verification_status');
-    const categoryId = searchParams.get('category_id');
+    const includeRemoved = searchParams.get('include_removed') !== 'false'; // Default to true (show all)
     const sortBy = searchParams.get('sort_by') || 'views_count'; // views_count or created_at
     const sortOrder = searchParams.get('sort_order') || 'desc'; // asc or desc
 
@@ -90,8 +94,14 @@ export async function GET(
     if (verificationStatus) {
       query = query.eq('verification_status', verificationStatus);
     }
+    // Filter removed submissions if include_removed is false
+    if (!includeRemoved) {
+      query = query.eq('user_removed', false);
+    }
     // Handle category filtering - check both direct category_id and junction table
+    // When categoryId is NOT provided (i.e., "All" is selected), return ALL submissions for the contest
     let submissionIdsForCategory: number[] | null = null;
+    
     if (categoryId) {
       // Get submission IDs that are associated with this category either:
       // 1. Directly via category_id column, OR
@@ -120,6 +130,7 @@ export async function GET(
         query = query.eq('id', -1); // Impossible condition to return no results
       }
     }
+    // When categoryId is null/undefined, query already filters by contest_id only, which returns ALL submissions
 
     // Apply sorting
     // If filtering by category, check if it's stat-based and sort accordingly
@@ -146,6 +157,7 @@ export async function GET(
     }
     
     const ascending = sortOrder === 'asc';
+    // Order by the selected field
     if (sortField === 'views_count') {
       query = query.order('views_count', { ascending });
     } else if (sortField === 'likes_count') {
@@ -176,12 +188,6 @@ export async function GET(
       throw error;
     }
 
-    console.log('[Admin Submissions API] Query successful:', {
-      contestId: id,
-      submissionCount: submissions?.length || 0,
-      filters: { hashtagStatus, descriptionStatus, contentReviewStatus, processingStatus, verificationStatus, categoryId },
-    });
-
     // Get total count with same filters
     let countQuery = supabaseAdmin
       .from('contest_submissions')
@@ -203,7 +209,12 @@ export async function GET(
     if (verificationStatus) {
       countQuery = countQuery.eq('verification_status', verificationStatus);
     }
+    // Apply same removed filter to count query
+    if (!includeRemoved) {
+      countQuery = countQuery.eq('user_removed', false);
+    }
     // Apply same category filter to count query
+    // When categoryId is NOT provided (i.e., "All" is selected), count ALL submissions for the contest
     if (categoryId && submissionIdsForCategory !== null) {
       if (submissionIdsForCategory.length > 0) {
         countQuery = countQuery.in('id', submissionIdsForCategory);
@@ -211,8 +222,25 @@ export async function GET(
         countQuery = countQuery.eq('id', -1); // Impossible condition
       }
     }
+    // When categoryId is null/undefined, countQuery already filters by contest_id only, which counts ALL submissions
 
     const { count } = await countQuery;
+
+    console.log('[Admin Submissions API] Query successful:', {
+      contestId: id,
+      submissionCount: submissions?.length || 0,
+      totalCount: count || 0,
+      limit,
+      offset,
+      filters: { hashtagStatus, descriptionStatus, contentReviewStatus, processingStatus, verificationStatus, categoryId, includeRemoved },
+      sortBy: sortField,
+      sortOrder,
+    });
+    
+    // Log submission IDs for debugging
+    if (submissions && submissions.length > 0) {
+      console.log('[Admin Submissions API] Submission IDs returned:', submissions.map((s: any) => s.id));
+    }
 
     return NextResponse.json({
       data: submissions || [],

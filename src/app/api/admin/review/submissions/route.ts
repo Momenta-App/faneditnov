@@ -17,6 +17,9 @@ export async function GET(request: NextRequest) {
     const user = await requireRole(request, 'admin');
     console.log('[Admin Review API] User authenticated:', { userId: user.id, role: user.role, email: user.email });
 
+    const { searchParams } = new URL(request.url);
+    const includeRemoved = searchParams.get('include_removed') === 'true'; // Default to false (exclude removed from review)
+
     // First, get total count of all submissions for debugging
     const { count: totalCount } = await supabaseAdmin
       .from('contest_submissions')
@@ -54,7 +57,7 @@ export async function GET(request: NextRequest) {
 
     // Get submissions that need review using .or() filter
     // Supabase .or() syntax: 'column1.eq.value1,column2.eq.value2'
-    const { data: submissions, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('contest_submissions')
       .select(`
         *,
@@ -70,8 +73,16 @@ export async function GET(request: NextRequest) {
           required_description_template
         )
       `)
-      .or('hashtag_status.eq.pending_review,description_status.eq.pending_review,content_review_status.eq.pending,mp4_ownership_status.eq.contested')
-      .order('created_at', { ascending: false });
+      .or('hashtag_status.eq.pending_review,description_status.eq.pending_review,content_review_status.eq.pending,mp4_ownership_status.eq.contested');
+
+    // Exclude removed submissions from review queue by default
+    if (!includeRemoved) {
+      query = query.eq('user_removed', false);
+    }
+
+    query = query.order('created_at', { ascending: false });
+
+    const { data: submissions, error } = await query;
 
     if (error) {
       console.error('[Admin Review API] Query error:', {

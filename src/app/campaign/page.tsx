@@ -9,9 +9,10 @@ import { supabaseClient } from '@/lib/supabase-client';
 import type { CampaignSuggestion } from '@/lib/openai';
 import { useCampaignGenerator } from '../hooks/useCampaignGenerator';
 import { CampaignTabs } from '../components/CampaignTabs';
+import { isAdmin } from '@/lib/role-utils';
 
 export default function CampaignPage() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, profile, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [searchInput, setSearchInput] = useState('');
   const [deletingCampaignId, setDeletingCampaignId] = useState<string | null>(null);
@@ -52,15 +53,23 @@ export default function CampaignPage() {
     }
   }, [user]);
 
-  // Redirect to login if not authenticated
+  // Redirect to login if not authenticated, or to home if not admin
   React.useEffect(() => {
     if (!authLoading && !user) {
       router.push('/auth/login');
+    } else if (!authLoading && user && profile && !isAdmin(profile.role)) {
+      // User is authenticated but not admin - redirect to home
+      router.push('/');
     }
-  }, [user, authLoading, router]);
+  }, [user, profile, authLoading, router]);
 
   // Show loading or nothing while checking auth
-  if (authLoading || !user) {
+  if (authLoading || !user || !profile) {
+    return null;
+  }
+
+  // If user is not admin, don't render the page (will redirect)
+  if (!isAdmin(profile.role)) {
     return null;
   }
 

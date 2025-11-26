@@ -40,10 +40,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Try to query with asset links, fall back to basic query if table doesn't exist
     let query = supabaseAdmin
       .from('contests')
       .select(`
         *,
+        slug,
         contest_categories (
           id,
           name,
@@ -78,29 +80,72 @@ export async function GET(request: NextRequest) {
       query = query.eq('movie_identifier', movie_identifier);
     }
 
-    const { data: contests, error } = await query;
+    let { data: contests, error } = await query;
 
     if (error) throw error;
+
+    // Try to fetch asset links separately if table exists
+    if (contests && contests.length > 0) {
+      try {
+        const contestIds = contests.map((c: any) => c.id);
+        const { data: assetLinks } = await supabaseAdmin
+          .from('contest_asset_links')
+          .select('*')
+          .in('contest_id', contestIds)
+          .order('display_order', { ascending: true });
+
+        if (assetLinks) {
+          // Group asset links by contest_id
+          const assetLinksByContest = assetLinks.reduce((acc: any, link: any) => {
+            if (!acc[link.contest_id]) {
+              acc[link.contest_id] = [];
+            }
+            acc[link.contest_id].push(link);
+            return acc;
+          }, {});
+
+          // Attach asset links to contests
+          contests = contests.map((contest: any) => ({
+            ...contest,
+            contest_asset_links: assetLinksByContest[contest.id] || [],
+          }));
+        }
+      } catch (assetLinksError) {
+        // Table doesn't exist yet, continue without asset links
+        console.log('contest_asset_links table not found, continuing without asset links');
+        contests = contests.map((contest: any) => ({
+          ...contest,
+          contest_asset_links: [],
+        }));
+      }
+    }
 
     // Get submission counts and total prize pool for each contest
     const contestsWithStats = await Promise.all(
       (contests || []).map(async (contest) => {
-        // Count all submissions that have been content-approved (regardless of processing status)
-        const { count: totalSubmissions } = await supabaseAdmin
+        // Count all submissions for the contest (matching admin page behavior)
+        const { count: totalSubmissions, error: countError } = await supabaseAdmin
           .from('contest_submissions')
           .select('*', { count: 'exact', head: true })
-          .eq('contest_id', contest.id)
-          .eq('content_review_status', 'approved');
+          .eq('contest_id', contest.id);
+
+        if (countError) {
+          console.error(`Error counting submissions for contest ${contest.id}:`, countError);
+        }
 
         // Calculate total prize pool
-        const { data: totalPool } = await supabaseAdmin.rpc('get_contest_total_prize_pool', {
+        const { data: totalPool, error: poolError } = await supabaseAdmin.rpc('get_contest_total_prize_pool', {
           p_contest_id: contest.id,
         });
+
+        if (poolError) {
+          console.error(`Error calculating prize pool for contest ${contest.id}:`, poolError);
+        }
 
         return {
           ...contest,
           total_prize_pool: totalPool || 0,
-          submission_count: totalSubmissions || 0,
+          submission_count: totalSubmissions ?? 0,
         };
       })
     );

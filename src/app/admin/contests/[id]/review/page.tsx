@@ -16,10 +16,10 @@ interface Submission {
   contest_id: string;
   user_id: string;
   original_video_url: string;
-  mp4_bucket: string;
-  mp4_path: string;
+  mp4_bucket?: string | null;
+  mp4_path?: string | null;
   platform: string;
-  mp4_ownership_status?: string;
+  mp4_ownership_status?: string | null;
   mp4_ownership_reason?: string | null;
   mp4_owner_social_account_id?: string | null;
   hashtag_status: string;
@@ -28,7 +28,12 @@ interface Submission {
   views_count: number;
   likes_count: number;
   comments_count: number;
+  shares_count?: number;
+  saves_count?: number;
   impact_score: number;
+  description_text?: string | null;
+  hashtags_array?: string[] | null;
+  created_at: string;
   profiles: {
     email: string;
     display_name?: string;
@@ -49,9 +54,9 @@ export default function ContestReviewPage() {
 
   const [contest, setContest] = useState<{ id: string; title: string } | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
+  const [updating, setUpdating] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -139,7 +144,7 @@ export default function ContestReviewPage() {
     }
   ) => {
     try {
-      setUpdating(true);
+      setUpdating(submissionId);
       setError(null);
       setSuccessMessage(null);
       const response = await authFetch(`/api/admin/contests/${contestId}/review/submissions/${submissionId}`, {
@@ -155,13 +160,6 @@ export default function ContestReviewPage() {
 
       // Refresh submissions
       await fetchSubmissions();
-      if (selectedSubmission?.id === submissionId) {
-        const response = await authFetch(`/api/admin/contests/${contestId}/review/submissions/${submissionId}`);
-        if (response.ok) {
-          const updated = await response.json();
-          setSelectedSubmission(updated.data);
-        }
-      }
       
       // Show success message
       const updateType = updates.hashtag_status 
@@ -175,8 +173,18 @@ export default function ContestReviewPage() {
       setError(err instanceof Error ? err.message : 'Failed to update');
       setTimeout(() => setError(null), 5000);
     } finally {
-      setUpdating(false);
+      setUpdating(null);
     }
+  };
+
+  const toggleDescription = (submissionId: number) => {
+    const newExpanded = new Set(expandedDescriptions);
+    if (newExpanded.has(submissionId)) {
+      newExpanded.delete(submissionId);
+    } else {
+      newExpanded.add(submissionId);
+    }
+    setExpandedDescriptions(newExpanded);
   };
 
   const getVideoUrl = (submission: Submission) => {
@@ -186,6 +194,86 @@ export default function ContestReviewPage() {
     return null;
   };
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
+
+  const getStatusBadge = (status: string, type: 'hashtag' | 'description') => {
+    const isPass = status === 'pass' || status === 'approved_manual';
+    const isFail = status === 'fail';
+    const isPending = status === 'pending_review';
+
+    if (isPass) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-green-500/10 text-green-600 border border-green-500/20">
+          <span>✓</span> Pass
+        </span>
+      );
+    }
+    if (isFail) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-red-500/10 text-red-600 border border-red-500/20">
+          <span>✗</span> Fail
+        </span>
+      );
+    }
+    if (isPending) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-yellow-500/10 text-yellow-600 border border-yellow-500/20">
+          <span>⏳</span> Pending
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-gray-500/10 text-gray-600 border border-gray-500/20">
+        {status}
+      </span>
+    );
+  };
+
+  const getOwnershipBadge = (status: string | null | undefined) => {
+    if (!status) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-gray-500/10 text-gray-600 border border-gray-500/20">
+          Pending
+        </span>
+      );
+    }
+    if (status === 'verified') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-green-500/10 text-green-600 border border-green-500/20">
+          <span>✓</span> Verified
+        </span>
+      );
+    }
+    if (status === 'failed') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-red-500/10 text-red-600 border border-red-500/20">
+          <span>✗</span> Failed
+        </span>
+      );
+    }
+    if (status === 'contested') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-orange-500/10 text-orange-600 border border-orange-500/20">
+          <span>⚠</span> Contested
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-gray-500/10 text-gray-600 border border-gray-500/20">
+        {status}
+      </span>
+    );
+  };
+
   if (isLoading || !user || profile?.role !== 'admin' || !contestId) {
     return null;
   }
@@ -193,7 +281,7 @@ export default function ContestReviewPage() {
   return (
     <Page>
       <PageSection variant="header">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <div className="flex items-center gap-4 mb-4">
             <Link href={`/admin/contests/${contestId}`}>
               <Button variant="ghost" size="sm">
@@ -216,7 +304,7 @@ export default function ContestReviewPage() {
       </PageSection>
 
       <PageSection variant="content">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           {error && (
             <Card className="mb-6 border-red-500/20 bg-red-500/5">
               <p className="text-red-500">{error}</p>
@@ -227,422 +315,283 @@ export default function ContestReviewPage() {
               <p className="text-green-500">{successMessage}</p>
             </Card>
           )}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Submissions List */}
-            <div className="lg:col-span-1">
-              <Card>
-                <h2 className="text-lg font-bold text-[var(--color-text-primary)] mb-4">
+
+          {loading ? (
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <Card key={i} className="p-6">
+                  <div className="h-64 bg-[var(--color-border)]/20 rounded animate-pulse" />
+                </Card>
+              ))}
+            </div>
+          ) : submissions.length === 0 ? (
+            <Card className="p-12 text-center">
+              <p className="text-[var(--color-text-muted)]">
+                No submissions for this contest
+              </p>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
                   All Submissions ({submissions.length})
                 </h2>
-                {loading ? (
-                  <div className="space-y-2">
-                    {[...Array(3)].map((_, i) => (
-                      <div key={i} className="h-16 bg-[var(--color-border)]/20 rounded animate-pulse" />
-                    ))}
-                  </div>
-                ) : submissions.length === 0 ? (
-                  <p className="text-[var(--color-text-muted)] text-sm">
-                    No submissions for this contest
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {submissions.map((submission) => (
-                      <button
-                        key={submission.id}
-                        onClick={() => setSelectedSubmission(submission)}
-                        className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                          selectedSubmission?.id === submission.id
-                            ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10'
-                            : 'border-[var(--color-border)] hover:border-[var(--color-primary)]/50'
-                        }`}
-                      >
-                        <p className="text-xs text-[var(--color-text-muted)] mb-1">
-                          {submission.profiles?.display_name || submission.profiles?.email}
-                        </p>
-                        <div className="flex gap-1 mt-1">
-                          {submission.hashtag_status === 'fail' && (
-                            <span className="text-xs px-1.5 py-0.5 bg-red-500/10 text-red-500 rounded">
-                              Hashtag
+              </div>
+
+              {submissions.map((submission) => {
+                const videoUrl = getVideoUrl(submission);
+                const isDescriptionExpanded = expandedDescriptions.has(submission.id);
+                const description = submission.description_text || 'No description available';
+                const shouldTruncate = description.length > 200;
+                const displayDescription = isDescriptionExpanded || !shouldTruncate 
+                  ? description 
+                  : `${description.substring(0, 200)}...`;
+
+                return (
+                  <Card key={submission.id} className="p-6 hover:shadow-lg transition-shadow">
+                    <div className="space-y-6">
+                      {/* Header: User, Date, Platform */}
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                              {submission.profiles?.display_name || submission.profiles?.email}
+                            </h3>
+                            <span className="px-2 py-1 rounded text-xs font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)] uppercase">
+                              {submission.platform}
                             </span>
+                          </div>
+                          <p className="text-sm text-[var(--color-text-muted)]">
+                            Submitted: {formatDate(submission.created_at)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {getOwnershipBadge(submission.mp4_ownership_status)}
+                        </div>
+                      </div>
+
+                      {/* Video and Stats Grid */}
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Video Player */}
+                        <div className="lg:col-span-1">
+                          {videoUrl ? (
+                            <div className="rounded-lg overflow-hidden bg-black">
+                              <ContestVideoPlayer videoUrl={videoUrl} className="w-full" />
+                            </div>
+                          ) : (
+                            <div className="rounded-lg bg-[var(--color-border)]/20 aspect-video flex items-center justify-center">
+                              <p className="text-sm text-[var(--color-text-muted)]">No video available</p>
+                            </div>
                           )}
-                          {submission.hashtag_status === 'pending_review' && (
-                            <span className="text-xs px-1.5 py-0.5 bg-yellow-500/10 text-yellow-500 rounded">
-                              Hashtag
-                            </span>
+                          <a
+                            href={submission.original_video_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2 text-xs text-[var(--color-primary)] hover:underline break-all block"
+                          >
+                            View Original →
+                          </a>
+                        </div>
+
+                        {/* Stats Grid */}
+                        <div className="lg:col-span-2">
+                          <h4 className="text-sm font-semibold text-[var(--color-text-primary)] mb-3">
+                            Video Statistics
+                          </h4>
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                            <div className="p-3 rounded-lg bg-[var(--color-border)]/10">
+                              <p className="text-xs text-[var(--color-text-muted)] mb-1">Views</p>
+                              <p className="text-lg font-semibold text-[var(--color-text-primary)]">
+                                {submission.views_count.toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-[var(--color-border)]/10">
+                              <p className="text-xs text-[var(--color-text-muted)] mb-1">Likes</p>
+                              <p className="text-lg font-semibold text-[var(--color-text-primary)]">
+                                {submission.likes_count.toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-[var(--color-border)]/10">
+                              <p className="text-xs text-[var(--color-text-muted)] mb-1">Comments</p>
+                              <p className="text-lg font-semibold text-[var(--color-text-primary)]">
+                                {submission.comments_count.toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-[var(--color-border)]/10">
+                              <p className="text-xs text-[var(--color-text-muted)] mb-1">Shares</p>
+                              <p className="text-lg font-semibold text-[var(--color-text-primary)]">
+                                {(submission.shares_count || 0).toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-[var(--color-border)]/10">
+                              <p className="text-xs text-[var(--color-text-muted)] mb-1">Saves</p>
+                              <p className="text-lg font-semibold text-[var(--color-text-primary)]">
+                                {(submission.saves_count || 0).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Hashtags from BrightData */}
+                      {submission.hashtags_array && submission.hashtags_array.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">
+                            Hashtags from BrightData
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {submission.hashtags_array.map((tag, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2 py-1 rounded-md text-xs font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)] border border-[var(--color-primary)]/20"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Description from BrightData */}
+                      {submission.description_text && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">
+                            Description from BrightData
+                          </h4>
+                          <div className="p-3 rounded-lg bg-[var(--color-border)]/10">
+                            <p className="text-sm text-[var(--color-text-primary)] whitespace-pre-wrap">
+                              {displayDescription}
+                            </p>
+                            {shouldTruncate && (
+                              <button
+                                onClick={() => toggleDescription(submission.id)}
+                                className="mt-2 text-xs text-[var(--color-primary)] hover:underline"
+                              >
+                                {isDescriptionExpanded ? 'Show less' : 'Show more'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Automatic Review Status */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-4 rounded-lg border border-[var(--color-border)]">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                              Hashtag Check
+                            </h4>
+                            {getStatusBadge(submission.hashtag_status, 'hashtag')}
+                          </div>
+                          {submission.contests?.required_hashtags && submission.contests.required_hashtags.length > 0 && (
+                            <p className="text-xs text-[var(--color-text-muted)] mt-2">
+                              Required: {submission.contests.required_hashtags.join(', ')}
+                            </p>
                           )}
-                          {submission.description_status === 'fail' && (
-                            <span className="text-xs px-1.5 py-0.5 bg-red-500/10 text-red-500 rounded">
-                              Description
-                            </span>
-                          )}
-                          {submission.description_status === 'pending_review' && (
-                            <span className="text-xs px-1.5 py-0.5 bg-yellow-500/10 text-yellow-500 rounded">
-                              Description
-                            </span>
-                          )}
-                          {submission.content_review_status === 'pending' && (
-                            <span className="text-xs px-1.5 py-0.5 bg-yellow-500/10 text-yellow-500 rounded">
-                              Review
-                            </span>
-                          )}
-                          {submission.mp4_ownership_status === 'contested' && (
-                            <span className="text-xs px-1.5 py-0.5 bg-orange-500/10 text-orange-500 rounded">
-                              Ownership
-                            </span>
-                          )}
-                          {submission.mp4_ownership_status === 'failed' && (
-                            <span className="text-xs px-1.5 py-0.5 bg-red-500/10 text-red-500 rounded">
-                              Ownership Failed
-                            </span>
+                          {submission.hashtag_status !== 'pass' && submission.hashtag_status !== 'approved_manual' && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleUpdateStatus(submission.id, { hashtag_status: 'approved_manual' })}
+                              disabled={updating === submission.id}
+                              isLoading={updating === submission.id}
+                              className="mt-3"
+                            >
+                              Approve Hashtags
+                            </Button>
                           )}
                         </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </Card>
+
+                        <div className="p-4 rounded-lg border border-[var(--color-border)]">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                              Description Check
+                            </h4>
+                            {getStatusBadge(submission.description_status, 'description')}
+                          </div>
+                          {submission.description_status !== 'pass' && submission.description_status !== 'approved_manual' && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleUpdateStatus(submission.id, { description_status: 'approved_manual' })}
+                              disabled={updating === submission.id}
+                              isLoading={updating === submission.id}
+                              className="mt-3"
+                            >
+                              Approve Description
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Ownership Check */}
+                      {submission.mp4_ownership_reason && (
+                        <div className="p-4 rounded-lg border border-[var(--color-border)]">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                              Ownership Check
+                            </h4>
+                            {getOwnershipBadge(submission.mp4_ownership_status)}
+                          </div>
+                          <p className="text-xs text-[var(--color-text-muted)] mt-2">
+                            {submission.mp4_ownership_reason}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Content Review Actions */}
+                      <div className="flex items-center justify-between p-4 rounded-lg border border-[var(--color-border)]">
+                        <div>
+                          <h4 className="text-sm font-semibold text-[var(--color-text-primary)] mb-1">
+                            Content Review
+                          </h4>
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${
+                              submission.content_review_status === 'approved'
+                                ? 'bg-green-500/10 text-green-600 border border-green-500/20'
+                                : submission.content_review_status === 'rejected'
+                                ? 'bg-red-500/10 text-red-600 border border-red-500/20'
+                                : 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20'
+                            }`}
+                          >
+                            {submission.content_review_status === 'approved' && '✓ '}
+                            {submission.content_review_status === 'rejected' && '✗ '}
+                            {submission.content_review_status}
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          {submission.content_review_status !== 'approved' && (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => handleUpdateStatus(submission.id, { content_review_status: 'approved' })}
+                              disabled={updating === submission.id}
+                              isLoading={updating === submission.id}
+                            >
+                              Approve Content
+                            </Button>
+                          )}
+                          {submission.content_review_status !== 'rejected' && (
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() => handleUpdateStatus(submission.id, { content_review_status: 'rejected' })}
+                              disabled={updating === submission.id}
+                              isLoading={updating === submission.id}
+                            >
+                              Reject
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
-
-            {/* Review Panel */}
-            <div className="lg:col-span-2">
-              {selectedSubmission ? (
-                <Card>
-                  <div className="space-y-6">
-                    <div>
-                      <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-2">
-                        Review Submission
-                      </h2>
-                      <p className="text-sm text-[var(--color-text-muted)]">
-                        Contest: {selectedSubmission.contests?.title || contest?.title}
-                      </p>
-                      <p className="text-sm text-[var(--color-text-muted)]">
-                        User: {selectedSubmission.profiles?.display_name || selectedSubmission.profiles?.email}
-                      </p>
-                    </div>
-
-                    {/* Video Player */}
-                    {getVideoUrl(selectedSubmission) && (
-                      <div>
-                        <h3 className="text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                          Video
-                        </h3>
-                        <ContestVideoPlayer
-                          videoUrl={getVideoUrl(selectedSubmission)!}
-                          className="w-full"
-                        />
-                      </div>
-                    )}
-
-                    {/* Original URL */}
-                    <div>
-                      <h3 className="text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                        Original Social URL
-                      </h3>
-                      <a
-                        href={selectedSubmission.original_video_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-[var(--color-primary)] hover:underline break-all"
-                      >
-                        {selectedSubmission.original_video_url}
-                      </a>
-                    </div>
-
-                    {/* Stats */}
-                    {selectedSubmission.views_count > 0 && (
-                      <div>
-                        <h3 className="text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                          Stats
-                        </h3>
-                        <div className="grid grid-cols-3 gap-4 text-sm">
-                          <div>
-                            <p className="text-[var(--color-text-muted)]">Views</p>
-                            <p className="font-medium text-[var(--color-text-primary)]">
-                              {selectedSubmission.views_count.toLocaleString()}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[var(--color-text-muted)]">Likes</p>
-                            <p className="font-medium text-[var(--color-text-primary)]">
-                              {selectedSubmission.likes_count.toLocaleString()}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-[var(--color-text-muted)]">Comments</p>
-                            <p className="font-medium text-[var(--color-text-primary)]">
-                              {selectedSubmission.comments_count.toLocaleString()}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Status Checks */}
-                    <div>
-                      <h3 className="text-sm font-medium text-[var(--color-text-primary)] mb-3">
-                        Verification Status
-                      </h3>
-                      <div className="space-y-3">
-                        {/* Hashtag Check */}
-                        <div
-                          className={`flex items-center justify-between p-3 border rounded-lg ${
-                            selectedSubmission.hashtag_status === 'fail' ||
-                            selectedSubmission.hashtag_status === 'pending_review'
-                              ? 'border-red-500/50 bg-red-500/5'
-                              : selectedSubmission.hashtag_status === 'pass' ||
-                                selectedSubmission.hashtag_status === 'approved_manual'
-                              ? 'border-green-500/50 bg-green-500/5'
-                              : 'border-[var(--color-border)]'
-                          }`}
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                                Hashtag Check
-                              </p>
-                              <span
-                                className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                  selectedSubmission.hashtag_status === 'fail' ||
-                                  selectedSubmission.hashtag_status === 'pending_review'
-                                    ? 'bg-red-500/10 text-red-500'
-                                    : selectedSubmission.hashtag_status === 'pass' ||
-                                      selectedSubmission.hashtag_status === 'approved_manual'
-                                    ? 'bg-green-500/10 text-green-500'
-                                    : 'bg-yellow-500/10 text-yellow-500'
-                                }`}
-                              >
-                                {selectedSubmission.hashtag_status}
-                              </span>
-                            </div>
-                            {selectedSubmission.hashtag_status === 'fail' && (
-                              <p className="text-xs text-red-600 font-medium mb-1">
-                                ❌ Failed: Required hashtags not found
-                              </p>
-                            )}
-                            {selectedSubmission.hashtag_status === 'pending_review' && (
-                              <p className="text-xs text-yellow-600 font-medium mb-1">
-                                ⏳ Pending manual review
-                              </p>
-                            )}
-                            {selectedSubmission.contests?.required_hashtags && (
-                              <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                                Required: {selectedSubmission.contests.required_hashtags.join(', ')}
-                              </p>
-                            )}
-                          </div>
-                          {selectedSubmission.hashtag_status !== 'pass' &&
-                            selectedSubmission.hashtag_status !== 'approved_manual' && (
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() =>
-                                  handleUpdateStatus(selectedSubmission.id, {
-                                    hashtag_status: 'approved_manual',
-                                  })
-                                }
-                                disabled={updating}
-                                isLoading={updating}
-                              >
-                                Approve Hashtags
-                              </Button>
-                            )}
-                          {(selectedSubmission.hashtag_status === 'pass' ||
-                            selectedSubmission.hashtag_status === 'approved_manual') && (
-                            <span className="text-green-600 text-sm font-medium">✓ Approved</span>
-                          )}
-                        </div>
-
-                        {/* Description Check */}
-                        <div
-                          className={`flex items-center justify-between p-3 border rounded-lg ${
-                            selectedSubmission.description_status === 'fail' ||
-                            selectedSubmission.description_status === 'pending_review'
-                              ? 'border-red-500/50 bg-red-500/5'
-                              : selectedSubmission.description_status === 'pass' ||
-                                selectedSubmission.description_status === 'approved_manual'
-                              ? 'border-green-500/50 bg-green-500/5'
-                              : 'border-[var(--color-border)]'
-                          }`}
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                                Description Check
-                              </p>
-                              <span
-                                className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                  selectedSubmission.description_status === 'fail' ||
-                                  selectedSubmission.description_status === 'pending_review'
-                                    ? 'bg-red-500/10 text-red-500'
-                                    : selectedSubmission.description_status === 'pass' ||
-                                      selectedSubmission.description_status === 'approved_manual'
-                                    ? 'bg-green-500/10 text-green-500'
-                                    : 'bg-yellow-500/10 text-yellow-500'
-                                }`}
-                              >
-                                {selectedSubmission.description_status}
-                              </span>
-                            </div>
-                            {selectedSubmission.description_status === 'fail' && (
-                              <p className="text-xs text-red-600 font-medium mb-1">
-                                ❌ Failed: Description does not match required template
-                              </p>
-                            )}
-                            {selectedSubmission.description_status === 'pending_review' && (
-                              <p className="text-xs text-yellow-600 font-medium mb-1">
-                                ⏳ Pending manual review
-                              </p>
-                            )}
-                          </div>
-                          {selectedSubmission.description_status !== 'pass' &&
-                            selectedSubmission.description_status !== 'approved_manual' && (
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() =>
-                                  handleUpdateStatus(selectedSubmission.id, {
-                                    description_status: 'approved_manual',
-                                  })
-                                }
-                                disabled={updating}
-                                isLoading={updating}
-                              >
-                                Approve Description
-                              </Button>
-                            )}
-                          {(selectedSubmission.description_status === 'pass' ||
-                            selectedSubmission.description_status === 'approved_manual') && (
-                            <span className="text-green-600 text-sm font-medium">✓ Approved</span>
-                          )}
-                        </div>
-
-                        {/* Content Review */}
-                        <div
-                          className={`flex items-center justify-between p-3 border rounded-lg ${
-                            selectedSubmission.content_review_status === 'rejected'
-                              ? 'border-red-500/50 bg-red-500/5'
-                              : selectedSubmission.content_review_status === 'approved'
-                              ? 'border-green-500/50 bg-green-500/5'
-                              : 'border-[var(--color-border)]'
-                          }`}
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                                Content Review
-                              </p>
-                              <span
-                                className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                  selectedSubmission.content_review_status === 'rejected'
-                                    ? 'bg-red-500/10 text-red-500'
-                                    : selectedSubmission.content_review_status === 'approved'
-                                    ? 'bg-green-500/10 text-green-500'
-                                    : 'bg-yellow-500/10 text-yellow-500'
-                                }`}
-                              >
-                                {selectedSubmission.content_review_status}
-                              </span>
-                            </div>
-                            {selectedSubmission.content_review_status === 'pending' && (
-                              <p className="text-xs text-yellow-600 font-medium">
-                                ⏳ Awaiting content review
-                              </p>
-                            )}
-                            {selectedSubmission.content_review_status === 'approved' && (
-                              <p className="text-xs text-green-600 font-medium">✓ Content approved</p>
-                            )}
-                            {selectedSubmission.content_review_status === 'rejected' && (
-                              <p className="text-xs text-red-600 font-medium">❌ Content rejected</p>
-                            )}
-                          </div>
-                          <div className="flex gap-2">
-                            {selectedSubmission.content_review_status !== 'approved' && (
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                onClick={() =>
-                                  handleUpdateStatus(selectedSubmission.id, {
-                                    content_review_status: 'approved',
-                                  })
-                                }
-                                disabled={updating}
-                                isLoading={updating}
-                              >
-                                Approve Content
-                              </Button>
-                            )}
-                            {selectedSubmission.content_review_status !== 'rejected' && (
-                              <Button
-                                variant="danger"
-                                size="sm"
-                                onClick={() =>
-                                  handleUpdateStatus(selectedSubmission.id, {
-                                    content_review_status: 'rejected',
-                                  })
-                                }
-                                disabled={updating}
-                                isLoading={updating}
-                              >
-                                Reject
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* MP4 Ownership */}
-                        <div
-                          className={`p-3 border rounded-lg ${
-                            selectedSubmission.mp4_ownership_status === 'failed' ||
-                            selectedSubmission.mp4_ownership_status === 'contested'
-                              ? 'border-orange-500/50 bg-orange-500/5'
-                              : selectedSubmission.mp4_ownership_status === 'verified'
-                              ? 'border-green-500/50 bg-green-500/5'
-                              : 'border-[var(--color-border)]'
-                          }`}
-                        >
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                                MP4 Ownership
-                              </p>
-                              <span
-                                className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                  selectedSubmission.mp4_ownership_status === 'verified'
-                                    ? 'bg-green-500/10 text-green-500'
-                                    : selectedSubmission.mp4_ownership_status === 'failed' ||
-                                      selectedSubmission.mp4_ownership_status === 'contested'
-                                    ? 'bg-orange-500/10 text-orange-500'
-                                    : 'bg-yellow-500/10 text-yellow-500'
-                                }`}
-                              >
-                                {selectedSubmission.mp4_ownership_status || 'pending'}
-                              </span>
-                            </div>
-                            {selectedSubmission.mp4_ownership_reason && (
-                              <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                                {selectedSubmission.mp4_ownership_reason}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ) : (
-                <Card>
-                  <div className="text-center py-12">
-                    <p className="text-[var(--color-text-muted)]">
-                      Select a submission from the list to review
-                    </p>
-                  </div>
-                </Card>
-              )}
-            </div>
-          </div>
+          )}
         </div>
       </PageSection>
     </Page>
   );
 }
-

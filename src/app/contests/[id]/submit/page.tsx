@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
 import Link from 'next/link';
 import { Card } from '../../../components/Card';
@@ -12,6 +12,7 @@ import { detectPlatform, isValidUrl } from '@/lib/url-utils';
 export default function SubmitContestPage({ params }: { params: { id: string } }) {
   const { user, profile, isLoading, session } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [contestId, setContestId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +43,7 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
     if (user && contestId) {
       fetchContest();
     }
-  }, [user, contestId]);
+  }, [user, contestId, searchParams]);
 
   useEffect(() => {
     if (user && contestId && sessionToken) {
@@ -63,11 +64,24 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
       if (response.ok) {
         const data = await response.json();
         setContest(data.data);
-        // If specific (non-general) categories exist and force_single_category is true, select first category by default
-        const specificCategories = data.data.contest_categories?.filter((cat: any) => cat.is_general === false) || [];
-        if (specificCategories.length > 0) {
-          if (data.data.force_single_category && specificCategories.length === 1) {
-            setSelectedCategoryId(specificCategories[0].id);
+        
+        // Check for category parameter in URL first
+        const categoryParam = searchParams.get('category');
+        if (categoryParam) {
+          // Validate that the category exists and is not general
+          const specificCategories = data.data.contest_categories?.filter((cat: any) => cat.is_general === false) || [];
+          const categoryExists = specificCategories.some((cat: any) => cat.id === categoryParam);
+          if (categoryExists) {
+            setSelectedCategoryId(categoryParam);
+          }
+        } else {
+          // If no URL parameter, use default logic
+          // If specific (non-general) categories exist and force_single_category is true, select first category by default
+          const specificCategories = data.data.contest_categories?.filter((cat: any) => cat.is_general === false) || [];
+          if (specificCategories.length > 0) {
+            if (data.data.force_single_category && specificCategories.length === 1) {
+              setSelectedCategoryId(specificCategories[0].id);
+            }
           }
         }
       }
@@ -260,7 +274,7 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
       <PageSection variant="header">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center gap-4 mb-4">
-            <Link href={`/contests/${contestId}`}>
+            <Link href={`/contests/${contest?.slug || contestId}`}>
               <Button variant="ghost" size="sm">
                 ← Back to Contest
               </Button>
@@ -431,7 +445,7 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
                   >
                     Submit Edit
                   </Button>
-                  <Link href={`/contests/${contestId}`}>
+                  <Link href={`/contests/${contest?.slug || contestId}`}>
                     <Button type="button" variant="ghost" size="lg">
                       Cancel
                     </Button>

@@ -27,7 +27,8 @@ export async function GET(request: NextRequest) {
           title,
           movie_identifier,
           status,
-          required_hashtags
+          required_hashtags,
+          required_description_template
         ),
         contest_categories:category_id (
           id,
@@ -48,6 +49,7 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq('user_id', user.id)
+      .eq('user_removed', false) // Exclude submissions removed by user
       .order('created_at', { ascending: false });
 
     if (contestIdFilter) {

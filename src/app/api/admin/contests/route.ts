@@ -38,6 +38,12 @@ export async function GET(request: NextRequest) {
             payout_amount,
             rank_order
           )
+        ),
+        contest_asset_links (
+          id,
+          name,
+          url,
+          display_order
         )
       `)
       .order('created_at', { ascending: false })
@@ -131,6 +137,7 @@ export async function POST(request: NextRequest) {
       title,
       description,
       movie_identifier,
+      slug,
       start_date,
       end_date,
       required_hashtags,
@@ -143,6 +150,10 @@ export async function POST(request: NextRequest) {
       require_social_verification = false,
       require_mp4_upload = false,
       public_submissions_visibility = 'public_hide_metrics',
+      profile_image_url,
+      cover_image_url,
+      display_stats = true,
+      asset_links,
     } = body;
 
     // Validation
@@ -183,6 +194,7 @@ export async function POST(request: NextRequest) {
         title,
         description,
         movie_identifier: movie_identifier || null,
+        slug: slug || null,
         start_date,
         end_date,
         required_hashtags,
@@ -193,6 +205,9 @@ export async function POST(request: NextRequest) {
         require_social_verification,
         require_mp4_upload,
         public_submissions_visibility,
+        profile_image_url: profile_image_url || null,
+        cover_image_url: cover_image_url || null,
+        display_stats,
         impact_metric_enabled: false,
         impact_metric_explanation: null,
       })
@@ -254,6 +269,25 @@ export async function POST(request: NextRequest) {
             }
           }
         }
+      }
+    }
+
+    // Create asset links if provided
+    if (Array.isArray(asset_links) && asset_links.length > 0) {
+      const assetLinkInserts = asset_links.map((link: any, index: number) => ({
+        contest_id: contest.id,
+        name: link.name,
+        url: link.url,
+        display_order: link.display_order ?? index,
+      }));
+
+      const { error: assetLinksError } = await supabaseAdmin
+        .from('contest_asset_links')
+        .insert(assetLinkInserts);
+
+      if (assetLinksError) {
+        console.error('Error creating asset links:', assetLinksError);
+        // Continue anyway - contest is created
       }
     }
 

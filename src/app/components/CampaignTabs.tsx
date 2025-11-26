@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useAuth } from '../contexts/AuthContext';
+import { isAdmin } from '@/lib/role-utils';
 
 type CampaignTabId = 'campaign' | 'upload';
 
@@ -8,15 +10,24 @@ interface CampaignTabsProps {
   active: CampaignTabId;
 }
 
-const TABS: Array<{ id: CampaignTabId; label: string; href: string }> = [
+const ALL_TABS: Array<{ id: CampaignTabId; label: string; href: string }> = [
   { id: 'campaign', label: 'Campaign', href: '/campaign' },
   { id: 'upload', label: 'Upload', href: '/upload' },
 ];
 
 /**
  * Renders the primary tab switcher between the Campaign builder and Upload hub.
+ * Only shows Campaign tab for admin users.
  */
 export function CampaignTabs({ active }: CampaignTabsProps) {
+  const { profile, isLoading } = useAuth();
+  const userIsAdmin = !isLoading && profile && isAdmin(profile.role);
+  
+  // Filter tabs based on admin status
+  const TABS = userIsAdmin 
+    ? ALL_TABS 
+    : ALL_TABS.filter(tab => tab.id !== 'campaign');
+
   return (
     <div
       className="flex w-full max-w-md rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-1"

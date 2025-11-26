@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
 import { Card } from '../../../components/Card';
@@ -76,7 +76,6 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
   const [submissionsError, setSubmissionsError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
-  const submissionsSectionRef = useRef<HTMLDivElement | null>(null);
 
   // Filters
   const [hashtagFilter, setHashtagFilter] = useState<string>('');
@@ -224,15 +223,7 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
   };
 
   const handleCategorySelect = (categoryId: string | null) => {
-    setCategoryFilter((prev) => {
-      if (prev === categoryId) {
-        return null;
-      }
-      return categoryId;
-    });
-    if (submissionsSectionRef.current) {
-      submissionsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    setCategoryFilter(categoryId);
   };
 
   useEffect(() => {
@@ -289,9 +280,6 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
     ...specificCategories.map((cat: any) => ({ ...cat, categoryType: 'specific' })),
     ...generalCategories.map((cat: any) => ({ ...cat, categoryType: 'general' })),
   ];
-  const activeCategory = categoryFilter
-    ? combinedCategories.find((cat: any) => cat.id === categoryFilter)
-    : null;
 
   return (
     <Page>
@@ -456,22 +444,14 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                   .sort((a: any, b: any) => a.display_order - b.display_order)
                   .map((category: any) => {
                     const placeNames = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th'];
-                    const isSelected = categoryFilter === category.id;
                     const categoryStyle =
                       category.categoryType === 'general'
                         ? 'border-[var(--color-primary)]/40 bg-[var(--color-primary)]/5'
                         : 'border-[var(--color-border)] bg-[var(--color-surface)]';
                     return (
-                      <button
-                        type="button"
+                      <div
                         key={category.id}
-                        aria-pressed={isSelected}
-                        onClick={() => handleCategorySelect(category.id)}
-                        className={`text-left rounded border p-3 space-y-1 transition-all duration-150 w-full ${
-                          isSelected
-                            ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/15 shadow-md'
-                            : `${categoryStyle} hover:border-[var(--color-primary)]/60`
-                        }`}
+                        className={`text-left rounded border p-3 space-y-1 w-full ${categoryStyle}`}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
@@ -517,7 +497,7 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                               })}
                           </ul>
                         )}
-                      </button>
+                      </div>
                     );
                   })}
               </div>
@@ -525,31 +505,11 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
           )}
 
           {/* Submissions */}
-          <div ref={submissionsSectionRef}>
-            <Card className="p-4 space-y-3">
+          <Card className="p-4 space-y-3">
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
                   Submissions <span className="text-[10px] text-[var(--color-text-muted)]">({submissions.length})</span>
                 </h2>
-                {activeCategory ? (
-                  <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]">
-                    <span>
-                      Showing category: <span className="font-semibold text-[var(--color-text-primary)]">{activeCategory.name}</span>
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      className="px-2 py-1 min-h-0 min-w-0 text-[10px]"
-                      onClick={() => handleCategorySelect(null)}
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                ) : combinedCategories.length > 0 ? (
-                  <span className="text-[10px] text-[var(--color-text-muted)]">
-                    Tip: click a category above to filter submissions
-                  </span>
-                ) : null}
               </div>
               {submissionsError && (
                 <div className="p-3 rounded border border-red-500/20 bg-red-500/5">
@@ -558,7 +518,28 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
               )}
 
               {/* Filters */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                {combinedCategories.length > 0 && (
+                  <div>
+                    <label className="block text-[10px] font-medium text-[var(--color-text-primary)] mb-1 uppercase">
+                      Category
+                    </label>
+                    <select
+                      value={categoryFilter || ''}
+                      onChange={(e) => handleCategorySelect(e.target.value || null)}
+                      className="w-full px-2 py-1.5 rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)] text-xs"
+                    >
+                      <option value="">All</option>
+                      {combinedCategories
+                        .sort((a: any, b: any) => a.display_order - b.display_order)
+                        .map((category: any) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className="block text-[10px] font-medium text-[var(--color-text-primary)] mb-1 uppercase">
                     Hashtag Status
@@ -699,7 +680,6 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                 </div>
               )}
             </Card>
-          </div>
 
         </div>
       </PageSection>

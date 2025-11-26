@@ -18,8 +18,11 @@ export async function GET(
   try {
     const { id } = await params;
 
-    // Get contest with categories and nested prizes
-    const { data: contest, error: contestError } = await supabaseAdmin
+    // Check if id is a valid UUID (format: 8-4-4-4-12 hex characters)
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    
+    // Build query - support both UUID and slug lookups
+    let query = supabaseAdmin
       .from('contests')
       .select(`
         *,
@@ -40,9 +43,16 @@ export async function GET(
           )
         )
       `)
-      .eq('id', id)
-      .in('status', ['live', 'upcoming', 'closed']) // Allow viewing closed contests too
-      .single();
+      .in('status', ['live', 'upcoming', 'closed']); // Allow viewing closed contests too
+
+    // Query by UUID or slug
+    if (isUUID) {
+      query = query.eq('id', id);
+    } else {
+      query = query.eq('slug', id);
+    }
+
+    const { data: contest, error: contestError } = await query.single();
 
     if (contestError) {
       if (contestError.code === 'PGRST116') {
@@ -54,11 +64,31 @@ export async function GET(
       throw contestError;
     }
 
+    // Get the actual contest ID (in case we looked up by slug)
+    const contestId = contest.id;
+
+    // Try to fetch asset links separately if table exists
+    let sortedAssetLinks: any[] = [];
+    try {
+      const { data: assetLinks } = await supabaseAdmin
+        .from('contest_asset_links')
+        .select('*')
+        .eq('contest_id', contestId)
+        .order('display_order', { ascending: true });
+
+      if (assetLinks) {
+        sortedAssetLinks = assetLinks;
+      }
+    } catch (assetLinksError) {
+      // Table doesn't exist yet, continue without asset links
+      console.log('contest_asset_links table not found, continuing without asset links');
+    }
+
     // Get approved submission count (content-approved, regardless of processing status)
     const { count: approvedSubmissions } = await supabaseAdmin
       .from('contest_submissions')
       .select('*', { count: 'exact', head: true })
-      .eq('contest_id', id)
+      .eq('contest_id', contestId)
       .eq('content_review_status', 'approved');
 
     // Check if there are multiple contests for the same movie
@@ -66,10 +96,10 @@ export async function GET(
     if (contest.movie_identifier) {
       const { data: movieContests } = await supabaseAdmin
         .from('contests')
-        .select('id, title, status')
+        .select('id, title, status, slug')
         .eq('movie_identifier', contest.movie_identifier)
         .in('status', ['live', 'upcoming'])
-        .neq('id', id);
+        .neq('id', contestId);
 
       if (movieContests && movieContests.length > 0) {
         subContests = movieContests;
@@ -78,7 +108,7 @@ export async function GET(
 
     // Calculate total prize pool
     const { data: totalPool } = await supabaseAdmin.rpc('get_contest_total_prize_pool', {
-      p_contest_id: id,
+      p_contest_id: contestId,
     });
 
     return NextResponse.json({
@@ -87,6 +117,7 @@ export async function GET(
         total_prize_pool: totalPool || 0,
         submission_count: approvedSubmissions || 0,
         sub_contests: subContests,
+        contest_asset_links: sortedAssetLinks,
       },
     });
   } catch (error) {

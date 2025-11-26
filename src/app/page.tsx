@@ -10,6 +10,8 @@ import { VideoCard } from './components/VideoCard';
 import { CreatorCard } from './components/CreatorCard';
 import { Stack, Grid, Cluster } from './components/layout';
 import { useVideos } from './hooks/useData';
+import { useAuth } from './contexts/AuthContext';
+import { isAdmin } from '@/lib/role-utils';
 
 interface HomepageData {
   stats: {
@@ -22,10 +24,14 @@ interface HomepageData {
 }
 
 export default function Home() {
+  const { profile, isLoading: authLoading } = useAuth();
   const [homepageData, setHomepageData] = useState<HomepageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<'all' | 'month' | 'week'>('all');
   const [activeCategory, setActiveCategory] = useState('all');
+  
+  // Check if user is admin
+  const userIsAdmin = !authLoading && profile && isAdmin(profile.role);
 
   useEffect(() => {
     const fetchHomepageData = async () => {
@@ -499,11 +505,17 @@ export default function Home() {
                   <Typography.Text className="text-white/90">• Track performance</Typography.Text>
                   <Typography.Text className="text-white/90">• Measure impact</Typography.Text>
                 </Stack>
-                <Link href="/campaign">
-                  <Button variant="secondary" className="w-full bg-white text-gray-900 hover:bg-gray-100">
+                {userIsAdmin ? (
+                  <Link href="/campaign">
+                    <Button variant="secondary" className="w-full bg-white text-gray-900 hover:bg-gray-100">
+                      Partner With Us
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button variant="secondary" className="w-full bg-white text-gray-900 hover:bg-gray-100" disabled>
                     Partner With Us
                   </Button>
-                </Link>
+                )}
               </Card>
             </Grid>
 

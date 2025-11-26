@@ -20,9 +20,9 @@ export async function buildAuthHeaders(extraHeaders?: HeadersInit): Promise<Head
     data: { session },
   } = await supabaseClient.auth.getSession();
 
-  const headers: HeadersInit = {
-    ...DEFAULT_HEADERS,
-    ...(extraHeaders || {}),
+  const headers: Record<string, string> = {
+    ...(DEFAULT_HEADERS as Record<string, string>),
+    ...(extraHeaders as Record<string, string> || {}),
   };
 
   if (session?.access_token) {
@@ -41,8 +41,8 @@ export async function authFetch(input: FetchInput, init?: AuthFetchOptions) {
     headers,
   };
 
-  if (init?.includeJson && !headers['Content-Type']) {
-    (finalInit.headers as HeadersInit)['Content-Type'] = 'application/json';
+  if (init?.includeJson && !(headers as Record<string, string>)['Content-Type']) {
+    (finalInit.headers as Record<string, string>)['Content-Type'] = 'application/json';
   }
 
   return fetch(input, finalInit);
@@ -80,9 +80,9 @@ export function useAuthFetch() {
 
   const authHeaders = useCallback(
     async (headers?: HeadersInit) => {
-      const merged: HeadersInit = {
-        ...DEFAULT_HEADERS,
-        ...(headers || {}),
+      const merged: Record<string, string> = {
+        ...(DEFAULT_HEADERS as Record<string, string>),
+        ...(headers as Record<string, string> || {}),
       };
 
       if (accessToken) {
@@ -104,8 +104,8 @@ export function useAuthFetch() {
         headers,
       };
 
-      if (init?.includeJson && !headers['Content-Type']) {
-        (finalInit.headers as HeadersInit)['Content-Type'] = 'application/json';
+      if (init?.includeJson && !(headers as Record<string, string>)['Content-Type']) {
+        (finalInit.headers as Record<string, string>)['Content-Type'] = 'application/json';
       }
 
       return fetch(input, finalInit);

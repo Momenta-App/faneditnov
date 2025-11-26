@@ -32,8 +32,6 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
 
   const sessionToken = session?.access_token ?? null;
 
-  const authHeaders = sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {};
-
   useEffect(() => {
     if (!isLoading && !user && contestId) {
       router.push(`/auth/login?redirect=${encodeURIComponent(`/contests/${contestId}/submit`)}`);
@@ -55,8 +53,11 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
   const fetchContest = async () => {
     try {
       setLoadingContest(true);
+      const headers: HeadersInit = sessionToken 
+        ? { Authorization: `Bearer ${sessionToken}` }
+        : {};
       const response = await fetch(`/api/contests/${contestId}`, {
-        headers: authHeaders,
+        headers,
         credentials: 'include',
       });
       if (response.ok) {
@@ -83,8 +84,9 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
       if (!sessionToken) {
         return;
       }
+      const headers: HeadersInit = { Authorization: `Bearer ${sessionToken}` };
       const response = await fetch('/api/settings/connected-accounts', {
-        headers: authHeaders,
+        headers,
         credentials: 'include',
       });
       if (response.ok) {
@@ -183,10 +185,13 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
         formData.append('category_id', selectedCategoryId);
       }
 
+      const headers: HeadersInit = sessionToken 
+        ? { Authorization: `Bearer ${sessionToken}` }
+        : {};
       const response = await fetch(`/api/contests/${contestId}/submissions`, {
         method: 'POST',
         body: formData,
-        headers: authHeaders,
+        headers,
         credentials: 'include',
       });
 

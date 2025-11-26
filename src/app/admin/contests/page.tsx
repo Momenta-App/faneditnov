@@ -58,14 +58,29 @@ export default function AdminContestsPage() {
   const fetchContests = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await authFetch('/api/admin/contests');
       if (!response.ok) {
-        throw new Error('Failed to fetch contests');
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 403) {
+          setError('Access denied. Admin role required.');
+          router.push('/');
+          return;
+        }
+        if (response.status === 401) {
+          setError('Please sign in to continue.');
+          router.push('/auth/login');
+          return;
+        }
+        throw new Error(errorData.error || 'Failed to fetch contests');
       }
       const data = await response.json();
       setContests(data.data || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load contests');
+      console.error('Error fetching contests:', err);
+      if (err instanceof Error && !err.message.includes('Access denied') && !err.message.includes('sign in')) {
+        setError(err.message || 'Failed to load contests');
+      }
     } finally {
       setLoading(false);
     }
@@ -129,7 +144,9 @@ export default function AdminContestsPage() {
           {loading ? (
             <div className="space-y-4">
               {[...Array(3)].map((_, i) => (
-                <Card key={i} className="h-32 animate-pulse" />
+                <Card key={i} className="h-32 animate-pulse">
+                  <div />
+                </Card>
               ))}
             </div>
           ) : contests.length === 0 ? (

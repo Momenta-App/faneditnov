@@ -71,7 +71,7 @@ export default function Home() {
               <Typography.H1 className="mb-6">
                 The Best Fan Edits, Ranked by Fans
               </Typography.H1>
-              <Typography.Text className="text-lg md:text-xl max-w-2xl mx-auto" style={{ color: 'var(--color-text-muted)' }}>
+              <Typography.Text className="text-lg md:text-xl max-w-2xl mx-auto text-[var(--color-text-muted)]">
                 Discover, vote, and share the most incredible fan edits from creators worldwide. 
                 Join a community where talent rises to the top.
               </Typography.Text>
@@ -90,19 +90,19 @@ export default function Home() {
             {/* Stats Bar */}
             <Grid cols={{ mobile: 1, tablet: 3, desktop: 3 }} gap={{ mobile: 4, desktop: 6 }} className="w-full max-w-4xl mt-8">
               <Card padding="lg" className="text-center">
-                <Typography.H2 className="mb-2" style={{ color: 'var(--color-primary)' }}>
+                <Typography.H2 className="mb-2 text-[var(--color-primary)]">
                   {stats.videos.formatted}
                 </Typography.H2>
                 <Typography.Muted>{stats.videos.label}</Typography.Muted>
               </Card>
               <Card padding="lg" className="text-center">
-                <Typography.H2 className="mb-2" style={{ color: 'var(--color-primary)' }}>
+                <Typography.H2 className="mb-2 text-[var(--color-primary)]">
                   {stats.views.formatted}
                 </Typography.H2>
                 <Typography.Muted>{stats.views.label}</Typography.Muted>
               </Card>
               <Card padding="lg" className="text-center">
-                <Typography.H2 className="mb-2" style={{ color: 'var(--color-primary)' }}>
+                <Typography.H2 className="mb-2 text-[var(--color-primary)]">
                   {stats.creators.formatted}
                 </Typography.H2>
                 <Typography.Muted>{stats.creators.label}</Typography.Muted>
@@ -451,7 +451,7 @@ export default function Home() {
                 Ready to get started?
               </Badge>
               <Typography.H1 className="mb-6">Your Creative Journey Starts Here</Typography.H1>
-              <Typography.Text className="text-lg" style={{ color: 'var(--color-text-muted)' }}>
+              <Typography.Text className="text-lg text-[var(--color-text-muted)]">
                 Whether you're a creator, fan, or brand, there's a place for you in our community.
               </Typography.Text>
             </div>

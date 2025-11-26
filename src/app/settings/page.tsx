@@ -583,10 +583,6 @@ function ConnectedAccountsSection() {
 function ContestsSection() {
   const { session } = useAuth();
   const sessionToken = session?.access_token ?? null;
-  const authHeaders = useMemo(
-    () => (sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
-    [sessionToken]
-  );
 
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -624,8 +620,9 @@ function ContestsSection() {
     }
     try {
       setLoading(true);
+      const headers: HeadersInit = { Authorization: `Bearer ${sessionToken}` };
       const response = await fetch('/api/user/submissions', {
-        headers: authHeaders,
+        headers,
         credentials: 'include',
       });
       if (!response.ok) {
@@ -651,9 +648,10 @@ function ContestsSection() {
       return;
     }
     try {
+      const headers: HeadersInit = { Authorization: `Bearer ${sessionToken}` };
       const response = await fetch(`/api/user/submissions/${submissionId}/refresh-stats`, {
         method: 'POST',
-        headers: authHeaders,
+        headers,
         credentials: 'include',
       });
       if (!response.ok) {
@@ -675,9 +673,10 @@ function ContestsSection() {
       return;
     }
     try {
+      const headers: HeadersInit = { Authorization: `Bearer ${sessionToken}` };
       const response = await fetch(`/api/user/submissions/${submissionId}/request-review`, {
         method: 'POST',
-        headers: authHeaders,
+        headers,
         credentials: 'include',
       });
       if (!response.ok) {
@@ -801,7 +800,9 @@ function ContestsSection() {
         </Card>
       )}
 
-      {Object.entries(groupedByContest).map(([contestId, { contest, submissions: contestSubmissions }]) => (
+      {(Object.entries(groupedByContest) as [string, { contest: any; submissions: any[] }][]).map(([contestId, group]) => {
+        const { contest, submissions: contestSubmissions } = group;
+        return (
         <Card key={contestId}>
           <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4">
             {contest?.title || 'Unknown Contest'}
@@ -975,7 +976,8 @@ function ContestsSection() {
             })}
           </div>
         </Card>
-      ))}
+      );
+      })}
     </div>
   );
 }

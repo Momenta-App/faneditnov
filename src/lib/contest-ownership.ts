@@ -4,7 +4,7 @@
  */
 import { supabaseAdmin } from '@/lib/supabase';
 import { createVideoFingerprint } from '@/lib/video-fingerprint';
-import type { Platform } from '@/lib/video-ownership';
+import type { Platform } from '@/lib/url-utils';
 
 export type ContestOwnershipStatus =
   | { status: 'verified'; socialAccountId: string; reason: string }

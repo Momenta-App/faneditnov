@@ -135,7 +135,9 @@ export default function ContestsPage() {
           {loading ? (
             <div className="space-y-4">
               {[...Array(3)].map((_, i) => (
-                <Card key={i} className="h-32 animate-pulse" />
+                <Card key={i} className="h-32 animate-pulse">
+                  <div />
+                </Card>
               ))}
             </div>
           ) : contests.length === 0 ? (

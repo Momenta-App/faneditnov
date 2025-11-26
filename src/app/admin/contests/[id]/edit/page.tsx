@@ -102,7 +102,9 @@ export default function EditContestPage({ params }: { params: { id: string } }) 
           {loading ? (
             <div className="space-y-4">
               {[...Array(4)].map((_, idx) => (
-                <Card key={idx} className="h-32 animate-pulse" />
+                <Card key={idx} className="h-32 animate-pulse">
+                  <div />
+                </Card>
               ))}
             </div>
           ) : contest ? (

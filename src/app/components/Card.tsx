@@ -7,6 +7,7 @@ interface CardProps {
   className?: string;
   padding?: 'none' | 'sm' | 'md' | 'lg';
   interactive?: boolean;
+  style?: React.CSSProperties;
 }
 
 /**
@@ -22,7 +23,8 @@ export function Card({
   children, 
   className = '', 
   padding = 'md',
-  interactive = false 
+  interactive = false,
+  style
 }: CardProps) {
   const paddingClasses = {
     none: '',
@@ -39,6 +41,7 @@ export function Card({
         ${interactive ? 'card-interactive' : ''}
         ${className}
       `}
+      style={style}
     >
       {children}
     </div>

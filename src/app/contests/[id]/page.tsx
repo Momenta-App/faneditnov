@@ -55,6 +55,13 @@ interface Contest {
   require_social_verification?: boolean;
   require_mp4_upload?: boolean;
   public_submissions_visibility?: 'public_hide_metrics' | 'public_with_rankings' | 'private_judges_only';
+  contest_prizes?: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    payout_amount: number;
+    rank_order: number;
+  }>;
 }
 
 export default function ContestDetailPage({ params }: { params: { id: string } }) {
@@ -208,7 +215,9 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
       <Page>
         <PageSection variant="content">
           <div className="max-w-4xl mx-auto">
-            <Card className="h-64 animate-pulse" />
+            <Card className="h-64 animate-pulse">
+              <div />
+            </Card>
           </div>
         </PageSection>
       </Page>

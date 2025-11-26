@@ -21,7 +21,7 @@ export function VideoCard({ video, rank, homepageVariant = false, ranked = false
   const [isHovered, setIsHovered] = useState(false);
   const { openModal } = useModal();
 
-  const platformMeta: Record<Platform, { label: string; bg: string; color: string; icon: JSX.Element }> = {
+  const platformMeta: Record<Platform, { label: string; bg: string; color: string; icon: React.ReactElement }> = {
     tiktok: {
       label: 'TikTok',
       bg: 'rgba(0,0,0,0.75)',

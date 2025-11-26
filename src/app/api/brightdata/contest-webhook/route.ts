@@ -24,33 +24,82 @@ export async function POST(request: NextRequest) {
 
     const record = data[0];
 
-    // Extract video URL to find submission
+    // Extract video URL and snapshot ID to find submission
     const videoUrl = record.url || record.video_url || record.post_url;
+    const snapshotId = record.snapshot_id || record.id || record.collection_id;
+    
     if (!videoUrl) {
       console.error('[Contest Webhook] No video URL in payload');
       return NextResponse.json({ error: 'No video URL' }, { status: 400 });
     }
 
-    // Find submission by URL (try to match most recent submission in fetching_stats state)
-    // This handles cases where multiple submissions might have the same URL
-    const { data: submission, error: submissionError } = await supabaseAdmin
-      .from('contest_submissions')
-      .select(`
-        *,
-        contests:contest_id (
-          id,
-          required_hashtags,
-          required_description_template
-        )
-      `)
-      .eq('original_video_url', videoUrl)
-      .eq('processing_status', 'fetching_stats')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    console.log('[Contest Webhook] Received webhook:', { videoUrl, snapshotId });
+
+    // Try to find submission by snapshot_id first (most reliable)
+    let submission: any = null;
+    let submissionError: any = null;
+
+    if (snapshotId) {
+      const { data, error } = await supabaseAdmin
+        .from('contest_submissions')
+        .select(`
+          *,
+          contests:contest_id (
+            id,
+            required_hashtags,
+            required_description_template
+          )
+        `)
+        .eq('snapshot_id', snapshotId)
+        .maybeSingle();
+
+      if (!error && data) {
+        submission = data;
+        console.log('[Contest Webhook] Found submission by snapshot_id:', snapshotId);
+      } else {
+        console.warn('[Contest Webhook] No submission found by snapshot_id:', snapshotId);
+      }
+    }
+
+    // Fallback: Find submission by URL and processing status
+    if (!submission) {
+      const { data, error } = await supabaseAdmin
+        .from('contest_submissions')
+        .select(`
+          *,
+          contests:contest_id (
+            id,
+            required_hashtags,
+            required_description_template
+          )
+        `)
+        .eq('original_video_url', videoUrl)
+        .eq('processing_status', 'fetching_stats')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      submission = data;
+      submissionError = error;
+
+      if (submission) {
+        console.log('[Contest Webhook] Found submission by URL (fallback):', videoUrl);
+        // Update with snapshot_id if we have it
+        if (snapshotId) {
+          await supabaseAdmin
+            .from('contest_submissions')
+            .update({ snapshot_id: snapshotId })
+            .eq('id', submission.id);
+        }
+      }
+    }
 
     if (submissionError || !submission) {
-      console.error('[Contest Webhook] Submission not found for URL:', videoUrl);
+      console.error('[Contest Webhook] Submission not found:', {
+        videoUrl,
+        snapshotId,
+        error: submissionError?.message,
+      });
       return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
     }
 
@@ -165,30 +214,79 @@ function checkHashtags(
     return 'pass';
   }
 
-  // Extract hashtags from description/caption
+  // Extract hashtags from multiple sources
+  const hashtags: string[] = [];
+
+  // 1. Check if BrightData provides a separate hashtags array
+  if (record.hashtags) {
+    if (Array.isArray(record.hashtags)) {
+      // Handle different formats: array of strings or array of objects
+      for (const item of record.hashtags) {
+        if (typeof item === 'string') {
+          hashtags.push(item);
+        } else if (item && typeof item === 'object') {
+          // Format: { hashtag: "#tag", link: "..." }
+          if (item.hashtag) {
+            hashtags.push(item.hashtag);
+          } else if (item.tag) {
+            hashtags.push(item.tag);
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Extract hashtags from description/caption text
   const description = record.description || record.caption || record.text || '';
-  const hashtags = extractHashtags(description);
+  const textHashtags = extractHashtags(description);
+  hashtags.push(...textHashtags);
+
+  // Remove duplicates
+  const uniqueHashtags = [...new Set(hashtags)];
 
   // Normalize hashtags (remove # and lowercase)
   const normalizedRequired = requiredHashtags.map((h) =>
-    h.replace('#', '').toLowerCase()
+    h.replace('#', '').toLowerCase().trim()
   );
-  const normalizedFound = hashtags.map((h) => h.replace('#', '').toLowerCase());
+  const normalizedFound = uniqueHashtags.map((h) =>
+    h.replace('#', '').toLowerCase().trim()
+  );
+
+  console.log('[Contest Webhook] Hashtag check:', {
+    required: normalizedRequired,
+    found: normalizedFound,
+    platform,
+  });
 
   // Check if all required hashtags are present
-  const allPresent = normalizedRequired.every((required) =>
-    normalizedFound.some((found) => found === required || found.includes(required))
-  );
+  // Use exact match or substring match (for variations like #tag vs #tagged)
+  const allPresent = normalizedRequired.every((required) => {
+    return normalizedFound.some((found) => {
+      // Exact match
+      if (found === required) return true;
+      // Substring match (found contains required or vice versa)
+      if (found.includes(required) || required.includes(found)) return true;
+      return false;
+    });
+  });
 
   return allPresent ? 'pass' : 'fail';
 }
 
 /**
- * Extract hashtags from text
+ * Extract hashtags from text using regex
+ * Handles various formats: #tag, #TAG, #tag123, etc.
  */
 function extractHashtags(text: string): string[] {
-  const hashtagRegex = /#[\w]+/g;
-  return text.match(hashtagRegex) || [];
+  if (!text || typeof text !== 'string') {
+    return [];
+  }
+  
+  // Match hashtags: # followed by word characters (letters, numbers, underscore)
+  // Also handles unicode characters in hashtags
+  const hashtagRegex = /#[\w\u00C0-\u017F]+/g;
+  const matches = text.match(hashtagRegex);
+  return matches || [];
 }
 
 /**
@@ -203,22 +301,58 @@ function checkDescription(
     return 'pass'; // No template required
   }
 
-  const description = record.description || record.caption || record.text || '';
-  const normalizedDescription = description.toLowerCase();
-  const normalizedTemplate = template.toLowerCase();
+  // Get description from multiple possible fields
+  const description = record.description || record.caption || record.text || record.title || '';
+  
+  if (!description || description.trim().length === 0) {
+    console.log('[Contest Webhook] No description found in record');
+    return 'fail';
+  }
 
-  // Simple pattern matching - check if key phrases from template appear in description
-  // This is intentionally flexible
+  const normalizedDescription = description.toLowerCase().trim();
+  const normalizedTemplate = template.toLowerCase().trim();
+
+  // First, try exact match (case-insensitive)
+  if (normalizedDescription === normalizedTemplate) {
+    return 'pass';
+  }
+
+  // Try substring match (description contains template)
+  if (normalizedDescription.includes(normalizedTemplate)) {
+    return 'pass';
+  }
+
+  // Extract key phrases from template (words longer than 3 chars, excluding common words)
+  const commonWords = new Set(['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'man', 'new', 'now', 'old', 'see', 'two', 'way', 'who', 'boy', 'did', 'its', 'let', 'put', 'say', 'she', 'too', 'use']);
+  
   const templateWords = normalizedTemplate
     .split(/\s+/)
-    .filter((w) => w.length > 3); // Filter out short words
+    .map(w => w.replace(/[^\w]/g, '')) // Remove punctuation
+    .filter((w) => w.length > 3 && !commonWords.has(w)); // Filter out short words and common words
 
+  if (templateWords.length === 0) {
+    // If template is too short or only common words, use substring match
+    return normalizedDescription.includes(normalizedTemplate) ? 'pass' : 'fail';
+  }
+
+  // Check if key phrases from template appear in description
   const matches = templateWords.filter((word) =>
     normalizedDescription.includes(word)
   );
 
-  // If at least 50% of template words match, consider it a pass
+  // Calculate match ratio
   const matchRatio = matches.length / templateWords.length;
-  return matchRatio >= 0.5 ? 'pass' : 'fail';
+  
+  console.log('[Contest Webhook] Description check:', {
+    templateWords,
+    matches: matches.length,
+    totalWords: templateWords.length,
+    matchRatio,
+    platform,
+  });
+
+  // If at least 60% of key words match, consider it a pass
+  // Increased threshold from 50% to 60% for better accuracy
+  return matchRatio >= 0.6 ? 'pass' : 'fail';
 }
 

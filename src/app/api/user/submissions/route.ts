@@ -15,8 +15,10 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const user = await requireAuth(request);
+    const { searchParams } = new URL(request.url);
+    const contestIdFilter = searchParams.get('contest_id');
 
-    const { data: submissions, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('contest_submissions')
       .select(`
         *,
@@ -47,6 +49,12 @@ export async function GET(request: NextRequest) {
       `)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
+
+    if (contestIdFilter) {
+      query = query.eq('contest_id', contestIdFilter);
+    }
+
+    const { data: submissions, error } = await query;
 
     if (error) throw error;
 

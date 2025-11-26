@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { getSessionUser } from '@/lib/auth-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,16 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status'); // Filter by status (optional)
     const movie_identifier = searchParams.get('movie_identifier'); // Filter by movie (optional)
+    const includeClosedParam = searchParams.get('include_closed') === 'true';
+    const includeAllParam = searchParams.get('include_all') === 'true';
+
+    let sessionUser: Awaited<ReturnType<typeof getSessionUser>> = null;
+    if (includeClosedParam || includeAllParam) {
+      sessionUser = await getSessionUser(request);
+    }
+    const isAdmin = sessionUser?.role === 'admin';
+    const allowClosed = includeClosedParam && isAdmin;
+    const allowAll = includeAllParam && isAdmin;
 
     if (status && !['live', 'upcoming', 'closed'].includes(status)) {
       return NextResponse.json(
@@ -50,11 +61,17 @@ export async function GET(request: NextRequest) {
           )
         )
       `)
-      .in('status', ['live', 'upcoming'])
-      .order('start_date', { ascending: true });
+      .order('start_date', { ascending: true })
+      .limit(200);
 
     if (status) {
       query = query.eq('status', status);
+    } else if (allowAll) {
+      // No status filtering - admins explicitly requested all contests
+    } else if (allowClosed) {
+      query = query.in('status', ['live', 'upcoming', 'closed']);
+    } else {
+      query = query.in('status', ['live', 'upcoming']);
     }
 
     if (movie_identifier) {

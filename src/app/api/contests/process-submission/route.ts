@@ -21,11 +21,14 @@ export async function POST(request: NextRequest) {
     const { submissionId } = await request.json();
 
     if (!submissionId) {
+      console.error('[Process Submission] Missing submissionId');
       return NextResponse.json(
         { error: 'submissionId is required' },
         { status: 400 }
       );
     }
+
+    console.log('[Process Submission] Starting processing for submission:', submissionId);
 
     // Get submission
     const { data: submission, error: submissionError } = await supabaseAdmin
@@ -42,6 +45,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (submissionError || !submission) {
+      console.error('[Process Submission] Submission not found:', {
+        submissionId,
+        error: submissionError?.message,
+      });
       return NextResponse.json(
         { error: 'Submission not found' },
         { status: 404 }
@@ -49,12 +56,20 @@ export async function POST(request: NextRequest) {
     }
 
     const contest = submission.contests as any;
+    console.log('[Process Submission] Submission found:', {
+      submissionId,
+      contestId: submission.contest_id,
+      platform: submission.platform,
+      videoUrl: submission.original_video_url,
+    });
 
     // Step 1: Update status to fetching_stats
     await supabaseAdmin
       .from('contest_submissions')
       .update({ processing_status: 'fetching_stats' })
       .eq('id', submissionId);
+    
+    console.log('[Process Submission] Status updated to fetching_stats');
 
     // Step 2: Trigger BrightData stats retrieval
     // This will be handled by the webhook when data arrives
@@ -64,6 +79,14 @@ export async function POST(request: NextRequest) {
         submission.original_video_url
       );
 
+      // Store snapshot_id in submission for webhook matching
+      await supabaseAdmin
+        .from('contest_submissions')
+        .update({ snapshot_id: snapshotId })
+        .eq('id', submissionId);
+
+      console.log('[Process Submission] Snapshot ID stored:', { submissionId, snapshotId });
+
       return NextResponse.json({
         success: true,
         message: 'Processing initiated',
@@ -71,7 +94,13 @@ export async function POST(request: NextRequest) {
       });
     } catch (brightDataError) {
       // If BrightData trigger fails, mark submission as needing manual review
-      console.error('[Process Submission] BrightData trigger failed:', brightDataError);
+      const errorMessage = brightDataError instanceof Error ? brightDataError.message : 'Unknown error';
+      console.error('[Process Submission] BrightData trigger failed:', {
+        submissionId,
+        error: errorMessage,
+        stack: brightDataError instanceof Error ? brightDataError.stack : undefined,
+      });
+      
       await supabaseAdmin
         .from('contest_submissions')
         .update({
@@ -84,16 +113,23 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: 'Failed to trigger stats collection. Submission marked for manual review.',
-          details: brightDataError instanceof Error ? brightDataError.message : 'Unknown error',
+          details: errorMessage,
         },
         { status: 500 }
       );
     }
 
   } catch (error) {
-    console.error('Error processing submission:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[Process Submission] Unexpected error:', {
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return NextResponse.json(
-      { error: 'Failed to process submission' },
+      { 
+        error: 'Failed to process submission',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+      },
       { status: 500 }
     );
   }

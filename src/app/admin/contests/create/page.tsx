@@ -42,29 +42,33 @@ export default function CreateContestPage() {
   return (
     <Page>
       <PageSection variant="header">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-4 mb-2">
+        <div className="max-w-5xl mx-auto space-y-3">
+          <div className="flex flex-wrap items-center gap-2 mb-2 text-[11px]">
             <Link href="/admin/contests">
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="xs" className="px-2 py-1 min-h-0 min-w-0 text-[10px]">
                 ← Back to Contests
               </Button>
             </Link>
           </div>
-          <h1 className="text-4xl font-bold text-[var(--color-text-primary)] mb-2">
-            Create a New Contest
-          </h1>
-          <p className="text-[var(--color-text-muted)]">Set up a new fan edit contest</p>
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-[var(--color-text-muted)] mb-1">
+              Contest setup
+            </p>
+            <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">
+              Create a New Contest
+            </h1>
+          </div>
         </div>
       </PageSection>
 
       <PageSection variant="content">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-5xl mx-auto rounded border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-xs">
           <AdminContestForm
             mode="create"
             onSubmit={handleCreateContest}
             footerActions={
               <Link href="/admin/contests">
-                <Button type="button" variant="ghost" size="lg">
+                <Button type="button" variant="ghost" size="xs" className="px-3 py-2 min-h-0 min-w-0 text-[11px]">
                   Cancel
                 </Button>
               </Link>

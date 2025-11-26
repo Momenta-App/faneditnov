@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { finalizeOwnershipForSocialAccount } from '@/lib/raw-video-assets';
+import { resolveOwnershipConflicts } from '@/lib/contest-ownership';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -78,7 +79,46 @@ export async function POST(request: NextRequest) {
       .eq('id', account.id);
 
     if (codeFound) {
+      // Finalize ownership for raw video assets
       await finalizeOwnershipForSocialAccount(account.id);
+
+      // Resolve ownership conflicts for contest submissions
+      // Find all contest submissions with pending/contested ownership for videos from this account
+      const { data: pendingSubmissions } = await supabaseAdmin
+        .from('contest_submissions')
+        .select('original_video_url, platform')
+        .eq('social_account_id', account.id)
+        .in('mp4_ownership_status', ['pending', 'contested'])
+        .limit(100); // Limit to prevent timeout
+
+      if (pendingSubmissions && pendingSubmissions.length > 0) {
+        // Get unique video URLs
+        const uniqueVideoUrls = [...new Set(pendingSubmissions.map(s => s.original_video_url))];
+        
+        console.log('[Profile Webhook] Resolving ownership conflicts for verified account:', {
+          accountId: account.id,
+          userId: account.user_id,
+          videoCount: uniqueVideoUrls.length,
+        });
+
+        // Resolve conflicts for each unique video URL
+        for (const videoUrl of uniqueVideoUrls) {
+          try {
+            await resolveOwnershipConflicts(
+              videoUrl,
+              account.id,
+              account.user_id
+            );
+          } catch (err) {
+            console.error('[Profile Webhook] Error resolving ownership conflict:', {
+              videoUrl,
+              accountId: account.id,
+              error: err instanceof Error ? err.message : String(err),
+            });
+            // Continue with other videos even if one fails
+          }
+        }
+      }
     }
 
     return NextResponse.json({ success: true, verified: codeFound });

@@ -9,6 +9,7 @@ import { detectPlatform, standardizeUrl, isValidUrl } from '@/lib/url-utils';
 import { resolveAccountOwnership } from '@/lib/video-ownership';
 import { storeRawVideoAsset, upsertOwnershipClaim } from '@/lib/raw-video-assets';
 import { createVideoFingerprint } from '@/lib/video-fingerprint';
+import { checkVideoOwnership } from '@/lib/contest-ownership';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,8 +64,8 @@ export async function POST(
 
     // Validate category if contest has specific (non-general) categories
     const categories = contest.contest_categories || [];
-    const specificCategories = categories.filter((cat: any) => !cat.is_general);
-    const generalCategories = categories.filter((cat: any) => cat.is_general);
+    const specificCategories = categories.filter((cat: any) => cat.is_general === false);
+    const generalCategories = categories.filter((cat: any) => cat.is_general === true);
     let validatedCategoryId: string | null = null;
 
     if (specificCategories.length > 0) {
@@ -225,62 +226,51 @@ export async function POST(
       );
     }
 
-    const videoFingerprint = createVideoFingerprint(standardizedUrl);
-    const { data: existingClaim } = await supabaseAdmin
-      .from('video_ownership_claims')
-      .select('video_fingerprint, status, current_owner_user_id, current_owner_social_account_id')
-      .eq('video_fingerprint', videoFingerprint)
-      .maybeSingle();
+    // Check video ownership using new contest ownership logic
+    const ownershipCheck = await checkVideoOwnership(
+      standardizedUrl,
+      user.id,
+      resolvedPlatform
+    );
 
-    const hasVerifiedOwner =
-      existingClaim &&
-      existingClaim.status === 'claimed' &&
-      existingClaim.current_owner_user_id &&
-      existingClaim.current_owner_user_id !== user.id;
+    console.log('[Submission Creation] Ownership check result:', {
+      videoUrl: standardizedUrl,
+      userId: user.id,
+      platform: resolvedPlatform,
+      ownershipStatus: ownershipCheck.status,
+    });
 
-    if (hasVerifiedOwner) {
+    // If ownership check failed (video claimed by different user), reject submission
+    if (ownershipCheck.status === 'failed') {
       return NextResponse.json(
-        { error: 'This video has already been uploaded by the verified owner.' },
+        { error: ownershipCheck.reason },
         { status: 409 }
       );
     }
 
-    const alreadyClaimedByUser =
-      existingClaim &&
-      existingClaim.status === 'claimed' &&
-      existingClaim.current_owner_user_id === user.id;
-
-    let mp4OwnershipStatus: 'pending' | 'verified' | 'contested';
+    // Map ownership check status to submission statuses
+    let mp4OwnershipStatus: 'pending' | 'verified' | 'contested' | 'failed';
     let ownershipClaimStatus: 'pending' | 'claimed' | 'contested';
-    let mp4OwnershipReason: string | null = null;
+    let mp4OwnershipReason: string | null = ownershipCheck.reason;
+    let verifiedOwnershipAccountId: string | null = null;
 
-    if (isOwnershipVerified || alreadyClaimedByUser) {
+    if (ownershipCheck.status === 'verified') {
       mp4OwnershipStatus = 'verified';
       ownershipClaimStatus = 'claimed';
-      mp4OwnershipReason = 'Ownership verified for your connected account.';
-    } else if (existingClaim) {
+      verifiedOwnershipAccountId = ownershipCheck.socialAccountId;
+    } else if (ownershipCheck.status === 'contested') {
       mp4OwnershipStatus = 'contested';
       ownershipClaimStatus = 'contested';
-      mp4OwnershipReason =
-        'Another creator has also submitted this video. Ownership will be assigned once the correct account is verified.';
-    } else if (matchedAccountId) {
-      mp4OwnershipStatus = 'pending';
-      ownershipClaimStatus = 'pending';
-      mp4OwnershipReason = 'Verify this connected account to finalize ownership.';
     } else {
+      // pending
       mp4OwnershipStatus = 'pending';
       ownershipClaimStatus = 'pending';
-      mp4OwnershipReason = 'Connect the matching social account to finalize ownership.';
     }
 
     const ownershipContestedAt =
       mp4OwnershipStatus === 'contested' ? new Date().toISOString() : null;
     const ownershipResolvedAt =
       mp4OwnershipStatus === 'verified' ? new Date().toISOString() : null;
-    const verifiedOwnershipAccountId =
-      mp4OwnershipStatus === 'verified'
-        ? matchedAccountId ?? existingClaim?.current_owner_social_account_id ?? null
-        : null;
 
     uploadedAsset = await storeRawVideoAsset({
       userId: user.id,
@@ -313,7 +303,7 @@ export async function POST(
         hashtag_status: 'pending_review',
         description_status: 'pending_review',
         content_review_status: 'pending',
-        verification_status: isOwnershipVerified || alreadyClaimedByUser ? 'verified' : 'pending',
+        verification_status: mp4OwnershipStatus === 'verified' ? 'verified' : 'pending',
         mp4_bucket: uploadedAsset.bucket,
         mp4_path: uploadedAsset.storagePath,
         raw_video_asset_id: uploadedAsset.assetId,
@@ -350,19 +340,41 @@ export async function POST(
     });
 
     // Trigger background job for stats retrieval
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/contests/process-submission`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ submissionId: submission.id }),
-      }).catch((err) => {
-        // Don't fail submission if background job fails
-        console.error('Failed to trigger background processing:', err);
+    // This is fire-and-forget - submission is already created, processing happens async
+    const processSubmissionUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/contests/process-submission`;
+    console.log('[Submission Creation] Triggering background processing:', {
+      submissionId: submission.id,
+      url: processSubmissionUrl,
+    });
+
+    fetch(processSubmissionUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ submissionId: submission.id }),
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => 'Unknown error');
+          console.error('[Submission Creation] Background job failed:', {
+            submissionId: submission.id,
+            status: response.status,
+            error: errorText,
+          });
+        } else {
+          const result = await response.json().catch(() => ({}));
+          console.log('[Submission Creation] Background job triggered successfully:', {
+            submissionId: submission.id,
+            snapshotId: result.snapshot_id,
+          });
+        }
+      })
+      .catch((err) => {
+        // Don't fail submission if background job fails - it can be retried manually
+        console.error('[Submission Creation] Error triggering background processing:', {
+          submissionId: submission.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
-    } catch (err) {
-      // Continue anyway - background job can be retried
-      console.error('Error triggering background processing:', err);
-    }
 
     return NextResponse.json({
       data: submission,

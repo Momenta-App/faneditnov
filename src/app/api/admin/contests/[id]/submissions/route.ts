@@ -18,7 +18,10 @@ export async function GET(
 ) {
   try {
     const user = await requireRole(request, 'admin');
+    console.log('[Admin Submissions API] User authenticated:', { userId: user.id, role: user.role, email: user.email });
+    
     const { id } = await params;
+    console.log('[Admin Submissions API] Contest ID:', id);
 
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50');
@@ -135,7 +138,22 @@ export async function GET(
 
     const { data: submissions, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      console.error('[Admin Submissions API] Query error:', {
+        error: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        contestId: id,
+      });
+      throw error;
+    }
+
+    console.log('[Admin Submissions API] Query successful:', {
+      contestId: id,
+      submissionCount: submissions?.length || 0,
+      filters: { hashtagStatus, descriptionStatus, contentReviewStatus, processingStatus, verificationStatus, categoryId },
+    });
 
     // Get total count with same filters
     let countQuery = supabaseAdmin
@@ -172,12 +190,27 @@ export async function GET(
     });
   } catch (error) {
     if (error instanceof AuthError) {
+      console.error('[Admin Submissions API] Auth error:', {
+        message: error.message,
+        code: error.code,
+        statusCode: error.statusCode,
+      });
       return handleAuthError(error);
     }
 
-    console.error('Error fetching contest submissions:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorDetails = error instanceof Error ? error.stack : String(error);
+    
+    console.error('[Admin Submissions API] Error fetching contest submissions:', {
+      message: errorMessage,
+      details: errorDetails,
+    });
+    
     return NextResponse.json(
-      { error: 'Failed to fetch submissions' },
+      { 
+        error: 'Failed to fetch submissions',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+      },
       { status: 500 }
     );
   }

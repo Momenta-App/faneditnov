@@ -40,7 +40,13 @@ export default function ContestsPage() {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch(`/api/contests?t=${Date.now()}`, {
+        const params = new URLSearchParams({
+          t: Date.now().toString(),
+        });
+        if (isAdmin) {
+          params.set('include_all', 'true');
+        }
+        const response = await fetch(`/api/contests?${params.toString()}`, {
           cache: 'no-store',
           headers: {
             'Cache-Control': 'no-store',
@@ -65,7 +71,7 @@ export default function ContestsPage() {
     fetchContests();
 
     return () => controller.abort();
-  }, []);
+  }, [isAdmin]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -134,10 +140,15 @@ export default function ContestsPage() {
             </div>
           ) : contests.length === 0 ? (
             <Card>
-              <div className="text-center py-12">
+              <div className="text-center py-12 space-y-2">
                 <p className="text-[var(--color-text-muted)]">
                   No contests available at the moment. Check back soon!
                 </p>
+                {isAdmin && (
+                  <p className="text-xs text-[var(--color-text-muted)]">
+                    This public page only lists live and upcoming contests. Closed or draft contests remain visible on the admin dashboard.
+                  </p>
+                )}
               </div>
             </Card>
           ) : (

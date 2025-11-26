@@ -64,12 +64,12 @@ export default function SettingsPage() {
               </Tab>
             </TabList>
             <TabPanels className="mt-6">
-              <TabPanel>
+              <TabPanel className={activeTab === 0 ? 'block' : 'hidden'}>
                 <ProfileSection />
                 <ConnectedAccountsSection />
                 <SavedCampaignsSection />
               </TabPanel>
-              <TabPanel>
+              <TabPanel className={activeTab === 1 ? 'block' : 'hidden'}>
                 <ContestsSection />
               </TabPanel>
             </TabPanels>
@@ -581,14 +581,23 @@ function ConnectedAccountsSection() {
 }
 
 function ContestsSection() {
+  const { session } = useAuth();
+  const sessionToken = session?.access_token ?? null;
+  const authHeaders = useMemo(
+    () => (sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+    [sessionToken]
+  );
+
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [polling, setPolling] = useState(false);
 
   useEffect(() => {
-    fetchSubmissions();
-  }, []);
+    if (sessionToken) {
+      fetchSubmissions();
+    }
+  }, [sessionToken]);
 
   // Set up polling for submissions that are still processing
   useEffect(() => {
@@ -610,9 +619,15 @@ function ContestsSection() {
   }, [submissions]);
 
   const fetchSubmissions = async () => {
+    if (!sessionToken) {
+      return;
+    }
     try {
       setLoading(true);
-      const response = await fetch('/api/user/submissions');
+      const response = await fetch('/api/user/submissions', {
+        headers: authHeaders,
+        credentials: 'include',
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch submissions');
       }
@@ -631,9 +646,15 @@ function ContestsSection() {
   };
 
   const handleRefreshStats = async (submissionId: number) => {
+    if (!sessionToken) {
+      setError('Session expired. Please sign in again.');
+      return;
+    }
     try {
       const response = await fetch(`/api/user/submissions/${submissionId}/refresh-stats`, {
         method: 'POST',
+        headers: authHeaders,
+        credentials: 'include',
       });
       if (!response.ok) {
         const data = await response.json();
@@ -649,9 +670,15 @@ function ContestsSection() {
   };
 
   const handleRequestReview = async (submissionId: number) => {
+    if (!sessionToken) {
+      setError('Session expired. Please sign in again.');
+      return;
+    }
     try {
       const response = await fetch(`/api/user/submissions/${submissionId}/request-review`, {
         method: 'POST',
+        headers: authHeaders,
+        credentials: 'include',
       });
       if (!response.ok) {
         const data = await response.json();
@@ -746,6 +773,20 @@ function ContestsSection() {
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-[var(--color-text-primary)]">
+            Contest Submissions
+          </h2>
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Track the status of every edit you have submitted.
+          </p>
+        </div>
+        <Button variant="secondary" size="sm" onClick={fetchSubmissions} isLoading={loading}>
+          Refresh
+        </Button>
+      </div>
+
       {error && (
         <Card className="border-red-500/20 bg-red-500/5">
           <p className="text-red-500">{error}</p>

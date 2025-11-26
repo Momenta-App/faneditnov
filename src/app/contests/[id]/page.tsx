@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import Link from 'next/link';
@@ -58,12 +58,15 @@ interface Contest {
 }
 
 export default function ContestDetailPage({ params }: { params: { id: string } }) {
-  const { user, profile } = useAuth();
+  const { user, profile, session } = useAuth();
   const isAdmin = isAdminRole(profile?.role);
   const router = useRouter();
   const [contestId, setContestId] = useState<string | null>(null);
   const [contest, setContest] = useState<Contest | null>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
+  const [userSubmissions, setUserSubmissions] = useState<any[]>([]);
+  const [userSubmissionsLoading, setUserSubmissionsLoading] = useState(false);
+  const [userSubmissionsError, setUserSubmissionsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSubContest, setSelectedSubContest] = useState<string | null>(null);
@@ -72,12 +75,48 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
     setContestId(params.id);
   }, [params]);
 
+  const sessionToken = session?.access_token ?? null;
+
+  const fetchUserSubmissions = useCallback(async () => {
+    if (!contestId || !user) return;
+    try {
+      setUserSubmissionsLoading(true);
+      setUserSubmissionsError(null);
+      const headers = sessionToken ? { Authorization: `Bearer ${sessionToken}` } : undefined;
+      const response = await fetch(`/api/user/submissions?contest_id=${contestId}`, {
+        cache: 'no-store',
+        credentials: 'include',
+        headers,
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Session expired. Please log back in.');
+        }
+        throw new Error('Failed to fetch your submissions');
+      }
+      const data = await response.json();
+      setUserSubmissions(data.data || []);
+    } catch (err) {
+      setUserSubmissionsError(err instanceof Error ? err.message : 'Failed to load your submissions');
+    } finally {
+      setUserSubmissionsLoading(false);
+    }
+  }, [contestId, user, sessionToken]);
+
   useEffect(() => {
     if (contestId) {
       fetchContest();
       fetchSubmissions();
     }
   }, [contestId]);
+
+  useEffect(() => {
+    if (user && contestId) {
+      fetchUserSubmissions();
+    } else {
+      setUserSubmissions([]);
+    }
+  }, [user, contestId, fetchUserSubmissions]);
 
   const fetchSubmissions = async () => {
     if (!contestId) return;
@@ -112,6 +151,38 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
     } finally {
       setLoading(false);
     }
+  };
+
+  const getSubmissionStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved':
+      case 'verified':
+        return 'bg-green-500/10 text-green-500 border-green-500/20';
+      case 'waiting_review':
+      case 'pending':
+      case 'pending_review':
+        return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
+      case 'failed':
+      case 'rejected':
+      case 'fail':
+        return 'bg-red-500/10 text-red-500 border-red-500/20';
+      case 'contested':
+        return 'bg-orange-500/10 text-orange-500 border-orange-500/20';
+      default:
+        return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
+    }
+  };
+
+  const getProcessingStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      uploaded: 'Uploaded',
+      fetching_stats: 'Fetching stats',
+      checking_hashtags: 'Checking hashtags',
+      checking_description: 'Checking description',
+      waiting_review: 'Waiting review',
+      approved: 'Approved',
+    };
+    return labels[status] || status;
   };
 
   const formatDate = (dateString: string) => {
@@ -503,6 +574,193 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
               </p>
             </div>
           </Card>
+
+          {/* User Submissions */}
+          {user && (userSubmissionsLoading || userSubmissions.length > 0 || userSubmissionsError) && (
+            <Card>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-[var(--color-text-primary)]">
+                  Your Submissions
+                </h2>
+                <Button size="sm" variant="secondary" onClick={fetchUserSubmissions} isLoading={userSubmissionsLoading}>
+                  Refresh
+                </Button>
+              </div>
+              {userSubmissionsError && (
+                <div className="mb-4 p-3 rounded border border-red-500/20 bg-red-500/5 text-sm text-red-500">
+                  {userSubmissionsError}
+                </div>
+              )}
+              {userSubmissionsLoading ? (
+                <div className="space-y-2">
+                  {[...Array(2)].map((_, idx) => (
+                    <div key={idx} className="h-16 rounded border border-[var(--color-border)] animate-pulse" />
+                  ))}
+                </div>
+              ) : userSubmissions.length === 0 ? (
+                <p className="text-sm text-[var(--color-text-muted)]">
+                  You have not submitted to this contest yet.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {userSubmissions.map((submission) => {
+                    const allCategories = submission.contest_submission_categories || [];
+                    const primaryCategory = allCategories.find((c: any) => c.is_primary)?.contest_categories;
+                    const generalCategories = allCategories
+                      .filter((c: any) => !c.is_primary)
+                      .map((c: any) => c.contest_categories);
+
+                    const videoUrl = submission.mp4_bucket && submission.mp4_path
+                      ? getContestVideoUrl(submission.mp4_bucket, submission.mp4_path)
+                      : null;
+
+                    return (
+                      <div key={submission.id} className="p-4 border border-[var(--color-border)] rounded-lg space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-medium border ${getSubmissionStatusColor(
+                              submission.processing_status
+                            )}`}
+                          >
+                            {getProcessingStatusLabel(submission.processing_status)}
+                          </span>
+                          <div className="flex gap-2 flex-wrap">
+                            <span
+                              className={`px-2 py-1 rounded text-xs font-medium border ${getSubmissionStatusColor(
+                                submission.content_review_status
+                              )}`}
+                            >
+                              Review: {submission.content_review_status}
+                            </span>
+                            <span
+                              className={`px-2 py-1 rounded text-xs font-medium border ${getSubmissionStatusColor(
+                                submission.hashtag_status
+                              )}`}
+                            >
+                              Hashtags: {submission.hashtag_status}
+                            </span>
+                            {submission.mp4_ownership_status && (
+                              <span
+                                className={`px-2 py-1 rounded text-xs font-medium border ${getSubmissionStatusColor(
+                                  submission.mp4_ownership_status
+                                )}`}
+                              >
+                                Ownership: {submission.mp4_ownership_status}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* MP4 Video Player */}
+                        {videoUrl && (
+                          <div>
+                            <h3 className="text-sm font-medium text-[var(--color-text-primary)] mb-2">
+                              Your Uploaded Video
+                            </h3>
+                            <ContestVideoPlayer videoUrl={videoUrl} className="w-full" />
+                          </div>
+                        )}
+
+                        {/* Original Social Media URL */}
+                        <div>
+                          <h3 className="text-sm font-medium text-[var(--color-text-primary)] mb-1">
+                            Original Social Media Video
+                          </h3>
+                          <a
+                            href={submission.original_video_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-[var(--color-primary)] hover:underline break-all"
+                          >
+                            {submission.original_video_url}
+                          </a>
+                        </div>
+
+                        {/* Ownership Status Message */}
+                        {submission.mp4_ownership_status && submission.mp4_ownership_status !== 'verified' && (
+                          <div className={`p-3 rounded border ${
+                            submission.mp4_ownership_status === 'failed'
+                              ? 'border-red-500/20 bg-red-500/5'
+                              : submission.mp4_ownership_status === 'contested'
+                              ? 'border-orange-500/20 bg-orange-500/5'
+                              : 'border-yellow-500/20 bg-yellow-500/5'
+                          }`}>
+                            <p className={`text-xs font-medium ${
+                              submission.mp4_ownership_status === 'failed'
+                                ? 'text-red-600'
+                                : submission.mp4_ownership_status === 'contested'
+                                ? 'text-orange-600'
+                                : 'text-yellow-600'
+                            }`}>
+                              {submission.mp4_ownership_status === 'failed' && '❌ '}
+                              {submission.mp4_ownership_status === 'contested' && '⚠️ '}
+                              {submission.mp4_ownership_status === 'pending' && '⏳ '}
+                              {submission.mp4_ownership_reason || 
+                                (submission.mp4_ownership_status === 'pending' 
+                                  ? 'Please connect your social account to verify ownership of this video.'
+                                  : submission.mp4_ownership_status === 'contested'
+                                  ? 'Multiple users have submitted this video. Connect your social account to verify ownership.'
+                                  : 'Ownership verification failed.')}
+                            </p>
+                            {submission.mp4_ownership_status === 'pending' && (
+                              <a
+                                href="/settings?tab=connected-accounts"
+                                className="text-xs text-[var(--color-primary)] hover:underline mt-1 inline-block"
+                              >
+                                Connect your social account →
+                              </a>
+                            )}
+                          </div>
+                        )}
+                        {submission.views_count > 0 && (
+                          <div className="grid grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <p className="text-[var(--color-text-muted)]">Views</p>
+                              <p className="font-medium text-[var(--color-text-primary)]">
+                                {submission.views_count.toLocaleString()}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[var(--color-text-muted)]">Likes</p>
+                              <p className="font-medium text-[var(--color-text-primary)]">
+                                {submission.likes_count.toLocaleString()}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[var(--color-text-muted)]">Comments</p>
+                              <p className="font-medium text-[var(--color-text-primary)]">
+                                {submission.comments_count.toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        {(primaryCategory || generalCategories.length > 0) && (
+                          <div className="text-xs text-[var(--color-text-muted)] space-y-1">
+                            {primaryCategory && (
+                              <p>
+                                Primary category:{' '}
+                                <span className="text-[var(--color-text-primary)] font-medium">
+                                  {primaryCategory.name}
+                                </span>
+                              </p>
+                            )}
+                            {generalCategories.length > 0 && (
+                              <p>
+                                Auto-entry:{' '}
+                                <span className="text-[var(--color-text-primary)] font-medium">
+                                  {generalCategories.map((cat: any) => cat.name).join(', ')}
+                                </span>
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+          )}
 
           {/* Submit Button */}
           {contest.status === 'live' && (

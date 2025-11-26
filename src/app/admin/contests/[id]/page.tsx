@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
 import { Card } from '../../../components/Card';
@@ -73,7 +73,10 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [submissionsError, setSubmissionsError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const submissionsSectionRef = useRef<HTMLDivElement | null>(null);
 
   // Filters
   const [hashtagFilter, setHashtagFilter] = useState<string>('');
@@ -143,25 +146,65 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
   const fetchSubmissions = async () => {
     try {
       setLoading(true);
+      setSubmissionsError(null);
       const queryParams = new URLSearchParams();
       if (hashtagFilter) queryParams.append('hashtag_status', hashtagFilter);
       if (descriptionFilter) queryParams.append('description_status', descriptionFilter);
       if (contentReviewFilter) queryParams.append('content_review_status', contentReviewFilter);
+      if (categoryFilter) queryParams.append('category_id', categoryFilter);
       queryParams.append('sort_by', 'views_count');
       queryParams.append('sort_order', 'desc');
+
+      console.log('[Admin Contest Page] Fetching submissions:', {
+        contestId,
+        filters: { hashtagFilter, descriptionFilter, contentReviewFilter, categoryFilter },
+      });
 
       const response = await authFetch(
         `/api/admin/contests/${contestId}/submissions?${queryParams.toString()}`,
       );
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch submissions');
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || errorData.details || `HTTP ${response.status}: ${response.statusText}`;
+        console.error('[Admin Contest Page] Failed to fetch submissions:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorMessage,
+          contestId,
+        });
+        throw new Error(errorMessage);
       }
+      
       const data = await response.json();
+      console.log('[Admin Contest Page] Submissions fetched:', {
+        contestId,
+        count: data.data?.length || 0,
+        total: data.total || 0,
+      });
       setSubmissions(data.data || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load submissions');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load submissions';
+      console.error('[Admin Contest Page] Error in fetchSubmissions:', {
+        error: errorMessage,
+        contestId,
+        err,
+      });
+      setSubmissionsError(errorMessage);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCategorySelect = (categoryId: string | null) => {
+    setCategoryFilter((prev) => {
+      if (prev === categoryId) {
+        return null;
+      }
+      return categoryId;
+    });
+    if (submissionsSectionRef.current) {
+      submissionsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
@@ -169,7 +212,7 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
     if (contestId) {
       fetchSubmissions();
     }
-  }, [hashtagFilter, descriptionFilter, contentReviewFilter, contestId]);
+  }, [hashtagFilter, descriptionFilter, contentReviewFilter, contestId, categoryFilter]);
 
   if (isLoading || !user || profile?.role !== 'admin' || !contest) {
     return null;
@@ -203,418 +246,434 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
     }
   };
 
+  const specificCategories =
+    contest.contest_categories?.filter((cat: any) => !cat.is_general) ?? [];
+  const generalCategories =
+    contest.contest_categories?.filter((cat: any) => cat.is_general) ?? [];
+  const rankingLabels: Record<string, string> = {
+    manual: 'Manual Judging',
+    views: 'Most Views',
+    likes: 'Most Likes',
+    comments: 'Most Comments',
+    shares: 'Most Shares',
+    impact_score: 'Manual Judging',
+  };
+  const combinedCategories = [
+    ...specificCategories.map((cat: any) => ({ ...cat, categoryType: 'specific' })),
+    ...generalCategories.map((cat: any) => ({ ...cat, categoryType: 'general' })),
+  ];
+  const activeCategory = categoryFilter
+    ? combinedCategories.find((cat: any) => cat.id === categoryFilter)
+    : null;
+
   return (
     <Page>
       <PageSection variant="header">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center gap-4 mb-4">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex flex-wrap items-center gap-2 mb-2 text-[11px]">
             <Link href="/admin/contests">
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="xs" className="px-2 py-1 min-h-0 min-w-0 text-[10px]">
                 ← Back to Contests
               </Button>
             </Link>
-            <Link href="/admin/review">
-              <Button variant="secondary" size="sm">
+            <Link href={`/admin/contests/${contestId}/review`}>
+              <Button variant="secondary" size="xs" className="px-2 py-1 min-h-0 min-w-0 text-[10px]">
                 Review Submissions
               </Button>
             </Link>
             <Link href={`/admin/contests/${contestId}/edit`}>
-              <Button variant="secondary" size="sm">
+              <Button variant="secondary" size="xs" className="px-2 py-1 min-h-0 min-w-0 text-[10px]">
                 Edit Contest
               </Button>
             </Link>
-            <Button variant="danger" size="sm" onClick={handleDeleteContest} isLoading={isDeleting}>
+            <Button
+              variant="danger"
+              size="xs"
+              className="px-2 py-1 min-h-0 min-w-0 text-[10px]"
+              onClick={handleDeleteContest}
+              isLoading={isDeleting}
+            >
               Delete Contest
             </Button>
           </div>
-          <h1 className="text-4xl font-bold text-[var(--color-text-primary)] mb-2">
+          <h1 className="text-2xl font-semibold text-[var(--color-text-primary)] mb-1">
             {contest.title}
           </h1>
-          <p className="text-[var(--color-text-muted)]">{contest.description}</p>
+          <p className="text-xs text-[var(--color-text-muted)] max-w-3xl">{contest.description}</p>
+          <div className="mt-2 flex flex-wrap gap-4 text-[11px] uppercase tracking-wide text-[var(--color-text-muted)]">
+            <div>
+              <p>Status</p>
+              <p className="text-sm font-semibold text-[var(--color-text-primary)] capitalize">
+                {contest.status}
+              </p>
+            </div>
+            <div>
+              <p>Dates</p>
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                {formatDate(contest.start_date)} — {formatDate(contest.end_date)}
+              </p>
+            </div>
+            <div>
+              <p>Total Subs</p>
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                {contest.stats.total_submissions}
+              </p>
+            </div>
+            <div>
+              <p>Pending Review</p>
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                {contest.stats.pending_review}
+              </p>
+            </div>
+          </div>
+          {contest.movie_identifier && (
+            <p className="mt-2 text-[11px] text-[var(--color-text-muted)]">
+              Movie Identifier: <span className="text-[var(--color-text-primary)]">{contest.movie_identifier}</span>
+            </p>
+          )}
         </div>
       </PageSection>
 
       <PageSection variant="content">
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className="max-w-6xl mx-auto flex flex-col gap-3 text-xs">
           {error && (
             <Card className="border-red-500/20 bg-red-500/5">
               <p className="text-red-500">{error}</p>
             </Card>
           )}
 
-          {/* Stats Overview */}
-          <Card>
-            <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4">
+          {/* Overview */}
+          <Card className="p-4 border border-[var(--color-border)] bg-[var(--color-surface)]">
+            <p className="uppercase tracking-wide text-[10px] text-[var(--color-text-muted)] mb-2">
               Contest Overview
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-[11px]">
               <div>
-                <p className="text-sm text-[var(--color-text-muted)]">Status</p>
-                <p className="text-lg font-semibold text-[var(--color-text-primary)] capitalize">
-                  {contest.status}
+                <p className="text-[var(--color-text-muted)]">Status</p>
+                <p className="text-sm font-semibold text-[var(--color-text-primary)] capitalize">{contest.status}</p>
+              </div>
+              <div>
+                <p className="text-[var(--color-text-muted)]">Window</p>
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                  {formatDate(contest.start_date)} → {formatDate(contest.end_date)}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-[var(--color-text-muted)]">Total Submissions</p>
-                <p className="text-lg font-semibold text-[var(--color-text-primary)]">
+                <p className="text-[var(--color-text-muted)]">Total Subs</p>
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">
                   {contest.stats.total_submissions}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-[var(--color-text-muted)]">Verified</p>
-                <p className="text-lg font-semibold text-[var(--color-text-primary)]">
-                  {contest.stats.verified_submissions}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-[var(--color-text-muted)]">Pending Review</p>
-                <p className="text-lg font-semibold text-[var(--color-text-primary)]">
+                <p className="text-[var(--color-text-muted)]">Pending Review</p>
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">
                   {contest.stats.pending_review}
                 </p>
               </div>
+              {contest.total_prize_pool !== undefined && contest.total_prize_pool > 0 && (
+                <div>
+                  <p className="text-[var(--color-text-muted)]">Prize Pool</p>
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                    ${contest.total_prize_pool.toFixed(2)}
+                  </p>
+                </div>
+              )}
+              {contest.movie_identifier && (
+                <div>
+                  <p className="text-[var(--color-text-muted)]">Identifier</p>
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)] break-all">
+                    {contest.movie_identifier}
+                  </p>
+                </div>
+              )}
             </div>
-            <div className="mt-4 pt-4 border-t border-[var(--color-border)]">
-              <p className="text-sm text-[var(--color-text-muted)] mb-2">Dates</p>
-              <p className="text-[var(--color-text-primary)]">
-                {formatDate(contest.start_date)} - {formatDate(contest.end_date)}
-              </p>
+          </Card>
+
+          {/* Requirements */}
+          <Card className="p-4 space-y-3">
+            <div>
+              <h2 className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">
+              Required Hashtags
+            </h2>
+              <div className="flex flex-wrap gap-1">
+                {contest.required_hashtags.map((hashtag, index) => (
+                  <span
+                    key={index}
+                    className="px-2 py-1 bg-[var(--color-primary)]/10 text-[var(--color-primary)] rounded-full text-[11px] font-medium"
+                  >
+                    {hashtag}
+                  </span>
+                ))}
+              </div>
             </div>
-            {contest.movie_identifier && (
-              <div className="mt-2">
-                <p className="text-sm text-[var(--color-text-muted)] mb-2">Movie Identifier</p>
-                <p className="text-[var(--color-text-primary)]">{contest.movie_identifier}</p>
+            {contest.required_description_template && (
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-[var(--color-text-muted)]">Description template</p>
+                <p className="text-sm text-[var(--color-text-primary)]">
+                  {contest.required_description_template}
+                </p>
               </div>
             )}
           </Card>
 
-          {/* Total Prize Pool */}
-          {contest.total_prize_pool !== undefined && contest.total_prize_pool > 0 && (
-            <Card>
-              <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-2">
-                Total Prize Pool
-              </h2>
-              <p className="text-3xl font-bold text-[var(--color-primary)]">
-                ${contest.total_prize_pool.toFixed(2)}
-              </p>
-              <p className="text-sm text-[var(--color-text-muted)] mt-2">
-                Calculated from all prizes across all categories
-              </p>
-            </Card>
-          )}
-
-          {/* Specific Categories with Prizes */}
-          {contest.contest_categories && contest.contest_categories.filter((cat: any) => !cat.is_general).length > 0 && (
-            <Card>
-              <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4">
-                Specific Categories & Prizes
-              </h2>
-              <div className="space-y-6">
-                {contest.contest_categories
-                  .filter((cat: any) => !cat.is_general)
-                  .sort((a: any, b: any) => a.display_order - b.display_order)
-                  .map((category: any) => {
-                    const rankingLabels: Record<string, string> = {
-                      manual: 'Manual Judging',
-                      views: 'Most Views',
-                      likes: 'Most Likes',
-                      comments: 'Most Comments',
-                      shares: 'Most Shares',
-                      impact_score: 'Manual Judging',
-                    };
-                    return (
-                    <div
-                      key={category.id}
-                      className="p-4 border border-[var(--color-border)] rounded-lg"
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                          {category.name}
-                        </h3>
-                        {category.ranking_method !== 'manual' && (
-                          <span className="px-2 py-1 text-xs font-medium bg-blue-500/20 text-blue-500 rounded">
-                            Ranked by: {rankingLabels[category.ranking_method] || category.ranking_method}
-                          </span>
-                        )}
-                      </div>
-                      {category.description && (
-                        <p className="text-sm text-[var(--color-text-muted)] mb-2">
-                          {category.description}
-                        </p>
-                      )}
-                      {category.rules && (
-                        <p className="text-xs text-[var(--color-text-muted)] mb-4">
-                          Rules: {category.rules}
-                        </p>
-                      )}
-                      {category.contest_prizes && category.contest_prizes.length > 0 && (
-                        <div className="mt-4 space-y-2">
-                          <p className="text-sm font-medium text-[var(--color-text-primary)]">Prizes:</p>
-                          {category.contest_prizes
-                            .sort((a, b) => a.rank_order - b.rank_order)
-                            .map((prize) => {
-                              const placeNames = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth'];
-                              const placeName = placeNames[prize.rank_order - 1] || `${prize.rank_order}th`;
-                              return (
-                                <div key={prize.id} className="flex items-center justify-between p-2 bg-[var(--color-surface)] rounded">
-                                  <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                                    {placeName} Place
-                                  </p>
-                                  <p className="text-sm font-semibold text-[var(--color-primary)]">
-                                    ${prize.payout_amount.toFixed(2)}
-                                  </p>
-                                </div>
-                              );
-                            })}
-                        </div>
-                      )}
-                    </div>
-                    );
-                  })}
+          {combinedCategories.length > 0 && (
+            <Card className="p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Categories & Prizes</h2>
+                <p className="text-[10px] text-[var(--color-text-muted)]">
+                  Sorted by display order • Two columns for quick scanning
+                </p>
               </div>
-            </Card>
-          )}
-
-          {/* General Categories with Prizes */}
-          {contest.contest_categories && contest.contest_categories.filter((cat: any) => cat.is_general).length > 0 && (
-            <Card>
-              <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4">
-                General Categories (Auto-Entry) & Prizes
-              </h2>
-              <p className="text-sm text-[var(--color-text-muted)] mb-4">
-                All submissions automatically enter these categories
-              </p>
-              <div className="space-y-6">
-                {contest.contest_categories
-                  .filter((cat: any) => cat.is_general)
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {combinedCategories
                   .sort((a: any, b: any) => a.display_order - b.display_order)
                   .map((category: any) => {
-                    const rankingLabels: Record<string, string> = {
-                      manual: 'Manual Judging',
-                      views: 'Most Views',
-                      likes: 'Most Likes',
-                      comments: 'Most Comments',
-                      shares: 'Most Shares',
-                      impact_score: 'Manual Judging',
-                    };
+                    const placeNames = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th'];
+                    const isSelected = categoryFilter === category.id;
+                    const categoryStyle =
+                      category.categoryType === 'general'
+                        ? 'border-[var(--color-primary)]/40 bg-[var(--color-primary)]/5'
+                        : 'border-[var(--color-border)] bg-[var(--color-surface)]';
                     return (
-                      <div
+                      <button
+                        type="button"
                         key={category.id}
-                        className="p-4 border border-[var(--color-primary)]/20 bg-[var(--color-primary)]/5 rounded-lg"
+                        aria-pressed={isSelected}
+                        onClick={() => handleCategorySelect(category.id)}
+                        className={`text-left rounded border p-3 space-y-1 transition-all duration-150 w-full ${
+                          isSelected
+                            ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/15 shadow-md'
+                            : `${categoryStyle} hover:border-[var(--color-primary)]/60`
+                        }`}
                       >
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
                             {category.name}
-                          </h3>
-                          <span className="px-2 py-1 text-xs font-medium bg-[var(--color-primary)]/20 text-[var(--color-primary)] rounded">
-                            Auto-Entry
-                          </span>
-                          {category.ranking_method !== 'manual' && (
-                            <span className="px-2 py-1 text-xs font-medium bg-blue-500/20 text-blue-500 rounded">
-                              Ranked by: {rankingLabels[category.ranking_method] || category.ranking_method}
-                            </span>
-                          )}
+                          </p>
+                          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide">
+                            {category.categoryType === 'general' && (
+                              <span className="px-1.5 py-0.5 rounded bg-[var(--color-primary)]/20 text-[var(--color-primary)]">
+                                Auto
+                              </span>
+                            )}
+                            {category.ranking_method !== 'manual' && (
+                              <span className="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-500">
+                                {rankingLabels[category.ranking_method] || category.ranking_method}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         {category.description && (
-                          <p className="text-sm text-[var(--color-text-muted)] mb-2">
+                          <p className="text-[11px] text-[var(--color-text-muted)] line-clamp-2">
                             {category.description}
                           </p>
                         )}
                         {category.rules && (
-                          <p className="text-xs text-[var(--color-text-muted)] mb-4">
+                          <p className="text-[10px] text-[var(--color-text-muted)] line-clamp-2">
                             Rules: {category.rules}
                           </p>
                         )}
                         {category.contest_prizes && category.contest_prizes.length > 0 && (
-                          <div className="mt-4 space-y-2">
-                            <p className="text-sm font-medium text-[var(--color-text-primary)]">Prizes:</p>
+                          <ul className="space-y-0.5 text-[11px] mt-1">
                             {category.contest_prizes
                               .sort((a: any, b: any) => a.rank_order - b.rank_order)
                               .map((prize: any) => {
-                                const placeNames = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth'];
-                                const placeName = placeNames[prize.rank_order - 1] || `${prize.rank_order}th`;
+                                const label = placeNames[prize.rank_order - 1] || `${prize.rank_order}th`;
                                 return (
-                                  <div key={prize.id} className="flex items-center justify-between p-2 bg-[var(--color-surface)] rounded">
-                                    <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                                      {placeName} Place
-                                    </p>
-                                    <p className="text-sm font-semibold text-[var(--color-primary)]">
+                                  <li key={prize.id} className="flex items-center justify-between gap-2">
+                                    <span className="font-medium text-[var(--color-text-primary)]">{label}</span>
+                                    <span className="tabular-nums text-[var(--color-text-muted)]">
                                       ${prize.payout_amount.toFixed(2)}
-                                    </p>
-                                  </div>
+                                    </span>
+                                  </li>
                                 );
                               })}
-                          </div>
+                          </ul>
                         )}
-                      </div>
+                      </button>
                     );
                   })}
               </div>
             </Card>
           )}
 
-          {/* Required Hashtags */}
-          <Card>
-            <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4">
-              Required Hashtags
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              {contest.required_hashtags.map((hashtag, index) => (
-                <span
-                  key={index}
-                  className="px-3 py-1 bg-[var(--color-primary)]/10 text-[var(--color-primary)] rounded-full text-sm font-medium"
-                >
-                  {hashtag}
-                </span>
-              ))}
-            </div>
-          </Card>
-
           {/* Submissions */}
-          <Card>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-[var(--color-text-primary)]">
-                Submissions ({submissions.length})
-              </h2>
-            </div>
+          <div ref={submissionsSectionRef}>
+            <Card className="p-4 space-y-3">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                  Submissions <span className="text-[10px] text-[var(--color-text-muted)]">({submissions.length})</span>
+                </h2>
+                {activeCategory ? (
+                  <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]">
+                    <span>
+                      Showing category: <span className="font-semibold text-[var(--color-text-primary)]">{activeCategory.name}</span>
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      className="px-2 py-1 min-h-0 min-w-0 text-[10px]"
+                      onClick={() => handleCategorySelect(null)}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                ) : combinedCategories.length > 0 ? (
+                  <span className="text-[10px] text-[var(--color-text-muted)]">
+                    Tip: click a category above to filter submissions
+                  </span>
+                ) : null}
+              </div>
+              {submissionsError && (
+                <div className="p-3 rounded border border-red-500/20 bg-red-500/5">
+                  <p className="text-red-500 text-xs">{submissionsError}</p>
+                </div>
+              )}
 
-            {/* Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                  Hashtag Status
-                </label>
-                <select
-                  value={hashtagFilter}
-                  onChange={(e) => setHashtagFilter(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)]"
-                >
-                  <option value="">All</option>
-                  <option value="pass">Pass</option>
-                  <option value="fail">Fail</option>
-                  <option value="pending_review">Pending Review</option>
-                  <option value="approved_manual">Approved Manual</option>
-                </select>
+              {/* Filters */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[10px] font-medium text-[var(--color-text-primary)] mb-1 uppercase">
+                    Hashtag Status
+                  </label>
+                  <select
+                    value={hashtagFilter}
+                    onChange={(e) => setHashtagFilter(e.target.value)}
+                    className="w-full px-2 py-1.5 rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)] text-xs"
+                  >
+                    <option value="">All</option>
+                    <option value="pass">Pass</option>
+                    <option value="fail">Fail</option>
+                    <option value="pending_review">Pending Review</option>
+                    <option value="approved_manual">Approved Manual</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-medium text-[var(--color-text-primary)] mb-1 uppercase">
+                    Description Status
+                  </label>
+                  <select
+                    value={descriptionFilter}
+                    onChange={(e) => setDescriptionFilter(e.target.value)}
+                    className="w-full px-2 py-1.5 rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)] text-xs"
+                  >
+                    <option value="">All</option>
+                    <option value="pass">Pass</option>
+                    <option value="fail">Fail</option>
+                    <option value="pending_review">Pending Review</option>
+                    <option value="approved_manual">Approved Manual</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-medium text-[var(--color-text-primary)] mb-1 uppercase">
+                    Content Review
+                  </label>
+                  <select
+                    value={contentReviewFilter}
+                    onChange={(e) => setContentReviewFilter(e.target.value)}
+                    className="w-full px-2 py-1.5 rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)] text-xs"
+                  >
+                    <option value="">All</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                  Description Status
-                </label>
-                <select
-                  value={descriptionFilter}
-                  onChange={(e) => setDescriptionFilter(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)]"
-                >
-                  <option value="">All</option>
-                  <option value="pass">Pass</option>
-                  <option value="fail">Fail</option>
-                  <option value="pending_review">Pending Review</option>
-                  <option value="approved_manual">Approved Manual</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                  Content Review
-                </label>
-                <select
-                  value={contentReviewFilter}
-                  onChange={(e) => setContentReviewFilter(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)]"
-                >
-                  <option value="">All</option>
-                  <option value="pending">Pending</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-              </div>
-            </div>
 
-            {/* Submissions Table */}
-            {loading ? (
-              <div className="space-y-4">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="h-20 bg-[var(--color-border)]/20 rounded animate-pulse" />
-                ))}
-              </div>
-            ) : submissions.length === 0 ? (
-              <p className="text-[var(--color-text-muted)] text-center py-8">
-                No submissions yet
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-[var(--color-border)]">
-                      <th className="text-left py-3 px-4 text-sm font-medium text-[var(--color-text-muted)]">
-                        Rank
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-[var(--color-text-muted)]">
-                        User
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-[var(--color-text-muted)]">
-                        Stats
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-[var(--color-text-muted)]">
-                        Status
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-[var(--color-text-muted)]">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {submissions.map((submission, index) => (
-                      <tr
-                        key={submission.id}
-                        className="border-b border-[var(--color-border)] hover:bg-[var(--color-border)]/10"
-                      >
-                        <td className="py-3 px-4 text-[var(--color-text-primary)] font-medium">
-                          #{index + 1}
-                        </td>
-                        <td className="py-3 px-4">
-                          <p className="text-[var(--color-text-primary)]">
-                            {submission.profiles?.display_name || submission.profiles?.email}
-                          </p>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-[var(--color-text-muted)]">
-                          <div className="space-y-1">
-                            <p>Views: {submission.views_count.toLocaleString()}</p>
-                            <p>Likes: {submission.likes_count.toLocaleString()}</p>
-                            <p>Comments: {submission.comments_count.toLocaleString()}</p>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="space-y-1">
-                            <span
-                              className={`inline-block px-2 py-1 rounded text-xs font-medium border ${getStatusColor(
-                                submission.hashtag_status
-                              )}`}
-                            >
-                              Hashtag: {submission.hashtag_status}
-                            </span>
-                            <br />
-                            <span
-                              className={`inline-block px-2 py-1 rounded text-xs font-medium border ${getStatusColor(
-                                submission.content_review_status
-                              )}`}
-                            >
-                              Review: {submission.content_review_status}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <Link href={`/admin/review?submission=${submission.id}`}>
-                            <Button variant="ghost" size="sm">
-                              Review
-                            </Button>
-                          </Link>
-                        </td>
+              {/* Submissions Table */}
+              {loading ? (
+                <div className="space-y-2">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="h-20 bg-[var(--color-border)]/20 rounded animate-pulse" />
+                  ))}
+                </div>
+              ) : submissions.length === 0 ? (
+                <p className="text-[var(--color-text-muted)] text-center py-8">
+                  No submissions yet
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-[var(--color-border)]">
+                        <th className="text-left py-1.5 px-2 font-medium text-[var(--color-text-muted)]">
+                          Rank
+                        </th>
+                        <th className="text-left py-1.5 px-2 font-medium text-[var(--color-text-muted)]">
+                          User
+                        </th>
+                        <th className="text-left py-1.5 px-2 font-medium text-[var(--color-text-muted)]">
+                          Stats
+                        </th>
+                        <th className="text-left py-1.5 px-2 font-medium text-[var(--color-text-muted)]">
+                          Status
+                        </th>
+                        <th className="text-left py-1.5 px-2 font-medium text-[var(--color-text-muted)]">
+                          Actions
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
+                    </thead>
+                    <tbody>
+                      {submissions.map((submission, index) => (
+                        <tr
+                          key={submission.id}
+                          className="border-b border-[var(--color-border)] hover:bg-[var(--color-border)]/10"
+                        >
+                          <td className="py-1.5 px-2 text-[var(--color-text-primary)] font-semibold">
+                            #{index + 1}
+                          </td>
+                          <td className="py-1.5 px-2">
+                            <p className="text-[var(--color-text-primary)]">
+                              {submission.profiles?.display_name || submission.profiles?.email}
+                            </p>
+                          </td>
+                          <td className="py-1.5 px-2 text-[var(--color-text-muted)]">
+                            <div className="space-y-0.5">
+                              <p>Views: {submission.views_count.toLocaleString()}</p>
+                              <p>Likes: {submission.likes_count.toLocaleString()}</p>
+                              <p>Comments: {submission.comments_count.toLocaleString()}</p>
+                            </div>
+                          </td>
+                          <td className="py-1.5 px-2">
+                            <div className="space-y-0.5">
+                              <span
+                                className={`inline-block px-2 py-1 rounded text-xs font-medium border ${getStatusColor(
+                                  submission.hashtag_status
+                                )}`}
+                              >
+                                Hashtag: {submission.hashtag_status}
+                              </span>
+                              <br />
+                              <span
+                                className={`inline-block px-2 py-1 rounded text-xs font-medium border ${getStatusColor(
+                                  submission.content_review_status
+                                )}`}
+                              >
+                                Review: {submission.content_review_status}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-1.5 px-2">
+                            <Link href={`/admin/review?submission=${submission.id}`}>
+                              <Button
+                                variant="ghost"
+                                size="xs"
+                                className="px-2 py-1 min-h-0 min-w-0 text-[10px]"
+                              >
+                                Review
+                              </Button>
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          </div>
+
         </div>
       </PageSection>
     </Page>

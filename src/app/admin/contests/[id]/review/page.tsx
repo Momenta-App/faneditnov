@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '../../contexts/AuthContext';
-import { Card } from '../../components/Card';
-import { Page, PageSection } from '../../components/layout';
-import { Button } from '../../components/Button';
-import { ContestVideoPlayer } from '../../components/ContestVideoPlayer';
+import { useRouter, useParams } from 'next/navigation';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { Card } from '../../../../components/Card';
+import { Page, PageSection } from '../../../../components/layout';
+import { Button } from '../../../../components/Button';
+import { ContestVideoPlayer } from '../../../../components/ContestVideoPlayer';
 import { getContestVideoUrl } from '@/lib/storage-utils';
 import Link from 'next/link';
 import { authFetch } from '@/lib/auth-fetch';
@@ -34,17 +34,20 @@ interface Submission {
     display_name?: string;
   };
   contests: {
+    id: string;
     title: string;
     required_hashtags: string[];
+    required_description_template?: string;
   };
 }
 
-export default function AdminReviewPage() {
+export default function ContestReviewPage() {
   const { user, profile, isLoading } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const submissionIdParam = searchParams.get('submission');
+  const params = useParams();
+  const contestId = params.id as string;
 
+  const [contest, setContest] = useState<{ id: string; title: string } | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,39 +66,38 @@ export default function AdminReviewPage() {
       return;
     }
 
-    if (profile?.role === 'admin') {
+    if (profile?.role === 'admin' && contestId) {
+      fetchContest();
       fetchSubmissions();
     }
-  }, [user, profile, isLoading, router]);
+  }, [user, profile, isLoading, router, contestId]);
 
-  useEffect(() => {
-    if (submissionIdParam && submissions.length > 0) {
-      const submission = submissions.find((s) => s.id === parseInt(submissionIdParam));
-      if (submission) {
-        setSelectedSubmission(submission);
+  const fetchContest = async () => {
+    try {
+      const response = await authFetch(`/api/admin/contests/${contestId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setContest({ id: data.data.id, title: data.data.title });
       }
+    } catch (err) {
+      console.error('Error fetching contest:', err);
     }
-  }, [submissionIdParam, submissions]);
+  };
 
   const fetchSubmissions = async () => {
     try {
       setLoading(true);
-      const response = await authFetch('/api/admin/review/submissions');
+      setError(null);
+      const response = await authFetch(`/api/admin/contests/${contestId}/review/submissions`);
       if (!response.ok) {
-        throw new Error('Failed to fetch submissions');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to fetch submissions');
       }
       const data = await response.json();
       setSubmissions(data.data || []);
-
-      // If there's a submission ID param, select it
-      if (submissionIdParam) {
-        const submission = data.data?.find((s: Submission) => s.id === parseInt(submissionIdParam));
-        if (submission) {
-          setSelectedSubmission(submission);
-        }
-      }
     } catch (err) {
       console.error('Error fetching submissions:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load submissions');
     } finally {
       setLoading(false);
     }
@@ -113,7 +115,7 @@ export default function AdminReviewPage() {
       setUpdating(true);
       setError(null);
       setSuccessMessage(null);
-      const response = await authFetch(`/api/admin/review/submissions/${submissionId}`, {
+      const response = await authFetch(`/api/admin/contests/${contestId}/review/submissions/${submissionId}`, {
         method: 'PUT',
         includeJson: true,
         body: JSON.stringify(updates),
@@ -127,7 +129,7 @@ export default function AdminReviewPage() {
       // Refresh submissions
       await fetchSubmissions();
       if (selectedSubmission?.id === submissionId) {
-        const response = await authFetch(`/api/admin/review/submissions/${submissionId}`);
+        const response = await authFetch(`/api/admin/contests/${contestId}/review/submissions/${submissionId}`);
         if (response.ok) {
           const updated = await response.json();
           setSelectedSubmission(updated.data);
@@ -157,7 +159,7 @@ export default function AdminReviewPage() {
     return null;
   };
 
-  if (isLoading || !user || profile?.role !== 'admin') {
+  if (isLoading || !user || profile?.role !== 'admin' || !contestId) {
     return null;
   }
 
@@ -166,17 +168,22 @@ export default function AdminReviewPage() {
       <PageSection variant="header">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-4 mb-4">
+            <Link href={`/admin/contests/${contestId}`}>
+              <Button variant="ghost" size="sm">
+                ← Back to Contest
+              </Button>
+            </Link>
             <Link href="/admin/contests">
               <Button variant="ghost" size="sm">
-                ← Back to Contests
+                All Contests
               </Button>
             </Link>
           </div>
           <h1 className="text-4xl font-bold text-[var(--color-text-primary)] mb-2">
-            Manual Review
+            Review Submissions
           </h1>
           <p className="text-[var(--color-text-muted)]">
-            Review and approve contest submissions
+            {contest ? `Review submissions for: ${contest.title}` : 'Review and approve contest submissions'}
           </p>
         </div>
       </PageSection>
@@ -208,7 +215,7 @@ export default function AdminReviewPage() {
                   </div>
                 ) : submissions.length === 0 ? (
                   <p className="text-[var(--color-text-muted)] text-sm">
-                    No submissions pending review
+                    No submissions pending review for this contest
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -222,10 +229,7 @@ export default function AdminReviewPage() {
                             : 'border-[var(--color-border)] hover:border-[var(--color-primary)]/50'
                         }`}
                       >
-                        <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                          {submission.contests?.title || 'Unknown Contest'}
-                        </p>
-                        <p className="text-xs text-[var(--color-text-muted)]">
+                        <p className="text-xs text-[var(--color-text-muted)] mb-1">
                           {submission.profiles?.display_name || submission.profiles?.email}
                         </p>
                         <div className="flex gap-1 mt-1">
@@ -234,8 +238,18 @@ export default function AdminReviewPage() {
                               Hashtag
                             </span>
                           )}
+                          {submission.hashtag_status === 'pending_review' && (
+                            <span className="text-xs px-1.5 py-0.5 bg-yellow-500/10 text-yellow-500 rounded">
+                              Hashtag
+                            </span>
+                          )}
                           {submission.description_status === 'fail' && (
                             <span className="text-xs px-1.5 py-0.5 bg-red-500/10 text-red-500 rounded">
+                              Description
+                            </span>
+                          )}
+                          {submission.description_status === 'pending_review' && (
+                            <span className="text-xs px-1.5 py-0.5 bg-yellow-500/10 text-yellow-500 rounded">
                               Description
                             </span>
                           )}
@@ -272,7 +286,7 @@ export default function AdminReviewPage() {
                         Review Submission
                       </h2>
                       <p className="text-sm text-[var(--color-text-muted)]">
-                        Contest: {selectedSubmission.contests?.title}
+                        Contest: {selectedSubmission.contests?.title || contest?.title}
                       </p>
                       <p className="text-sm text-[var(--color-text-muted)]">
                         User: {selectedSubmission.profiles?.display_name || selectedSubmission.profiles?.email}
@@ -301,7 +315,7 @@ export default function AdminReviewPage() {
                         href={selectedSubmission.original_video_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm text-[var(--color-primary)] hover:underline"
+                        className="text-sm text-[var(--color-primary)] hover:underline break-all"
                       >
                         {selectedSubmission.original_video_url}
                       </a>

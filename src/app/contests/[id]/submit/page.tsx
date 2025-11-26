@@ -10,7 +10,7 @@ import { Button } from '../../../components/Button';
 import { detectPlatform, isValidUrl } from '@/lib/url-utils';
 
 export default function SubmitContestPage({ params }: { params: { id: string } }) {
-  const { user, profile, isLoading } = useAuth();
+  const { user, profile, isLoading, session } = useAuth();
   const router = useRouter();
   const [contestId, setContestId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -30,26 +30,40 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
     setContestId(params.id);
   }, [params]);
 
+  const sessionToken = session?.access_token ?? null;
+
+  const authHeaders = sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {};
+
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (!isLoading && !user && contestId) {
       router.push(`/auth/login?redirect=${encodeURIComponent(`/contests/${contestId}/submit`)}`);
-      return;
-    }
-    if (user && contestId) {
-      fetchConnectedAccounts();
-      fetchContest();
     }
   }, [user, isLoading, router, contestId]);
+
+  useEffect(() => {
+    if (user && contestId) {
+      fetchContest();
+    }
+  }, [user, contestId]);
+
+  useEffect(() => {
+    if (user && contestId && sessionToken) {
+      fetchConnectedAccounts();
+    }
+  }, [user, contestId, sessionToken]);
 
   const fetchContest = async () => {
     try {
       setLoadingContest(true);
-      const response = await fetch(`/api/contests/${contestId}`);
+      const response = await fetch(`/api/contests/${contestId}`, {
+        headers: authHeaders,
+        credentials: 'include',
+      });
       if (response.ok) {
         const data = await response.json();
         setContest(data.data);
         // If specific (non-general) categories exist and force_single_category is true, select first category by default
-        const specificCategories = data.data.contest_categories?.filter((cat: any) => !cat.is_general) || [];
+        const specificCategories = data.data.contest_categories?.filter((cat: any) => cat.is_general === false) || [];
         if (specificCategories.length > 0) {
           if (data.data.force_single_category && specificCategories.length === 1) {
             setSelectedCategoryId(specificCategories[0].id);
@@ -66,7 +80,13 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
   const fetchConnectedAccounts = async () => {
     try {
       setCheckingAccounts(true);
-      const response = await fetch('/api/settings/connected-accounts');
+      if (!sessionToken) {
+        return;
+      }
+      const response = await fetch('/api/settings/connected-accounts', {
+        headers: authHeaders,
+        credentials: 'include',
+      });
       if (response.ok) {
         const data = await response.json();
         setConnectedAccounts(data.data || []);
@@ -77,6 +97,13 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
       setCheckingAccounts(false);
     }
   };
+
+  const specificCategories =
+    contest?.contest_categories?.filter((cat: any) => cat.is_general === false) ?? [];
+  const generalCategories =
+    contest?.contest_categories?.filter((cat: any) => cat.is_general === true) ?? [];
+  const hasSpecificCategories = specificCategories.length > 0;
+  const hasGeneralCategories = generalCategories.length > 0;
 
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const url = e.target.value;
@@ -135,12 +162,15 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
       return;
     }
 
+    if (!sessionToken) {
+      setError('Session expired. Please sign in again.');
+      return;
+    }
+
     // Validate category selection if categories exist
-    if (contest?.contest_categories && contest.contest_categories.length > 0) {
-      if (!selectedCategoryId) {
-        setError('Please select a category for your submission');
-        return;
-      }
+    if (hasSpecificCategories && !selectedCategoryId) {
+      setError('Please select a category for your submission');
+      return;
     }
 
     setLoading(true);
@@ -156,6 +186,8 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
       const response = await fetch(`/api/contests/${contestId}/submissions`, {
         method: 'POST',
         body: formData,
+        headers: authHeaders,
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -250,7 +282,7 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
                 )}
 
                 {/* Category Selection - Only show specific (non-general) categories */}
-                {contest?.contest_categories && contest.contest_categories.filter((cat: any) => !cat.is_general).length > 0 && (
+                {hasSpecificCategories && (
                   <div>
                     <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
                       Select Category *
@@ -262,8 +294,7 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
                       className="w-full px-4 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                     >
                       <option value="">-- Select a category --</option>
-                      {contest.contest_categories
-                        .filter((cat: any) => !cat.is_general)
+                      {specificCategories
                         .sort((a: any, b: any) => a.display_order - b.display_order)
                         .map((category: any) => (
                           <option key={category.id} value={category.id}>
@@ -278,14 +309,15 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
                 )}
 
                 {/* General Categories Info */}
-                {contest?.contest_categories && contest.contest_categories.filter((cat: any) => cat.is_general).length > 0 && (
+                {hasGeneralCategories && (
                   <div className="p-4 border border-[var(--color-primary)]/20 bg-[var(--color-primary)]/5 rounded-lg">
                     <p className="text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                      Your submission will also be automatically entered in:
+                      {hasSpecificCategories
+                        ? 'Your submission will also be automatically entered in:'
+                        : 'This contest only has general categories. Your submission will automatically be entered in:'}
                     </p>
                     <ul className="space-y-2">
-                      {contest.contest_categories
-                        .filter((cat: any) => cat.is_general)
+                      {generalCategories
                         .sort((a: any, b: any) => a.display_order - b.display_order)
                         .map((category: any) => {
                           const rankingLabels: Record<string, string> = {

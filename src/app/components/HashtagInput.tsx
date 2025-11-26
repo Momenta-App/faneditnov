@@ -75,32 +75,13 @@ export function HashtagInput({
   };
 
   return (
-    <div>
+    <div className="space-y-2">
       {label && (
-        <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">{label}</label>
+        <label className="block text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-primary)]">
+          {label}
+        </label>
       )}
-      <div className="flex flex-wrap gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3 focus-within:ring-2 focus-within:ring-[var(--color-primary)]">
-        {normalizedValue.length === 0 && (
-          <span className="px-3 py-1 rounded-full text-xs text-[var(--color-text-muted)] bg-[var(--color-border)]/40">
-            No hashtags yet
-          </span>
-        )}
-        {normalizedValue.map((tag) => (
-          <span
-            key={tag}
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium bg-[var(--color-primary)]/15 text-[var(--color-primary)] border border-[var(--color-primary)]/30"
-          >
-            {tag}
-            <button
-              type="button"
-              className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] focus:outline-none"
-              onClick={() => removeHashtag(tag)}
-              aria-label={`Remove ${tag}`}
-            >
-              ✕
-            </button>
-          </span>
-        ))}
+      <div className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 focus-within:ring-2 focus-within:ring-[var(--color-primary)]">
         <input
           type="text"
           value={inputValue}
@@ -108,12 +89,41 @@ export function HashtagInput({
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
           onPaste={handlePaste}
-          className="flex-1 min-w-[200px] bg-transparent border-none outline-none text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)]"
+          className="w-full bg-transparent border-none outline-none text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)]"
           placeholder={placeholder}
         />
       </div>
       {helperText && (
-        <p className="text-xs text-[var(--color-text-muted)] mt-2">{helperText}</p>
+        <p className="text-[11px] text-[var(--color-text-muted)]">{helperText}</p>
+      )}
+      {normalizedValue.length === 0 ? (
+        <div className="px-3 py-2 rounded border border-dashed border-[var(--color-border)] text-[11px] text-[var(--color-text-muted)]">
+          No hashtags yet
+        </div>
+      ) : (
+        <div className="rounded border border-[var(--color-border)] bg-[var(--color-surface)]/60 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wide text-[var(--color-text-muted)] mb-1">
+            Added hashtags
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {normalizedValue.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium bg-[var(--color-primary)]/12 text-[var(--color-primary)] border border-[var(--color-primary)]/30"
+              >
+                {tag}
+                <button
+                  type="button"
+                  className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] focus:outline-none"
+                  onClick={() => removeHashtag(tag)}
+                  aria-label={`Remove ${tag}`}
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

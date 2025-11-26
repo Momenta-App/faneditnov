@@ -102,12 +102,12 @@ export async function getServerSession() {
  */
 export async function getServerSessionFromRequest(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
-  
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    // Extract token and verify it directly
-    const token = authHeader.replace('Bearer ', '');
-    
-    // Create a temporary client to verify the token
+  const bearerToken =
+    authHeader && authHeader.toLowerCase().startsWith('bearer ')
+      ? authHeader.replace(/bearer\s+/i, '')
+      : null;
+
+  if (bearerToken) {
     const client = createClient(
       envClient.NEXT_PUBLIC_SUPABASE_URL,
       envClient.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -117,16 +117,19 @@ export async function getServerSessionFromRequest(request: NextRequest) {
     );
     
     // Use getUser to verify the token and get user info
-    const { data: { user }, error } = await client.auth.getUser(token);
+    const {
+      data: { user },
+      error,
+    } = await client.auth.getUser(bearerToken);
     
     if (error || !user) {
-      console.error('Error verifying token:', error);
+      console.error('[getServerSessionFromRequest] Error verifying token:', error?.message);
       return null;
     }
     
     // Construct a minimal session object from the token
     return {
-      access_token: token,
+      access_token: bearerToken,
       refresh_token: '', // Not available from header, but not needed for server-side
       expires_at: Math.floor(Date.now() / 1000) + 3600, // Default 1 hour
       expires_in: 3600,
@@ -136,11 +139,22 @@ export async function getServerSessionFromRequest(request: NextRequest) {
   }
   
   // For cookie-based session, use the request's cookies
+  const cookieHeader = request.headers.get('cookie');
+  if (!cookieHeader) {
+    console.warn('[getServerSessionFromRequest] No Authorization header or cookies found on request');
+    return null;
+  }
+  
   const supabase = await getSupabaseFromRequest(request);
   const { data: { session }, error } = await supabase.auth.getSession();
   
   if (error) {
-    console.error('Error getting session from cookies:', error);
+    console.error('[getServerSessionFromRequest] Error getting session from cookies:', error.message);
+    return null;
+  }
+  
+  if (!session) {
+    console.warn('[getServerSessionFromRequest] No session found in cookies');
     return null;
   }
   

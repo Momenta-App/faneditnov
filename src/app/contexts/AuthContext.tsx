@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (session?.user && session?.access_token) {
           // Fetch profile when session changes, using the session's access token directly
-          await fetchProfileWithToken(session.user.id, session.access_token);
+        await fetchProfileWithToken(session.user.id, session.access_token);
         } else {
           setProfile(null);
         }
@@ -100,12 +100,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout (reduced from 10)
       
       try {
-        const response = await fetch('/api/auth/session', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          signal: controller.signal,
-          // Add cache control to prevent stale requests
-          cache: 'no-store',
-        });
+      // Add timestamp to prevent caching and ensure fresh data
+      const timestamp = Date.now();
+      const response = await fetch(`/api/auth/session?t=${timestamp}&_=${Date.now()}`, {
+        method: 'GET',
+        headers: { 
+          Authorization: `Bearer ${accessToken}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+        signal: controller.signal,
+        // Force no caching
+        cache: 'no-store',
+        credentials: 'include',
+        // Prevent Next.js from caching
+        next: { revalidate: 0 },
+      } as RequestInit);
         
         clearTimeout(timeoutId);
         
@@ -117,17 +128,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        const data = await response.json();
+        // Get raw response text first to see what we're actually receiving
+        const responseText = await response.text();
+        console.log('📥 Raw API response:', responseText.substring(0, 500)); // First 500 chars
+        
+        // Parse JSON
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('❌ Failed to parse JSON response:', parseError);
+          console.error('Response text:', responseText);
+          setProfile(null);
+          return;
+        }
+        
         console.log('Profile fetch result:', { 
           hasProfile: !!data.profile, 
           hasUser: !!data.user,
           userId,
-          profileData: data.profile,
+          profileRole: data.profile?.role,
+          profileRoleType: typeof data.profile?.role,
+          profileEmail: data.profile?.email,
+          fullProfile: data.profile,
+          profileKeys: data.profile ? Object.keys(data.profile) : [],
         });
         
         if (data.profile) {
-          setProfile(data.profile);
-          console.log('✅ Profile set successfully');
+          // Validate the profile data
+          if (!data.profile.role) {
+            console.error('❌ Profile missing role!', data.profile);
+          }
+          
+          console.log('✅ Setting profile with role:', data.profile.role);
+          // Ensure we're setting the profile with all required fields
+          const profileData: Profile = {
+            id: data.profile.id,
+            email: data.profile.email,
+            role: data.profile.role,
+            display_name: data.profile.display_name,
+            avatar_url: data.profile.avatar_url,
+            email_verified: data.profile.email_verified || false,
+            created_at: data.profile.created_at,
+            updated_at: data.profile.updated_at,
+          };
+          
+          setProfile(profileData);
+          console.log('✅ Profile set successfully with role:', profileData.role);
         } else {
           // Profile might not exist yet, that's okay
           setProfile(null);
@@ -202,7 +249,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Wait a moment to ensure session is persisted by Supabase client
       await new Promise(resolve => setTimeout(resolve, 200));
       
-      // onAuthStateChange will fetch the profile; no need to do it here
+      // Force fetch profile immediately after login to ensure we have the latest data
+      if (data.session?.access_token) {
+        console.log('🔄 Force refreshing profile after login...');
+        await fetchProfileWithToken(data.user.id, data.session.access_token);
+      }
+      
+      // onAuthStateChange will also fetch the profile as a backup
     } catch (error) {
       setIsLoading(false);
       throw error;
@@ -284,19 +337,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshSession = async () => {
     try {
+      console.log('🔄 Refreshing session and profile...');
+      
       // First get current session
       const { data: { session: currentSession } } = await supabaseClient.auth.getSession();
       
       if (currentSession) {
         // If we have a session, refresh it
         const { data: { session }, error } = await supabaseClient.auth.refreshSession();
-        if (error) throw error;
+        if (error) {
+          console.error('Error refreshing session:', error);
+          throw error;
+        }
         
+        console.log('✅ Session refreshed, fetching profile...');
         setSession(session);
         setUser(session?.user ?? null);
 
-        if (session?.user) {
-          await fetchProfile(session.user.id);
+        if (session?.user && session?.access_token) {
+          // Force fetch profile with fresh token
+          await fetchProfileWithToken(session.user.id, session.access_token);
         }
       } else {
         // No session - try to fetch anyway in case one exists
@@ -304,12 +364,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(newSession);
         setUser(newSession?.user ?? null);
         
-        if (newSession?.user) {
-          await fetchProfile(newSession.user.id);
+        if (newSession?.user && newSession?.access_token) {
+          await fetchProfileWithToken(newSession.user.id, newSession.access_token);
         }
       }
     } catch (error) {
-      console.error('Error refreshing session:', error);
+      console.error('❌ Error refreshing session:', error);
     }
   };
 

@@ -14,6 +14,7 @@ import { useCommunities, useCommunityVideos, useCommunityCreators, useCommunityH
 import { CommunityEditModal } from '../../components/CommunityEditModal';
 import { Community } from '../../types/data';
 import { useAuth } from '../../contexts/AuthContext';
+import { isAdmin as isAdminRole } from '@/lib/role-utils';
 import { supabaseClient } from '@/lib/supabase-client';
 
 // Helper function for formatting numbers
@@ -119,7 +120,7 @@ export default function CommunityPage() {
   const [editsOnly, setEditsOnly] = useState(true); // Default to edits only
   
   // Only admin can edit communities
-  const canEditCommunity = profile && profile.role === 'admin';
+  const canEditCommunity = isAdminRole(profile?.role);
   
   // Find community by slug first
   const { data: communities, loading: loadingCommunities } = useCommunities('', 'created_at', 'all', 1000);

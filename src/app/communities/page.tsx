@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { isAdmin as isAdminRole } from '@/lib/role-utils';
 import { useCommunities } from '../hooks/useData';
 import { CommunityCard } from '../components/CommunityCard';
 import { PageHeaderWithFilters } from '../components/PageHeaderWithFilters';
@@ -41,7 +42,7 @@ export default function CommunitiesPage() {
   
   // Check if user can create communities (admin role only)
   // Check if user can create communities (admin role only)
-  const canCreateCommunity = profile && profile.role === 'admin';
+  const canCreateCommunity = isAdminRole(profile?.role);
   const [formData, setFormData] = useState({
     name: '',
     slug: '',

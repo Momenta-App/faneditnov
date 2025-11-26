@@ -25,25 +25,35 @@ export async function getSessionUser(
     const { getServerUserIdFromRequest } = await import('./supabase-server');
     const userId = await getServerUserIdFromRequest(request);
 
+    console.log('[getSessionUser] User ID from request:', userId);
+
     if (!userId) {
+      console.log('[getSessionUser] No user ID found - user not authenticated');
       return null;
     }
 
-    // Fetch profile from database
+    // Fetch profile from database using admin client to bypass RLS
     const { data: profile, error } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single();
 
-    if (error || !profile) {
-      console.error('Error fetching profile:', error);
+    if (error) {
+      console.error('[getSessionUser] Error fetching profile:', error);
       return null;
     }
 
+    if (!profile) {
+      console.error('[getSessionUser] Profile not found for user ID:', userId);
+      return null;
+    }
+
+    console.log('[getSessionUser] Profile found - Role:', profile.role, 'Email:', profile.email);
+
     return profile as SessionUser;
   } catch (error) {
-    console.error('Error in getSessionUser:', error);
+    console.error('[getSessionUser] Error in getSessionUser:', error);
     return null;
   }
 }
@@ -69,13 +79,16 @@ export async function requireRole(
   ...roles: UserRole[]
 ): Promise<SessionUser> {
   const user = await requireAuth(request);
+  console.log('[requireRole] User role:', user.role, 'Required roles:', roles);
   if (!roles.includes(user.role)) {
+    console.log('[requireRole] Access denied - user role does not match required roles');
     throw new AuthError(
-      `Forbidden: Requires one of roles: ${roles.join(', ')}`,
+      `Forbidden: Requires one of roles: ${roles.join(', ')}. Current role: ${user.role}`,
       'FORBIDDEN',
       403
     );
   }
+  console.log('[requireRole] Access granted');
   return user;
 }
 

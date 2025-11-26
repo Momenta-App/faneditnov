@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/Card';
@@ -50,8 +50,6 @@ export default function UploadPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
-
-  const isAdmin = profile?.role === 'admin';
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-background)' }}>
@@ -237,6 +235,9 @@ function SingleUploadForm({ skipValidation }: { skipValidation: boolean }) {
   const [status, setStatus] = useState<'idle' | 'pending' | 'completed' | 'failed'>('idle');
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mp4File, setMp4File] = useState<File | null>(null);
+  const [mp4Error, setMp4Error] = useState<string | null>(null);
+  const mp4InputRef = useRef<HTMLInputElement | null>(null);
 
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -249,6 +250,25 @@ function SingleUploadForm({ skipValidation }: { skipValidation: boolean }) {
     } else {
       setUrl(value);
     }
+  };
+
+  const handleMp4Change = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setMp4File(null);
+      setMp4Error(null);
+      return;
+    }
+
+    if (file.type && file.type !== 'video/mp4') {
+      setMp4Error('Only MP4 files are supported right now.');
+      e.target.value = '';
+      setMp4File(null);
+      return;
+    }
+
+    setMp4Error(null);
+    setMp4File(file);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -264,6 +284,7 @@ function SingleUploadForm({ skipValidation }: { skipValidation: boolean }) {
     console.log('✅ User authenticated:', user.id);
     setStatus('pending');
     setError(null);
+    setMp4Error(null);
     setResult(null);
 
     try {
@@ -274,22 +295,23 @@ function SingleUploadForm({ skipValidation }: { skipValidation: boolean }) {
       const accessToken = sessionData.session?.access_token;
       console.log('🔑 Access token:', accessToken ? 'Present' : 'Missing');
       
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      
+      const headers: Record<string, string> = {};
       if (accessToken) {
         headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+
+      const formPayload = new FormData();
+      formPayload.append('video_url', standardizedUrl);
+      formPayload.append('skip_validation', skipValidation ? 'true' : 'false');
+      if (mp4File) {
+        formPayload.append('mp4_file', mp4File);
       }
       
       console.log('🚀 Sending request to /api/brightdata/trigger');
       const response = await fetch('/api/brightdata/trigger', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ 
-          urls: [standardizedUrl],
-          skip_validation: skipValidation
-        }),
+        body: formPayload,
       });
       console.log('📥 Response received:', response.status);
 
@@ -325,6 +347,10 @@ function SingleUploadForm({ skipValidation }: { skipValidation: boolean }) {
       setResult(data);
       setStatus('completed');
       setUrl('');
+      setMp4File(null);
+      if (mp4InputRef.current) {
+        mp4InputRef.current.value = '';
+      }
       console.log('✅ Upload completed successfully');
     } catch (err) {
       console.error('❌ Upload error:', err);
@@ -390,6 +416,37 @@ function SingleUploadForm({ skipValidation }: { skipValidation: boolean }) {
                   <p className="mt-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
                     Paste the full URL of your TikTok video, Instagram post/reel, or YouTube Short
                   </p>
+                </div>
+
+                <div>
+                  <label htmlFor="mp4-upload" className="block text-sm font-semibold mb-2"
+                    style={{ color: 'var(--color-text-primary)' }}>
+                    Attach Raw MP4 (optional)
+                  </label>
+                  <input
+                    id="mp4-upload"
+                    type="file"
+                    ref={mp4InputRef}
+                    accept="video/mp4"
+                    onChange={handleMp4Change}
+                    disabled={status === 'pending' || !user}
+                    className="w-full px-4 py-2 border-2 rounded-xl focus-ring text-sm"
+                    style={{
+                      background: 'var(--color-background)',
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-text-primary)',
+                      transition: 'all 0.2s ease'
+                    }}
+                  />
+                  <p className="mt-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                    Uploading the raw file lets us feature your edit later. You must own and verify the social account
+                    for this video before the MP4 can be accepted.
+                  </p>
+                  {mp4Error && (
+                    <p className="mt-2 text-xs" style={{ color: 'var(--color-danger)' }}>
+                      {mp4Error}
+                    </p>
+                  )}
                 </div>
 
                 <Button 

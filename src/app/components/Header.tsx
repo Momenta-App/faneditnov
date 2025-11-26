@@ -6,10 +6,11 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { Button } from './Button';
+import { isAdmin as isAdminRole } from '@/lib/role-utils';
 
 export function Header() {
   const pathname = usePathname();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, isLoading } = useAuth();
   const { theme, toggleTheme, mounted } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -18,9 +19,20 @@ export function Header() {
   };
 
   const navItems = [
+    { name: 'Edits', href: '/edits' },
+    { name: 'Creators', href: '/creators' },
+    { name: 'Hashtags', href: '/hashtags' },
+    { name: 'Sounds', href: '/sounds' },
+    { name: 'Communities', href: '/communities' },
+    { name: 'Contests', href: '/contests' },
     { name: 'Campaign', href: '/campaign' },
     { name: 'Upload', href: '/upload' },
   ];
+
+  const adminNavItems =
+    !isLoading && isAdminRole(profile?.role)
+      ? [{ name: 'Admin', href: '/admin/contests' }]
+      : [];
 
   return (
     <header 
@@ -42,6 +54,22 @@ export function Header() {
           <div className="hidden lg:flex lg:items-center lg:gap-3 grow justify-end">
             <div className="flex items-center gap-3">
               {navItems.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`relative inline-flex items-center justify-center px-6 py-3 rounded-lg text-sm font-semibold transition-all focus-ring min-h-[44px] ${
+                    isActive(item.href)
+                      ? 'text-[var(--color-primary)]'
+                      : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'
+                  }`}
+                >
+                  <span className="relative z-10">{item.name}</span>
+                  {isActive(item.href) && (
+                    <span className="absolute inset-0 bg-[var(--color-primary)]/10 rounded-lg"></span>
+                  )}
+                </Link>
+              ))}
+              {adminNavItems.map((item) => (
                 <Link
                   key={item.name}
                   href={item.href}
@@ -146,6 +174,28 @@ export function Header() {
           <div className="lg:hidden pb-4 border-t border-[var(--color-border)] mt-2">
             <div className="flex flex-col space-y-2 pt-2">
               {navItems.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`relative inline-flex items-center px-6 py-3 rounded-lg text-sm font-medium transition-all min-h-[44px] ${
+                    isActive(item.href)
+                      ? 'text-[var(--color-primary)] font-semibold'
+                      : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'
+                  }`}
+                >
+                  <span className="relative z-10 flex items-center">
+                    {isActive(item.href) && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] mr-2"></span>
+                    )}
+                    {item.name}
+                  </span>
+                  {isActive(item.href) && (
+                    <span className="absolute inset-0 bg-[var(--color-primary)]/10 rounded-lg"></span>
+                  )}
+                </Link>
+              ))}
+              {adminNavItems.map((item) => (
                 <Link
                   key={item.name}
                   href={item.href}

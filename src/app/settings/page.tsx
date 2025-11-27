@@ -1833,13 +1833,20 @@ function ContestsSection({ onNavigateToOwnership }: { onNavigateToOwnership?: ()
     }
   }, [groupedByContest, expandedContests.size]);
 
+  const clearActionError = (submissionId: number) => {
+    setActionErrors(prev => {
+      const { [submissionId]: _removed, ...rest } = prev;
+      return rest;
+    });
+  };
+
   const handleRefreshStats = async (submissionId: number) => {
     if (!sessionToken) {
       setError('Session expired. Please sign in again.');
       return;
     }
     try {
-      setActionErrors(prev => ({ ...prev, [submissionId]: undefined }));
+      clearActionError(submissionId);
       const headers: HeadersInit = { Authorization: `Bearer ${sessionToken}` };
       const response = await fetch(`/api/user/submissions/${submissionId}/refresh-stats`, {
         method: 'POST',
@@ -1862,7 +1869,7 @@ function ContestsSection({ onNavigateToOwnership }: { onNavigateToOwnership?: ()
       return;
     }
     try {
-      setActionErrors(prev => ({ ...prev, [submissionId]: undefined }));
+      clearActionError(submissionId);
       const headers: HeadersInit = { Authorization: `Bearer ${sessionToken}` };
       const response = await fetch(`/api/user/submissions/${submissionId}/retry-processing`, {
         method: 'POST',
@@ -1885,7 +1892,7 @@ function ContestsSection({ onNavigateToOwnership }: { onNavigateToOwnership?: ()
       return;
     }
     try {
-      setActionErrors(prev => ({ ...prev, [submissionId]: undefined }));
+      clearActionError(submissionId);
       const headers: HeadersInit = { Authorization: `Bearer ${sessionToken}` };
       const response = await fetch(`/api/user/submissions/${submissionId}/request-review`, {
         method: 'POST',
@@ -1908,7 +1915,7 @@ function ContestsSection({ onNavigateToOwnership }: { onNavigateToOwnership?: ()
       return;
     }
     try {
-      setActionErrors(prev => ({ ...prev, [submissionId]: undefined }));
+      clearActionError(submissionId);
       const headers: HeadersInit = { Authorization: `Bearer ${sessionToken}` };
       const response = await fetch(`/api/user/submissions/${submissionId}`, {
         method: 'DELETE',

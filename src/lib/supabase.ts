@@ -1,11 +1,32 @@
 import { createClient } from "@supabase/supabase-js";
 import { envServer } from "./env-server";
 
+// Verify service role key is present (but don't log it)
+if (!envServer.SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set');
+}
+
+if (!envServer.NEXT_PUBLIC_SUPABASE_URL) {
+  throw new Error('NEXT_PUBLIC_SUPABASE_URL is not set');
+}
+
+// Verify the key looks like a service role key (starts with eyJ)
+const isServiceRoleKey = envServer.SUPABASE_SERVICE_ROLE_KEY.startsWith('eyJ');
+if (!isServiceRoleKey) {
+  console.warn('[Supabase] WARNING: SUPABASE_SERVICE_ROLE_KEY does not appear to be a valid JWT token');
+}
+
 export const supabaseAdmin = createClient(
   envServer.NEXT_PUBLIC_SUPABASE_URL,
   envServer.SUPABASE_SERVICE_ROLE_KEY,
   { auth: { persistSession: false } }
 );
+
+// Log client initialization (URL only, never the key)
+console.log('[Supabase Admin] Client initialized with URL:', envServer.NEXT_PUBLIC_SUPABASE_URL);
+console.log('[Supabase Admin] Service role key present:', !!envServer.SUPABASE_SERVICE_ROLE_KEY);
+console.log('[Supabase Admin] Service role key format valid:', isServiceRoleKey);
+
 export const STORAGE_BUCKET = envServer.SUPABASE_STORAGE_BUCKET;
 
 // Database types

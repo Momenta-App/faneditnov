@@ -13,6 +13,7 @@ import { getRoleDisplayName, getRoleDescription } from '@/lib/role-utils';
 import { ContestVideoPlayer } from '../components/ContestVideoPlayer';
 import { MP4VideoModal } from '../components/MP4VideoModal';
 import { getContestVideoUrl } from '@/lib/storage-utils';
+import { authFetch } from '@/lib/auth-fetch';
 
 // Helper function to format numbers with abbreviations
 const formatNumber = (num: number | null | undefined): string => {
@@ -829,6 +830,12 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
   const [requestingReview, setRequestingReview] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showVideoPopup, setShowVideoPopup] = useState(false);
+  const [showAppealModal, setShowAppealModal] = useState(false);
+  const [appealType, setAppealType] = useState<'hashtag' | 'description' | null>(null);
+  const [appealReason, setAppealReason] = useState('');
+  const [submittingAppeal, setSubmittingAppeal] = useState(false);
+  const [appealError, setAppealError] = useState<string | null>(null);
+  const [appealSuccess, setAppealSuccess] = useState(false);
 
   const allCategories = submission.contest_submission_categories || [];
   const primaryCategory = allCategories.find((c: any) => c.is_primary)?.contest_categories;
@@ -870,6 +877,56 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
       await onDelete(submission.id);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleAppealClick = (type: 'hashtag' | 'description') => {
+    setAppealType(type);
+    setAppealReason('');
+    setAppealError(null);
+    setAppealSuccess(false);
+    setShowAppealModal(true);
+  };
+
+  const handleSubmitAppeal = async () => {
+    if (!appealType || !appealReason.trim()) {
+      setAppealError('Please provide a reason for your appeal');
+      return;
+    }
+
+    setSubmittingAppeal(true);
+    setAppealError(null);
+    setAppealSuccess(false);
+
+    try {
+      const response = await authFetch(`/api/user/submissions/${submission.id}/appeal`, {
+        method: 'POST',
+        includeJson: true,
+        body: JSON.stringify({
+          appeal_type: appealType,
+          appeal_reason: appealReason.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to submit appeal');
+      }
+
+      setAppealSuccess(true);
+      setTimeout(() => {
+        setShowAppealModal(false);
+        setAppealReason('');
+        setAppealType(null);
+        setAppealSuccess(false);
+        // Refresh the page or refetch submissions
+        window.location.reload();
+      }, 2000);
+    } catch (err) {
+      setAppealError(err instanceof Error ? err.message : 'Failed to submit appeal');
+    } finally {
+      setSubmittingAppeal(false);
     }
   };
 
@@ -992,6 +1049,88 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                   videoUrl={videoUrl}
                   onClose={() => setShowVideoPopup(false)}
                 />
+              )}
+              {showAppealModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                  <Card className="w-full max-w-md">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                          Appeal {appealType === 'hashtag' ? 'Hashtag' : 'Description'} Check
+                        </h3>
+                        <button
+                          onClick={() => {
+                            setShowAppealModal(false);
+                            setAppealReason('');
+                            setAppealType(null);
+                            setAppealError(null);
+                            setAppealSuccess(false);
+                          }}
+                          className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      
+                      {appealSuccess ? (
+                        <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                          <p className="text-sm text-green-600">
+                            Appeal submitted successfully! An admin will review your appeal.
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          <div>
+                            <p className="text-sm text-[var(--color-text-primary)] mb-2">
+                              Please explain why you believe the {appealType === 'hashtag' ? 'hashtag' : 'description'} check was incorrect:
+                            </p>
+                            <textarea
+                              value={appealReason}
+                              onChange={(e) => setAppealReason(e.target.value)}
+                              placeholder="Enter your appeal reason..."
+                              className="w-full p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)] resize-none"
+                              rows={6}
+                              disabled={submittingAppeal}
+                            />
+                          </div>
+                          
+                          {appealError && (
+                            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                              <p className="text-sm text-red-600">{appealError}</p>
+                            </div>
+                          )}
+                          
+                          <div className="flex gap-2 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setShowAppealModal(false);
+                                setAppealReason('');
+                                setAppealType(null);
+                                setAppealError(null);
+                              }}
+                              disabled={submittingAppeal}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={handleSubmitAppeal}
+                              isLoading={submittingAppeal}
+                              disabled={submittingAppeal || !appealReason.trim()}
+                            >
+                              Submit Appeal
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </Card>
+                </div>
               )}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Video Player */}
@@ -1512,15 +1651,24 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                     Update Stats
                   </Button>
                 )}
-                {(submission.hashtag_status === 'fail' || submission.description_status === 'fail') && (
+                {submission.hashtag_status === 'fail' && (
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={handleRequestReview}
-                    isLoading={requestingReview}
-                    disabled={requestingReview || deleting}
+                    onClick={() => handleAppealClick('hashtag')}
+                    disabled={deleting || retryingProcessing || refreshingStats}
                   >
-                    Request Review
+                    Appeal Hashtag
+                  </Button>
+                )}
+                {submission.description_status === 'fail' && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleAppealClick('description')}
+                    disabled={deleting || retryingProcessing || refreshingStats}
+                  >
+                    Appeal Description
                   </Button>
                 )}
                 <Button

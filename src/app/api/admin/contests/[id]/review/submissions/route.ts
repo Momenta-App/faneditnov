@@ -105,9 +105,10 @@ export async function GET(
       const submissionIds = allSubmissionsTest.map(s => s.id);
       
       // Fetch all submission data without joins (this should bypass RLS)
+      // Force a fresh query by not using cached results
       const { data: submissionData, error: submissionError } = await supabaseAdmin
         .from('contest_submissions')
-        .select('*')
+        .select('id, contest_id, user_id, original_video_url, mp4_bucket, mp4_path, platform, mp4_ownership_status, mp4_ownership_reason, mp4_owner_social_account_id, hashtag_status, description_status, content_review_status, views_count, likes_count, comments_count, shares_count, saves_count, impact_score, description_text, hashtags_array, created_at, updated_at, processing_status, verification_status, is_disqualified, invalid_stats_flag, stats_updated_at, last_stats_refresh_at, social_account_id, video_id, user_removed')
         .in('id', submissionIds)
         .order('created_at', { ascending: false });
       
@@ -116,6 +117,18 @@ export async function GET(
         error = submissionError;
         submissions = null;
       } else if (submissionData) {
+        console.log('[Contest Review API] Fetched submission data - count:', submissionData.length);
+        if (submissionData.length > 0) {
+          const submission = submissionData.find(s => s.id === 10) || submissionData[0];
+          console.log('[Contest Review API] Submission ID 10 content_review_status:', submission.content_review_status);
+          console.log('[Contest Review API] Submission ID 10 full data:', {
+            id: submission.id,
+            content_review_status: submission.content_review_status,
+            updated_at: submission.updated_at
+          });
+          console.log('[Contest Review API] First submission content_review_status:', submissionData[0].content_review_status);
+          console.log('[Contest Review API] First submission id:', submissionData[0].id);
+        }
         // Get unique user IDs and contest IDs
         const userIds = [...new Set(submissionData.map(s => s.user_id))];
         const contestIds = [...new Set(submissionData.map(s => s.contest_id))];
@@ -136,11 +149,29 @@ export async function GET(
         const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
         const contestMap = new Map(contests?.map(c => [c.id, c]) || []);
         
+        // Get appeals for these submissions (reuse the IDs from above)
+        const appealSubmissionIds = submissionData.map(s => s.id);
+        const { data: appeals } = await supabaseAdmin
+          .from('contest_submission_appeals')
+          .select('*')
+          .in('submission_id', appealSubmissionIds);
+        
+        // Group appeals by submission_id
+        const appealsMap = new Map<number, any[]>();
+        appeals?.forEach(appeal => {
+          const subId = appeal.submission_id;
+          if (!appealsMap.has(subId)) {
+            appealsMap.set(subId, []);
+          }
+          appealsMap.get(subId)!.push(appeal);
+        });
+
         // Attach related data to submissions
         submissions = submissionData.map(sub => ({
           ...sub,
           profiles: profileMap.get(sub.user_id) || null,
           contests: contestMap.get(sub.contest_id) || null,
+          appeals: appealsMap.get(sub.id) || [],
         }));
         
         console.log('[Contest Review API] Successfully fetched and attached related data:', {
@@ -148,6 +179,17 @@ export async function GET(
           uniqueUsers: userIds.length,
           profilesFound: profiles?.length || 0,
           contestsFound: contests?.length || 0,
+        });
+        
+        // Log the actual content_review_status values being returned
+        submissions.forEach(sub => {
+          if (sub.id === 10) {
+            console.log('[Contest Review API] Submission 10 in final result:', {
+              id: sub.id,
+              content_review_status: sub.content_review_status,
+              updated_at: sub.updated_at
+            });
+          }
         });
       }
     } else {

@@ -35,8 +35,7 @@ const noStoreFetch: typeof fetch = async (input: RequestInfo | URL, init: Reques
   }
 
   if (!baseFetch) {
-    const { default: nodeFetch } = await import('node-fetch');
-    return nodeFetch(input as any, requestInit as any);
+    throw new Error('Fetch API is not available in the current runtime environment');
   }
 
   return baseFetch(input as RequestInfo, requestInit);

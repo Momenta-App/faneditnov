@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import type { NextFetchRequestConfig } from "next/server";
 import { envServer } from "./env-server";
 
 // Verify service role key is present (but don't log it)
@@ -16,7 +17,7 @@ if (!isServiceRoleKey) {
   console.warn('[Supabase] WARNING: SUPABASE_SERVICE_ROLE_KEY does not appear to be a valid JWT token');
 }
 
-type NextRequestInit = RequestInit & { next?: { revalidate?: number } };
+type NextRequestInit = RequestInit & { next?: Pick<NextFetchRequestConfig, 'revalidate'> };
 
 const baseFetch = globalThis.fetch?.bind(globalThis);
 

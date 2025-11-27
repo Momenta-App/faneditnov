@@ -1128,7 +1128,7 @@ export default function ContestReviewPage() {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 
-                                if (reviewStatus === 'pending' || updating === submission.id) {
+                                if (updating === submission.id) {
                                   return;
                                 }
                                 
@@ -1140,7 +1140,7 @@ export default function ContestReviewPage() {
                                   setTimeout(() => setError(null), 5000);
                                 }
                               }}
-                              disabled={updating === submission.id || reviewStatus === 'pending'}
+                              disabled={updating === submission.id}
                               isLoading={updating === submission.id}
                               type="button"
                             >

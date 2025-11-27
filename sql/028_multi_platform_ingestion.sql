@@ -37,16 +37,19 @@ DECLARE
   v_old_likes INTEGER := 0;
   v_old_comments INTEGER := 0;
   v_old_shares INTEGER := 0;
+  v_old_saves INTEGER := 0;
   v_old_impact NUMERIC := 0;
   v_new_likes INTEGER;
   v_new_comments INTEGER;
   v_new_shares INTEGER;
+  v_new_saves INTEGER;
   v_new_impact NUMERIC;
   -- Platform detection
   v_platform TEXT;
   v_hashtags_json JSONB;
   v_hashtag_obj JSONB;
   v_url_shortcode TEXT;
+  v_normalized_metrics JSONB;
 BEGIN
   -- Log start of ingestion
   RAISE NOTICE 'Starting ingestion for snapshot: % (skip_validation: %)', p_snapshot_id, p_skip_validation;
@@ -71,6 +74,15 @@ BEGIN
       END IF;
       
       RAISE NOTICE 'Detected platform: % for URL: %', v_platform, v_video_url;
+      
+      -- Allow normalized data to override detected platform/metrics
+      IF v_element ? 'normalized_platform' THEN
+        v_platform := COALESCE(NULLIF(v_element->>'normalized_platform', ''), v_platform);
+      END IF;
+      v_normalized_metrics := NULL;
+      IF v_element ? 'normalized_metrics' THEN
+        v_normalized_metrics := v_element->'normalized_metrics';
+      END IF;
       
       -- =======================================================================
       -- EXTRACT IDs BASED ON PLATFORM
@@ -252,7 +264,7 @@ BEGIN
       v_has_edit_hashtag := FALSE;
       
       -- Extract hashtags based on platform
-      v_hashtags_json := v_element->'hashtags';
+      v_hashtags_json := COALESCE(v_element->'normalized_hashtags', v_element->'hashtags');
       IF v_hashtags_json IS NOT NULL AND v_hashtags_json != 'null'::JSONB THEN
         IF v_platform = 'tiktok' OR v_platform = 'instagram' THEN
           -- TikTok and Instagram hashtags: array of strings (but could be string)
@@ -336,7 +348,7 @@ BEGIN
           v_community RECORD;
         BEGIN
           -- Extract hashtags array based on platform
-          v_hashtags_json := v_element->'hashtags';
+          v_hashtags_json := COALESCE(v_element->'normalized_hashtags', v_element->'hashtags');
           IF v_hashtags_json IS NOT NULL AND v_hashtags_json != 'null'::JSONB THEN
             IF v_platform = 'youtube' THEN
               IF jsonb_typeof(v_hashtags_json) = 'array' THEN
@@ -406,6 +418,13 @@ BEGIN
             v_rejected_shares := COALESCE((v_element->>'share_count')::BIGINT, 0);
           END IF;
           
+          IF v_normalized_metrics IS NOT NULL THEN
+            v_rejected_views := COALESCE((v_normalized_metrics->>'total_views')::BIGINT, v_rejected_views);
+            v_rejected_likes := COALESCE((v_normalized_metrics->>'like_count')::BIGINT, v_rejected_likes);
+            v_rejected_comments := COALESCE((v_normalized_metrics->>'comment_count')::BIGINT, v_rejected_comments);
+            v_rejected_shares := COALESCE((v_normalized_metrics->>'share_count')::BIGINT, v_rejected_shares);
+          END IF;
+          
           -- Extract video details
           v_rejected_title := COALESCE(
             v_element->>'title',
@@ -446,13 +465,12 @@ BEGIN
             NOW()
           );
           
-          -- Calculate impact score
-          v_rejected_impact := (
-            COALESCE(v_rejected_views, 0) * 1.0 +
-            COALESCE(v_rejected_likes, 0) * 10.0 +
-            COALESCE(v_rejected_comments, 0) * 20.0 +
-            COALESCE(v_rejected_shares, 0) * 30.0
-          );
+        -- Calculate impact score (shares/saves excluded to avoid penalizing IG/YT)
+        v_rejected_impact := (
+          COALESCE(v_rejected_views, 0) * 1.0 +
+          COALESCE(v_rejected_likes, 0) * 10.0 +
+          COALESCE(v_rejected_comments, 0) * 20.0
+        );
           
           -- Store rejected video
           INSERT INTO rejected_videos (
@@ -465,10 +483,10 @@ BEGIN
             video_id,
             title,
             description,
-            views_count,
-            likes_count,
-            comments_count,
-            shares_count,
+            total_views,
+            like_count,
+            comment_count,
+            share_count,
             video_created_at,
             hashtags,
             sound_id,
@@ -517,11 +535,21 @@ BEGIN
         v_new_likes := COALESCE((v_element->>'digg_count')::INTEGER, 0);
         v_new_comments := COALESCE((v_element->>'comment_count')::INTEGER, 0);
         v_new_shares := COALESCE((v_element->>'share_count')::INTEGER, 0);
+        v_new_saves := COALESCE(
+          (v_element->>'collect_count')::INTEGER,
+          (v_element->>'save_count')::INTEGER,
+          0
+        );
       ELSIF v_platform = 'youtube' THEN
         v_new_play_count := COALESCE((v_element->>'views')::INTEGER, 0);
         v_new_likes := COALESCE((v_element->>'likes')::INTEGER, 0);
         v_new_comments := COALESCE((v_element->>'num_comments')::INTEGER, 0);
-        v_new_shares := 0;  -- YouTube doesn't have shares
+        v_new_shares := COALESCE((v_element->>'share_count')::INTEGER, 0);
+        v_new_saves := COALESCE(
+          (v_element->>'save_count')::INTEGER,
+          (v_element->>'collect_count')::INTEGER,
+          0
+        );
       ELSIF v_platform = 'instagram' THEN
         v_new_play_count := COALESCE(
           (v_element->>'views')::INTEGER,
@@ -540,6 +568,12 @@ BEGIN
           0
         );
         v_new_shares := COALESCE((v_element->>'share_count')::INTEGER, 0);
+        v_new_saves := COALESCE(
+          (v_element->>'save_count')::INTEGER,
+          (v_element->>'saves')::INTEGER,
+          (v_element->>'collect_count')::INTEGER,
+          0
+        );
       ELSE
         -- Fallback
         v_new_play_count := COALESCE(
@@ -558,6 +592,19 @@ BEGIN
           0
         );
         v_new_shares := COALESCE((v_element->>'share_count')::INTEGER, 0);
+        v_new_saves := COALESCE(
+          (v_element->>'save_count')::INTEGER,
+          (v_element->>'collect_count')::INTEGER,
+          0
+        );
+      END IF;
+      
+      IF v_normalized_metrics IS NOT NULL THEN
+        v_new_play_count := COALESCE((v_normalized_metrics->>'total_views')::INTEGER, v_new_play_count);
+        v_new_likes := COALESCE((v_normalized_metrics->>'like_count')::INTEGER, v_new_likes);
+        v_new_comments := COALESCE((v_normalized_metrics->>'comment_count')::INTEGER, v_new_comments);
+        v_new_shares := COALESCE((v_normalized_metrics->>'share_count')::INTEGER, v_new_shares);
+        v_new_saves := COALESCE((v_normalized_metrics->>'save_count')::INTEGER, v_new_saves);
       END IF;
 
       -- =======================================================================
@@ -787,11 +834,13 @@ BEGIN
         likes_count, 
         comments_count, 
         shares_count, 
+        collect_count,
         COALESCE(impact_score, 0)
       INTO 
         v_old_likes, 
         v_old_comments, 
         v_old_shares, 
+        v_old_saves,
         v_old_impact
       FROM videos_hot
       WHERE video_id = v_post_id;
@@ -804,6 +853,7 @@ BEGIN
         v_old_likes := 0;
         v_old_comments := 0;
         v_old_shares := 0;
+        v_old_saves := 0;
         v_old_impact := 0;
       END IF;
 
@@ -816,7 +866,7 @@ BEGIN
       INSERT INTO videos_hot (
         video_id, post_id, creator_id, url, caption, description,
         created_at, views_count, likes_count, comments_count,
-        shares_count, duration_seconds, video_url, cover_url, platform
+        shares_count, collect_count, duration_seconds, video_url, cover_url, platform
       )
       VALUES (
         v_post_id,
@@ -866,6 +916,7 @@ BEGIN
         v_new_likes,
         v_new_comments,
         v_new_shares,
+        v_new_saves,
         -- Extract duration based on platform
         CASE 
           WHEN v_platform = 'youtube' THEN
@@ -912,6 +963,7 @@ BEGIN
         likes_count = EXCLUDED.likes_count,
         comments_count = EXCLUDED.comments_count,
         shares_count = EXCLUDED.shares_count,
+        collect_count = EXCLUDED.collect_count,
         cover_url = EXCLUDED.cover_url,
         platform = EXCLUDED.platform,
         last_seen_at = NOW(),
@@ -1029,7 +1081,7 @@ BEGIN
       -- =======================================================================
       IF v_platform = 'youtube' THEN
         -- YouTube hashtags: could be array of objects, array of strings, or string
-        v_hashtags_json := v_element->'hashtags';
+        v_hashtags_json := COALESCE(v_element->'normalized_hashtags', v_element->'hashtags');
         IF v_hashtags_json IS NOT NULL AND v_hashtags_json != 'null'::JSONB THEN
           IF jsonb_typeof(v_hashtags_json) = 'array' THEN
             -- Try array of objects first (has "hashtag" property)
@@ -1125,7 +1177,7 @@ BEGIN
         END IF;
       ELSE
         -- TikTok and Instagram: array of strings (but could also be string or null)
-        v_hashtags_json := v_element->'hashtags';
+        v_hashtags_json := COALESCE(v_element->'normalized_hashtags', v_element->'hashtags');
         IF v_hashtags_json IS NOT NULL AND v_hashtags_json != 'null'::JSONB THEN
           IF jsonb_typeof(v_hashtags_json) = 'array' THEN
             FOR v_hashtag IN 
@@ -1217,7 +1269,7 @@ BEGIN
       -- UPDATE COMMUNITY MEMBERSHIPS FOR ACCEPTED VIDEOS
       -- =======================================================================
       BEGIN
-        v_hashtags_json := v_element->'hashtags';
+        v_hashtags_json := COALESCE(v_element->'normalized_hashtags', v_element->'hashtags');
         IF v_hashtags_json IS NOT NULL AND v_hashtags_json != 'null'::JSONB THEN
           IF v_platform = 'youtube' THEN
             IF jsonb_typeof(v_hashtags_json) = 'array' THEN

@@ -1147,7 +1147,7 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                 <h4 className="text-sm font-semibold text-[var(--color-text-primary)] mb-3">
                   Video Statistics
                 </h4>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   <div className="p-3 rounded-lg bg-[var(--color-border)]/10 min-w-0">
                     <p className="text-xs text-[var(--color-text-muted)] mb-1 truncate">Views</p>
                     <p className="text-lg font-semibold text-[var(--color-text-primary)] truncate" title={(submission.views_count || 0).toLocaleString()}>
@@ -1164,18 +1164,6 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                     <p className="text-xs text-[var(--color-text-muted)] mb-1 truncate">Comments</p>
                     <p className="text-lg font-semibold text-[var(--color-text-primary)] truncate" title={(submission.comments_count || 0).toLocaleString()}>
                       {formatNumber(submission.comments_count)}
-                    </p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[var(--color-border)]/10 min-w-0">
-                    <p className="text-xs text-[var(--color-text-muted)] mb-1 truncate">Shares</p>
-                    <p className="text-lg font-semibold text-[var(--color-text-primary)] truncate" title={(submission.shares_count || 0).toLocaleString()}>
-                      {formatNumber(submission.shares_count)}
-                    </p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[var(--color-border)]/10 min-w-0">
-                    <p className="text-xs text-[var(--color-text-muted)] mb-1 truncate">Saves</p>
-                    <p className="text-lg font-semibold text-[var(--color-text-primary)] truncate" title={(submission.saves_count || 0).toLocaleString()}>
-                      {formatNumber(submission.saves_count)}
                     </p>
                   </div>
                 </div>

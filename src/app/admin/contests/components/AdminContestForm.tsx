@@ -457,7 +457,7 @@ export function AdminContestForm({
                   <span className="text-[11px] text-[var(--color-text-primary)]">General</span>
                 </label>
                 <select
-                  value={category.ranking_method}
+                  value={category.ranking_method === 'shares' ? 'manual' : category.ranking_method}
                   onChange={(e) => handleCategoryChange(index, 'ranking_method', e.target.value)}
                   className="flex-1 min-w-[140px] px-3 py-2 rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)]"
                 >
@@ -465,7 +465,6 @@ export function AdminContestForm({
                   <option value="views">Most Views</option>
                   <option value="likes">Most Likes</option>
                   <option value="comments">Most Comments</option>
-                  <option value="shares">Most Shares</option>
                 </select>
               </div>
               <div className="space-y-2 border-t border-[var(--color-border)] pt-2">

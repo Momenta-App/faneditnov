@@ -4,7 +4,7 @@
 -- This migration adds a comment-weighted Impact Score to complement existing
 -- view-based rankings across videos, creators, hashtags, communities, and sounds.
 --
--- Formula: Impact = 100 × comments + 0.1 × shares + 0.001 × likes + views ÷ 100000 + 0.1 × saves
+-- Formula: Impact = 100 × comments + 0.001 × likes + views ÷ 100000
 -- ============================================================================
 
 -- ============================================================================
@@ -19,17 +19,15 @@ CREATE OR REPLACE FUNCTION public.compute_impact(
   p_saves INTEGER
 ) RETURNS NUMERIC AS $$
 BEGIN
-  RETURN ROUND(
-    100.0 * COALESCE(p_comments, 0)
-    + 0.1 * COALESCE(p_shares, 0)
-    + 0.001 * COALESCE(p_likes, 0)
-    + COALESCE(p_views, 0) / 100000.0
-    + 0.1 * COALESCE(p_saves, 0)
-  , 2);
+RETURN ROUND(
+  100.0 * COALESCE(p_comments, 0)
+  + 0.001 * COALESCE(p_likes, 0)
+  + COALESCE(p_views, 0) / 100000.0
+, 2);
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
-COMMENT ON FUNCTION public.compute_impact IS 'Compute Impact Score: 100×comments + 0.1×shares + 0.001×likes + views/100k + 0.1×saves';
+COMMENT ON FUNCTION public.compute_impact IS 'Compute Impact Score: 100×comments + 0.001×likes + views/100k';
 
 -- ============================================================================
 -- PART 2: ADD COLUMNS TO videos_hot

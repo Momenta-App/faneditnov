@@ -4,6 +4,8 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { normalizeBrightDataRecord } from '@/lib/brightdata-normalizer';
+import type { Platform } from '@/lib/url-utils';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -205,33 +207,103 @@ function extractMetrics(record: any, platform: string): {
   shares: number;
   saves: number;
 } {
-  if (platform === 'tiktok') {
-    return {
-      views: record.play_count || record.view_count || record.views || 0,
-      likes: record.digg_count || record.likes || record.like_count || 0,
-      comments: record.comment_count || record.comments || 0,
-      shares: record.share_count || record.shares || 0,
-      saves: record.collect_count || record.saves || 0,
-    };
-  } else if (platform === 'instagram') {
-    return {
-      views: record.view_count || record.views || 0,
-      likes: record.like_count || record.likes || 0,
-      comments: record.comment_count || record.comments || 0,
-      shares: record.share_count || record.shares || 0,
-      saves: record.save_count || record.saves || 0,
-    };
-  } else if (platform === 'youtube') {
-    return {
-      views: record.view_count || record.views || 0,
-      likes: record.like_count || record.likes || 0,
-      comments: record.comment_count || record.comments || 0,
-      shares: record.share_count || record.shares || 0,
-      saves: 0, // YouTube doesn't have saves
-    };
+  const { normalized_metrics } = normalizeBrightDataRecord(record, {
+    platformHint: (platform || 'unknown') as Platform,
+  });
+
+  const fallback = {
+    views:
+      coalesceMetric(
+        record.video_play_count,
+        record.play_count,
+        record.views,
+        record.view_count,
+        record.total_views,
+      ) || 0,
+    likes:
+      coalesceMetric(
+        record.likes,
+        record.like_count,
+        record.likes_count,
+        record.digg_count,
+      ) || 0,
+    comments:
+      coalesceMetric(
+        record.num_comments,
+        record.comment_count,
+        record.comments_count,
+        record.comments,
+      ) || 0,
+    shares:
+      coalesceMetric(
+        record.share_count,
+        record.shares_count,
+        record.shares,
+      ) || 0,
+    saves:
+      coalesceMetric(
+        record.save_count,
+        record.saves_count,
+        record.saves,
+        record.collect_count,
+      ) || 0,
+  };
+
+  const result = {
+    views: normalized_metrics.total_views || fallback.views,
+    likes: normalized_metrics.like_count || fallback.likes,
+    comments: normalized_metrics.comment_count || fallback.comments,
+    shares: normalized_metrics.share_count || fallback.shares,
+    saves: normalized_metrics.save_count || fallback.saves,
+  };
+
+  if (result.comments === 0) {
+    console.warn('[Contest Webhook] Missing comment metrics', {
+      platform,
+      url: record.url || record.video_url || record.post_url,
+      num_comments: record.num_comments,
+      comment_count: record.comment_count,
+      comments_count: record.comments_count,
+      comments_label: record.comments,
+      metrics_comment: normalized_metrics.comment_count,
+      fallback_comments: fallback.comments,
+    });
   }
 
-  return { views: 0, likes: 0, comments: 0, shares: 0, saves: 0 };
+  return result;
+}
+
+function coalesceMetric(...values: Array<number | string | null | undefined>): number | null {
+  for (const value of values) {
+    const parsed = parseMetricValue(value);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
+function parseMetricValue(value: number | string | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number' && !Number.isNaN(value)) return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim().toLowerCase();
+    const match = trimmed.match(/([0-9][0-9.,]*)([kmb])?/);
+    if (match) {
+      const numericPortion = match[1].replace(/,/g, '');
+      const base = Number(numericPortion);
+      if (!Number.isNaN(base)) {
+        const suffix = match[2];
+        if (!suffix) return base;
+        const multiplier =
+          suffix === 'k' ? 1_000 :
+          suffix === 'm' ? 1_000_000 :
+          suffix === 'b' ? 1_000_000_000 : 1;
+        return Math.round(base * multiplier);
+      }
+    }
+    const numeric = Number(trimmed.replace(/,/g, ''));
+    if (!Number.isNaN(numeric)) return numeric;
+  }
+  return null;
 }
 
 /**

@@ -344,14 +344,17 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
                             views: 'Most Views',
                             likes: 'Most Likes',
                             comments: 'Most Comments',
-                            shares: 'Most Shares',
                           };
+                          const showRanking =
+                            category.ranking_method &&
+                            category.ranking_method !== 'manual' &&
+                            category.ranking_method !== 'shares';
                           return (
                             <li key={category.id} className="flex items-center gap-2 text-sm">
                               <span className="text-[var(--color-text-primary)] font-medium">
                                 {category.name}
                               </span>
-                              {category.ranking_method !== 'manual' && (
+                              {showRanking && (
                                 <span className="text-xs text-[var(--color-text-muted)]">
                                   (Ranked by: {rankingLabels[category.ranking_method] || category.ranking_method})
                                 </span>

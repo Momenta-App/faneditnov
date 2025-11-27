@@ -6,6 +6,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireRole, handleAuthError, AuthError } from '@/lib/auth-utils';
 import { supabaseAdmin } from '@/lib/supabase';
 
+type ReviewStatus = 'pending' | 'approved' | 'rejected';
+
+const deriveReviewStatus = (submission: any): ReviewStatus => {
+  const contentStatus = submission?.content_review_status?.toLowerCase?.().trim?.();
+  const processingStatus = submission?.processing_status?.toLowerCase?.().trim?.();
+
+  if (contentStatus === 'rejected') {
+    return 'rejected';
+  }
+
+  const processingSuggestsPending =
+    processingStatus === 'waiting_review' ||
+    processingStatus === 'uploaded' ||
+    processingStatus === 'fetching_stats' ||
+    processingStatus === 'checking_hashtags' ||
+    processingStatus === 'checking_description';
+
+  if (processingSuggestsPending) {
+    return 'pending';
+  }
+
+  if (contentStatus === 'approved') {
+    return 'approved';
+  }
+
+  return 'pending';
+};
+
 export const dynamic = 'force-dynamic';
 
 /**
@@ -237,8 +265,17 @@ export async function GET(
       usedTestQuery: !!submissionsToReturn,
     });
 
+    const normalizedSubmissions = (submissions || []).map(submission => {
+      const derivedStatus = deriveReviewStatus(submission);
+      return {
+        ...submission,
+        content_review_status: derivedStatus,
+        derived_review_status: derivedStatus,
+      };
+    });
+
     return NextResponse.json({
-      data: submissions || [],
+      data: normalizedSubmissions,
     });
   } catch (error) {
     if (error instanceof AuthError) {

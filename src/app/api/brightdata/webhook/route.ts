@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { downloadAndStoreImage, isSupabaseUrl } from '@/lib/image-storage';
+import { attachNormalizedMetrics } from '@/lib/brightdata-normalizer';
 
 export const runtime = 'nodejs';
 
@@ -216,12 +217,15 @@ async function processWebhookData(snapshot_id: string, dataset_id: string, paylo
   // Process images before database ingestion
   console.log('Downloading and storing images in Supabase Storage...');
   const processedPayload = await processImagesInPayload(payload);
-  console.log('Image processing complete, proceeding with database ingestion...');
+  console.log('Image processing complete, applying normalization...');
+  // Normalize BrightData responses so every ingestion path shares the same mapping logic.
+  const normalizedPayload = processedPayload.map(record => attachNormalizedMetrics(record));
+  console.log('Normalization complete, proceeding with database ingestion...');
 
   const { data, error } = await supabaseAdmin.rpc('ingest_brightdata_snapshot_v2', {
     p_snapshot_id: snapshot_id,
     p_dataset_id: dataset_id || '',
-    p_payload: processedPayload,
+    p_payload: normalizedPayload,
     p_skip_validation: skipValidation
   });
 

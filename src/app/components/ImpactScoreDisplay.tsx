@@ -33,11 +33,11 @@ export function ImpactScoreDisplay({
             Impact Score
           </p>
           <p className="text-[var(--color-text-muted)] text-xs">
-            Impact is a single score that combines views, likes, comments and saves, and also
-            rewards consistent engagement over time rather than only one spike of views.
+            Impact is a single score that blends views, likes, comments and other private engagement
+            signals, rewarding sustained performance instead of one-off spikes.
           </p>
           <p className="text-[var(--color-text-muted)] text-xs mt-2 font-mono">
-            Formula: 100 × comments + 0.1 × shares + 0.001 × likes + views ÷ 100,000 + 0.1 × saves
+            Formula: 100 × comments + 0.001 × likes + views ÷ 100,000 + weighted private engagement
           </p>
         </div>
       )}

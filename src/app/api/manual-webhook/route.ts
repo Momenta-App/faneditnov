@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { attachNormalizedMetrics } from '@/lib/brightdata-normalizer';
 
 export const runtime = 'nodejs';
 
@@ -177,7 +178,10 @@ export async function POST(request: NextRequest) {
       payload = [payload];
     }
     
-    console.log('Data downloaded, processing...', { recordCount: payload.length });
+    // Apply the shared normalization to keep manual replays aligned with automated ingests.
+    const normalizedPayload = payload.map(record => attachNormalizedMetrics(record));
+    
+    console.log('Data downloaded, processing...', { recordCount: normalizedPayload.length });
 
     // Call Supabase function to ingest data
     if (!supabaseAdmin) {
@@ -206,7 +210,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabaseAdmin.rpc('ingest_brightdata_snapshot_v2', {
       p_snapshot_id: snapshot_id,
       p_dataset_id: dataset_id || '',
-      p_payload: payload,
+      p_payload: normalizedPayload,
       p_skip_validation: skipValidation
     });
 

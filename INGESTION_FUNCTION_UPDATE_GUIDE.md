@@ -4,6 +4,12 @@
 
 The ingestion function needs to be updated to handle both Instagram and YouTube data structures from Bright Data. The current function only handles Instagram/TikTok-style data.
 
+## Normalization Pipeline
+
+- BrightData payloads are normalized in `src/lib/brightdata-normalizer.ts`. This helper inspects the platform, maps the BrightData metric keys, and emits `normalized_metrics` using our canonical column names (`total_views`, `like_count`, `comment_count`, `share_count`, `save_count`).
+- Every ingestion entry point (`src/app/api/brightdata/webhook/route.ts` and `src/app/api/manual-webhook/route.ts`) calls `attachNormalizedMetrics` before invoking `ingest_brightdata_snapshot_v2`, ensuring contest submissions, bypass uploads, and bulk uploads all share the same mapping logic.
+- The SQL function should always check `v_element->'normalized_metrics'` first so we rely on a single mapping source and fall back to manual extraction only when older payloads are replayed.
+
 ## Required Changes
 
 ### 1. Platform Detection
@@ -38,20 +44,18 @@ v_creator_id := COALESCE(v_element->>'user_posted', v_element->>'profile_id');
 
 #### Metrics
 ```sql
--- YouTube
-v_new_play_count := (v_element->>'views')::INTEGER;
-v_new_likes := (v_element->>'likes')::INTEGER;
-v_new_comments := (v_element->>'num_comments')::INTEGER;
-v_new_shares := 0;  -- YouTube doesn't have shares
-
--- Instagram
-v_new_play_count := COALESCE(
-  (v_element->>'views')::INTEGER,
-  (v_element->>'video_play_count')::INTEGER
-);
-v_new_likes := (v_element->>'likes')::INTEGER;
-v_new_comments := (v_element->>'num_comments')::INTEGER;
-v_new_shares := (v_element->>'share_count')::INTEGER;
+-- Always prefer normalized metrics when available
+v_normalized_metrics := v_element->'normalized_metrics';
+IF v_normalized_metrics IS NOT NULL THEN
+  v_new_play_count := (v_normalized_metrics->>'total_views')::INTEGER;
+  v_new_likes := (v_normalized_metrics->>'like_count')::INTEGER;
+  v_new_comments := (v_normalized_metrics->>'comment_count')::INTEGER;
+  v_new_shares := (v_normalized_metrics->>'share_count')::INTEGER;
+  v_new_saves := (v_normalized_metrics->>'save_count')::INTEGER;
+ELSE
+  -- Legacy fallback per-platform (TikTok/Instagram/YouTube)
+  -- ...
+END IF;
 ```
 
 #### Hashtags

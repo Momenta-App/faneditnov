@@ -774,7 +774,6 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                       views: 'Most Views',
                       likes: 'Most Likes',
                       comments: 'Most Comments',
-                      shares: 'Most Shares',
                       impact_score: 'Manual Judging',
                     };
                     return (
@@ -801,7 +800,7 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                           }}>
                             Auto-Entry
                           </span>
-                          {category.ranking_method && category.ranking_method !== 'manual' && (
+                          {category.ranking_method && category.ranking_method !== 'manual' && category.ranking_method !== 'shares' && (
                             <span className="px-3 py-1 text-xs sm:text-sm font-medium rounded-full" style={{
                               background: 'rgba(59, 130, 246, 0.2)',
                               color: 'rgb(59, 130, 246)',
@@ -885,7 +884,6 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                       views: 'Most Views',
                       likes: 'Most Likes',
                       comments: 'Most Comments',
-                      shares: 'Most Shares',
                       impact_score: 'Manual Judging',
                     };
 
@@ -916,7 +914,7 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                             <h3 className="text-xl font-bold flex-1" style={{ color: 'var(--color-text-primary)' }}>
                               {category.name}
                             </h3>
-                            {category.ranking_method && category.ranking_method !== 'manual' && (
+                            {category.ranking_method && category.ranking_method !== 'manual' && category.ranking_method !== 'shares' && (
                               <span className="px-2 py-1 text-xs font-medium rounded-full ml-2 flex-shrink-0" style={{
                                 background: 'rgba(59, 130, 246, 0.2)',
                                 color: 'rgb(59, 130, 246)'

@@ -34,6 +34,7 @@ interface Submission {
   description_text?: string | null;
   hashtags_array?: string[] | null;
   created_at: string;
+  processing_status: string;
   profiles: {
     email: string;
     display_name?: string;
@@ -69,6 +70,7 @@ interface Appeal {
 }
 
 type TabType = 'approved' | 'pending' | 'denied' | 'appeal';
+type ReviewStatus = 'pending' | 'approved' | 'rejected';
 
 export default function ContestReviewPage() {
   const { user, profile, isLoading } = useAuth();
@@ -311,6 +313,32 @@ export default function ContestReviewPage() {
     });
   };
 
+  const getReviewStatus = (submission: Submission): ReviewStatus => {
+    const contentStatus = submission.content_review_status?.trim().toLowerCase();
+    const processingStatus = submission.processing_status?.trim().toLowerCase();
+
+    if (contentStatus === 'rejected') {
+      return 'rejected';
+    }
+
+    const processingSuggestsPending =
+      processingStatus === 'waiting_review' ||
+      processingStatus === 'uploaded' ||
+      processingStatus === 'fetching_stats' ||
+      processingStatus === 'checking_hashtags' ||
+      processingStatus === 'checking_description';
+
+    if (processingSuggestsPending) {
+      return 'pending';
+    }
+
+    if (contentStatus === 'approved') {
+      return 'approved';
+    }
+
+    return 'pending';
+  };
+
   const getStatusBadge = (status: string, type: 'hashtag' | 'description') => {
     const isPass = status === 'pass' || status === 'approved_manual';
     const isFail = status === 'fail';
@@ -414,11 +442,11 @@ export default function ContestReviewPage() {
   const getFilteredSubmissions = () => {
     switch (activeTab) {
       case 'approved':
-        return submissions.filter(s => s.content_review_status === 'approved');
+        return submissions.filter(s => getReviewStatus(s) === 'approved');
       case 'pending':
-        return submissions.filter(s => s.content_review_status === 'pending');
+        return submissions.filter(s => getReviewStatus(s) === 'pending');
       case 'denied':
-        return submissions.filter(s => s.content_review_status === 'rejected');
+        return submissions.filter(s => getReviewStatus(s) === 'rejected');
       case 'appeal':
         return []; // Appeals are handled separately
       default:
@@ -482,9 +510,9 @@ export default function ContestReviewPage() {
                   appeal: 'Appeal',
                 };
                 const tabCounts = {
-                  pending: submissions.filter(s => s.content_review_status === 'pending').length,
-                  approved: submissions.filter(s => s.content_review_status === 'approved').length,
-                  denied: submissions.filter(s => s.content_review_status === 'rejected').length,
+                  pending: submissions.filter(s => getReviewStatus(s) === 'pending').length,
+                  approved: submissions.filter(s => getReviewStatus(s) === 'approved').length,
+                  denied: submissions.filter(s => getReviewStatus(s) === 'rejected').length,
                   appeal: pendingAppeals.length,
                 };
                 return (
@@ -615,7 +643,7 @@ export default function ContestReviewPage() {
                               <h4 className="text-sm font-semibold text-[var(--color-text-primary)] mb-3">
                                 Video Statistics
                               </h4>
-                              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                 <div className="p-3 rounded-lg bg-[var(--color-border)]/10">
                                   <p className="text-xs text-[var(--color-text-muted)] mb-1">Views</p>
                                   <p className="text-lg font-semibold text-[var(--color-text-primary)]">
@@ -632,18 +660,6 @@ export default function ContestReviewPage() {
                                   <p className="text-xs text-[var(--color-text-muted)] mb-1">Comments</p>
                                   <p className="text-lg font-semibold text-[var(--color-text-primary)]">
                                     {submission.comments_count.toLocaleString()}
-                                  </p>
-                                </div>
-                                <div className="p-3 rounded-lg bg-[var(--color-border)]/10">
-                                  <p className="text-xs text-[var(--color-text-muted)] mb-1">Shares</p>
-                                  <p className="text-lg font-semibold text-[var(--color-text-primary)]">
-                                    {(submission.shares_count || 0).toLocaleString()}
-                                  </p>
-                                </div>
-                                <div className="p-3 rounded-lg bg-[var(--color-border)]/10">
-                                  <p className="text-xs text-[var(--color-text-muted)] mb-1">Saves</p>
-                                  <p className="text-lg font-semibold text-[var(--color-text-primary)]">
-                                    {(submission.saves_count || 0).toLocaleString()}
                                   </p>
                                 </div>
                               </div>
@@ -791,6 +807,7 @@ export default function ContestReviewPage() {
               </div>
 
               {filteredSubmissions.map((submission) => {
+                const reviewStatus = getReviewStatus(submission);
                 const videoUrl = getVideoUrl(submission);
                 const isDescriptionExpanded = expandedDescriptions.has(submission.id);
                 const description = submission.description_text || 'No description available';
@@ -850,7 +867,7 @@ export default function ContestReviewPage() {
                           <h4 className="text-sm font-semibold text-[var(--color-text-primary)] mb-3">
                             Video Statistics
                           </h4>
-                          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                             <div className="p-3 rounded-lg bg-[var(--color-border)]/10">
                               <p className="text-xs text-[var(--color-text-muted)] mb-1">Views</p>
                               <p className="text-lg font-semibold text-[var(--color-text-primary)]">
@@ -867,18 +884,6 @@ export default function ContestReviewPage() {
                               <p className="text-xs text-[var(--color-text-muted)] mb-1">Comments</p>
                               <p className="text-lg font-semibold text-[var(--color-text-primary)]">
                                 {submission.comments_count.toLocaleString()}
-                              </p>
-                            </div>
-                            <div className="p-3 rounded-lg bg-[var(--color-border)]/10">
-                              <p className="text-xs text-[var(--color-text-muted)] mb-1">Shares</p>
-                              <p className="text-lg font-semibold text-[var(--color-text-primary)]">
-                                {(submission.shares_count || 0).toLocaleString()}
-                              </p>
-                            </div>
-                            <div className="p-3 rounded-lg bg-[var(--color-border)]/10">
-                              <p className="text-xs text-[var(--color-text-muted)] mb-1">Saves</p>
-                              <p className="text-lg font-semibold text-[var(--color-text-primary)]">
-                                {(submission.saves_count || 0).toLocaleString()}
                               </p>
                             </div>
                           </div>
@@ -1041,16 +1046,16 @@ export default function ContestReviewPage() {
                           </h4>
                           <span
                             className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${
-                              submission.content_review_status === 'approved'
+                              reviewStatus === 'approved'
                                 ? 'bg-green-500/10 text-green-600 border border-green-500/20'
-                                : submission.content_review_status === 'rejected'
+                                : reviewStatus === 'rejected'
                                 ? 'bg-red-500/10 text-red-600 border border-red-500/20'
                                 : 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20'
                             }`}
                           >
-                            {submission.content_review_status === 'approved' && '✓ '}
-                            {submission.content_review_status === 'rejected' && '✗ '}
-                            {submission.content_review_status}
+                            {reviewStatus === 'approved' && '✓ '}
+                            {reviewStatus === 'rejected' && '✗ '}
+                            {reviewStatus.charAt(0).toUpperCase() + reviewStatus.slice(1)}
                           </span>
                         </div>
                         <div className="flex gap-2">
@@ -1061,14 +1066,14 @@ export default function ContestReviewPage() {
                               console.log('[Review] BUTTON CLICKED - Approve button clicked');
                               console.log('[Review] Event:', e);
                               console.log('[Review] Submission ID:', submission.id);
-                              console.log('[Review] Current status:', submission.content_review_status);
+                              console.log('[Review] Current status:', reviewStatus);
                               console.log('[Review] Updating state:', updating);
-                              console.log('[Review] Is disabled?', updating === submission.id || submission.content_review_status === 'approved');
+                              console.log('[Review] Is disabled?', updating === submission.id || reviewStatus === 'approved');
                               
                               e.preventDefault();
                               e.stopPropagation();
                               
-                              if (submission.content_review_status === 'approved') {
+                              if (reviewStatus === 'approved') {
                                 console.log('[Review] Already approved, skipping');
                                 return;
                               }
@@ -1084,11 +1089,11 @@ export default function ContestReviewPage() {
                                 setError(error instanceof Error ? error.message : 'Failed to update');
                               });
                             }}
-                            disabled={updating === submission.id || submission.content_review_status === 'approved'}
+                            disabled={updating === submission.id || reviewStatus === 'approved'}
                             isLoading={updating === submission.id}
                             type="button"
                           >
-                            {submission.content_review_status === 'approved' ? 'Approved' : 'Approve Content'}
+                            {reviewStatus === 'approved' ? 'Approved' : 'Approve Content'}
                           </Button>
                           <Button
                             variant="danger"
@@ -1097,7 +1102,7 @@ export default function ContestReviewPage() {
                               e.preventDefault();
                               e.stopPropagation();
                               
-                              if (submission.content_review_status === 'rejected' || updating === submission.id) {
+                              if (reviewStatus === 'rejected' || updating === submission.id) {
                                 return;
                               }
                               
@@ -1109,13 +1114,13 @@ export default function ContestReviewPage() {
                                 setTimeout(() => setError(null), 5000);
                               }
                             }}
-                            disabled={updating === submission.id || submission.content_review_status === 'rejected'}
+                            disabled={updating === submission.id || reviewStatus === 'rejected'}
                             isLoading={updating === submission.id}
                             type="button"
                           >
-                            {submission.content_review_status === 'rejected' ? 'Rejected' : 'Reject'}
+                            {reviewStatus === 'rejected' ? 'Rejected' : 'Reject'}
                           </Button>
-                          {submission.content_review_status !== 'pending' && (
+                          {reviewStatus !== 'pending' && (
                             <Button
                               variant="secondary"
                               size="sm"
@@ -1123,7 +1128,7 @@ export default function ContestReviewPage() {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 
-                                if (submission.content_review_status === 'pending' || updating === submission.id) {
+                                if (reviewStatus === 'pending' || updating === submission.id) {
                                   return;
                                 }
                                 
@@ -1135,7 +1140,7 @@ export default function ContestReviewPage() {
                                   setTimeout(() => setError(null), 5000);
                                 }
                               }}
-                              disabled={updating === submission.id || submission.content_review_status === 'pending'}
+                              disabled={updating === submission.id || reviewStatus === 'pending'}
                               isLoading={updating === submission.id}
                               type="button"
                             >

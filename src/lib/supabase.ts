@@ -16,10 +16,39 @@ if (!isServiceRoleKey) {
   console.warn('[Supabase] WARNING: SUPABASE_SERVICE_ROLE_KEY does not appear to be a valid JWT token');
 }
 
+type NextRequestInit = RequestInit & { next?: { revalidate?: number } };
+
+const baseFetch = globalThis.fetch?.bind(globalThis);
+
+const noStoreFetch: typeof fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
+  const requestInit: NextRequestInit = {
+    cache: 'no-store',
+    ...init,
+  };
+
+  // Ensure Next.js cache is also bypassed
+  requestInit.next = { revalidate: 0, ...(init as NextRequestInit).next };
+
+  // Preserve existing headers but make sure we clone to avoid mutation
+  if (init?.headers) {
+    requestInit.headers = new Headers(init.headers as HeadersInit);
+  }
+
+  if (!baseFetch) {
+    const { default: nodeFetch } = await import('node-fetch');
+    return nodeFetch(input as any, requestInit as any);
+  }
+
+  return baseFetch(input as RequestInfo, requestInit);
+};
+
 export const supabaseAdmin = createClient(
   envServer.NEXT_PUBLIC_SUPABASE_URL,
   envServer.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { persistSession: false } }
+  { 
+    auth: { persistSession: false },
+    global: { fetch: noStoreFetch },
+  }
 );
 
 // Log client initialization (URL only, never the key)

@@ -273,7 +273,6 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
     views: 'Most Views',
     likes: 'Most Likes',
     comments: 'Most Comments',
-    shares: 'Most Shares',
     impact_score: 'Manual Judging',
   };
   const combinedCategories = [
@@ -463,7 +462,7 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                                 Auto
                               </span>
                             )}
-                            {category.ranking_method !== 'manual' && (
+                            {category.ranking_method !== 'manual' && category.ranking_method !== 'shares' && (
                               <span className="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-500">
                                 {rankingLabels[category.ranking_method] || category.ranking_method}
                               </span>

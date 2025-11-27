@@ -80,11 +80,11 @@ CREATE TABLE IF NOT EXISTS videos_hot (
   caption TEXT,
   description TEXT,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-  views_count INTEGER DEFAULT 0,
-  likes_count INTEGER DEFAULT 0,
-  comments_count INTEGER DEFAULT 0,
-  shares_count INTEGER DEFAULT 0,
-  collect_count INTEGER DEFAULT 0,
+  total_views INTEGER DEFAULT 0,
+  like_count INTEGER DEFAULT 0,
+  comment_count INTEGER DEFAULT 0,
+  share_count INTEGER DEFAULT 0,
+  save_count INTEGER DEFAULT 0,
   duration_seconds INTEGER,
   video_url TEXT,
   cover_url TEXT,
@@ -100,8 +100,8 @@ CREATE TABLE IF NOT EXISTS videos_hot (
 -- Indexes for videos_hot
 CREATE INDEX IF NOT EXISTS idx_videos_creator_id ON videos_hot(creator_id);
 CREATE INDEX IF NOT EXISTS idx_videos_created_at ON videos_hot(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_videos_views ON videos_hot(views_count DESC);
-CREATE INDEX IF NOT EXISTS idx_videos_likes ON videos_hot(likes_count DESC);
+CREATE INDEX IF NOT EXISTS idx_videos_views ON videos_hot(total_views DESC);
+CREATE INDEX IF NOT EXISTS idx_videos_likes ON videos_hot(like_count DESC);
 CREATE INDEX IF NOT EXISTS idx_videos_post_id ON videos_hot(post_id);
 CREATE INDEX IF NOT EXISTS idx_videos_first_seen_at ON videos_hot(first_seen_at DESC);
 
@@ -612,11 +612,11 @@ CREATE TABLE IF NOT EXISTS video_metrics_timeseries (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   video_id TEXT NOT NULL REFERENCES videos_hot(video_id) ON DELETE CASCADE,
   collected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-  views_count INTEGER DEFAULT 0,
-  likes_count INTEGER DEFAULT 0,
-  comments_count INTEGER DEFAULT 0,
-  shares_count INTEGER DEFAULT 0,
-  collect_count INTEGER DEFAULT 0,
+  total_views INTEGER DEFAULT 0,
+  like_count INTEGER DEFAULT 0,
+  comment_count INTEGER DEFAULT 0,
+  share_count INTEGER DEFAULT 0,
+  save_count INTEGER DEFAULT 0,
   engagement_rate REAL,
   views_delta INTEGER DEFAULT 0,
   likes_delta INTEGER DEFAULT 0,
@@ -629,8 +629,8 @@ CREATE TABLE IF NOT EXISTS video_metrics_timeseries (
 -- Indexes for video_metrics_timeseries
 CREATE INDEX IF NOT EXISTS idx_video_metrics_video_id ON video_metrics_timeseries(video_id, collected_at DESC);
 CREATE INDEX IF NOT EXISTS idx_video_metrics_collected_at ON video_metrics_timeseries(collected_at DESC);
-CREATE INDEX IF NOT EXISTS idx_video_metrics_views ON video_metrics_timeseries(views_count DESC);
-CREATE INDEX IF NOT EXISTS idx_video_metrics_likes ON video_metrics_timeseries(likes_count DESC);
+CREATE INDEX IF NOT EXISTS idx_video_metrics_views ON video_metrics_timeseries(total_views DESC);
+CREATE INDEX IF NOT EXISTS idx_video_metrics_likes ON video_metrics_timeseries(like_count DESC);
 
 -- Partition by month for better query performance (optional, can be added later)
 -- This will be handled manually as data grows
@@ -759,10 +759,10 @@ CREATE OR REPLACE VIEW video_metrics_recent AS
 SELECT DISTINCT ON (video_id)
   video_id,
   collected_at,
-  views_count,
-  likes_count,
-  comments_count,
-  shares_count,
+  total_views,
+  like_count,
+  comment_count,
+  share_count,
   engagement_rate,
   views_delta,
   likes_delta
@@ -1164,7 +1164,7 @@ BEGIN
   );
   
   -- Get video details
-  SELECT views_count, creator_id INTO v_play_count, v_creator_id
+  SELECT total_views, creator_id INTO v_play_count, v_creator_id
   FROM videos_hot
   WHERE video_id = p_video_id;
   
@@ -1247,7 +1247,7 @@ BEGIN
       WHERE community_id = p_community_id
     ),
     total_views = (
-      SELECT COALESCE(SUM(v.views_count), 0)
+      SELECT COALESCE(SUM(v.total_views), 0)
       FROM community_video_memberships cvm
       JOIN videos_hot v ON v.video_id = cvm.video_id
       WHERE cvm.community_id = p_community_id
@@ -1258,7 +1258,7 @@ BEGIN
       WHERE community_id = p_community_id AND video_count > 0
     ),
     total_likes = (
-      SELECT COALESCE(SUM(v.likes_count), 0)
+      SELECT COALESCE(SUM(v.like_count), 0)
       FROM community_video_memberships cvm
       JOIN videos_hot v ON v.video_id = cvm.video_id
       WHERE cvm.community_id = p_community_id
@@ -1291,7 +1291,7 @@ BEGIN
   
   -- Process each existing video
   FOR v_video IN 
-    SELECT DISTINCT v.video_id, v.creator_id, v.views_count
+    SELECT DISTINCT v.video_id, v.creator_id, v.total_views
     FROM video_hashtag_facts vhf
     JOIN videos_hot v ON v.video_id = vhf.video_id
     WHERE vhf.hashtag = ANY(v_hashtags)
@@ -1331,7 +1331,7 @@ BEGIN
       AND vhf.hashtag IN (SELECT UNNEST(linked_hashtags) FROM communities WHERE id = p_community_id)
   LOOP
     -- Count videos and sum views for this hashtag in this community
-    SELECT COUNT(*), COALESCE(SUM(v.views_count), 0)
+    SELECT COUNT(*), COALESCE(SUM(v.total_views), 0)
     INTO v_count, v_views
     FROM community_video_memberships cvm
     JOIN video_hashtag_facts vhf ON vhf.video_id = cvm.video_id
@@ -1373,7 +1373,7 @@ BEGIN
     -- Count videos and sum views for this creator in this community
     SELECT 
       COUNT(*), 
-      COALESCE(SUM(v.views_count), 0),
+      COALESCE(SUM(v.total_views), 0),
       MIN(v.created_at),
       MAX(v.created_at)
     INTO v_count, v_views, v_first_video_at, v_last_video_at
@@ -1429,7 +1429,7 @@ BEGIN
   -- Add videos with new hashtags
   IF array_length(v_new_hashtags, 1) > 0 THEN
     FOR v_video IN 
-      SELECT DISTINCT v.video_id, v.creator_id, v.views_count
+      SELECT DISTINCT v.video_id, v.creator_id, v.total_views
       FROM video_hashtag_facts vhf
       JOIN videos_hot v ON v.video_id = vhf.video_id
       WHERE vhf.hashtag = ANY(v_new_hashtags)
@@ -1972,10 +1972,10 @@ ALTER TABLE rejected_videos
 ADD COLUMN IF NOT EXISTS video_id TEXT,
 ADD COLUMN IF NOT EXISTS title TEXT,
 ADD COLUMN IF NOT EXISTS description TEXT,
-ADD COLUMN IF NOT EXISTS views_count BIGINT DEFAULT 0,
-ADD COLUMN IF NOT EXISTS likes_count BIGINT DEFAULT 0,
-ADD COLUMN IF NOT EXISTS comments_count BIGINT DEFAULT 0,
-ADD COLUMN IF NOT EXISTS shares_count BIGINT DEFAULT 0,
+ADD COLUMN IF NOT EXISTS total_views BIGINT DEFAULT 0,
+ADD COLUMN IF NOT EXISTS like_count BIGINT DEFAULT 0,
+ADD COLUMN IF NOT EXISTS comment_count BIGINT DEFAULT 0,
+ADD COLUMN IF NOT EXISTS share_count BIGINT DEFAULT 0,
 ADD COLUMN IF NOT EXISTS video_created_at TIMESTAMP WITH TIME ZONE,
 ADD COLUMN IF NOT EXISTS hashtags TEXT[],
 ADD COLUMN IF NOT EXISTS sound_id TEXT,
@@ -1988,8 +1988,8 @@ CREATE INDEX IF NOT EXISTS idx_rejected_videos_video_id
 CREATE INDEX IF NOT EXISTS idx_rejected_videos_creator_id_enhanced 
   ON rejected_videos(creator_id) WHERE creator_id IS NOT NULL;
 
-CREATE INDEX IF NOT EXISTS idx_rejected_videos_views_count 
-  ON rejected_videos(views_count DESC);
+CREATE INDEX IF NOT EXISTS idx_rejected_videos_total_views 
+  ON rejected_videos(total_views DESC);
 
 CREATE INDEX IF NOT EXISTS idx_rejected_videos_video_created_at 
   ON rejected_videos(video_created_at DESC);
@@ -2004,10 +2004,10 @@ CREATE INDEX IF NOT EXISTS idx_rejected_videos_sound_id
 COMMENT ON COLUMN rejected_videos.video_id IS 'Extracted video ID from original_data';
 COMMENT ON COLUMN rejected_videos.title IS 'Video title/caption extracted from original_data';
 COMMENT ON COLUMN rejected_videos.description IS 'Video description extracted from original_data';
-COMMENT ON COLUMN rejected_videos.views_count IS 'View count at time of rejection';
-COMMENT ON COLUMN rejected_videos.likes_count IS 'Like count at time of rejection';
-COMMENT ON COLUMN rejected_videos.comments_count IS 'Comment count at time of rejection';
-COMMENT ON COLUMN rejected_videos.shares_count IS 'Share count at time of rejection';
+COMMENT ON COLUMN rejected_videos.total_views IS 'View count at time of rejection';
+COMMENT ON COLUMN rejected_videos.like_count IS 'Like count at time of rejection';
+COMMENT ON COLUMN rejected_videos.comment_count IS 'Comment count at time of rejection';
+COMMENT ON COLUMN rejected_videos.share_count IS 'Share count at time of rejection';
 COMMENT ON COLUMN rejected_videos.video_created_at IS 'When the video was originally created on TikTok';
 COMMENT ON COLUMN rejected_videos.hashtags IS 'Array of normalized hashtags from the video';
 COMMENT ON COLUMN rejected_videos.sound_id IS 'Associated sound/music ID';
@@ -2294,10 +2294,10 @@ BEGIN
               video_id,
               title,
               description,
-              views_count,
-              likes_count,
-              comments_count,
-              shares_count,
+              total_views,
+              like_count,
+              comment_count,
+              share_count,
               video_created_at,
               hashtags,
               sound_id,
@@ -2323,10 +2323,10 @@ BEGIN
               v_rejected_impact
             )
             ON CONFLICT (standardized_url) DO UPDATE SET
-              views_count = EXCLUDED.views_count,
-              likes_count = EXCLUDED.likes_count,
-              comments_count = EXCLUDED.comments_count,
-              shares_count = EXCLUDED.shares_count,
+              total_views = EXCLUDED.total_views,
+              like_count = EXCLUDED.like_count,
+              comment_count = EXCLUDED.comment_count,
+              share_count = EXCLUDED.share_count,
               impact_score = EXCLUDED.impact_score,
               original_data = EXCLUDED.original_data;
             
@@ -2447,9 +2447,9 @@ BEGIN
 
       -- Fetch old values from existing video (for daily aggregation delta tracking)
       SELECT 
-        likes_count, 
-        comments_count, 
-        shares_count, 
+        like_count, 
+        comment_count, 
+        share_count, 
         COALESCE(impact_score, 0)
       INTO 
         v_old_likes, 
@@ -2478,8 +2478,8 @@ BEGIN
       -- =======================================================================
       INSERT INTO videos_hot (
         video_id, post_id, creator_id, url, caption, description,
-        created_at, views_count, likes_count, comments_count,
-        shares_count, duration_seconds, video_url, cover_url
+        created_at, total_views, like_count, comment_count,
+        share_count, duration_seconds, video_url, cover_url
       )
       VALUES (
         v_post_id,
@@ -2501,10 +2501,10 @@ BEGIN
         COALESCE(v_element->>'preview_image', v_element->>'cover_url', '')
       )
       ON CONFLICT (video_id) DO UPDATE SET
-        views_count = EXCLUDED.views_count,
-        likes_count = EXCLUDED.likes_count,
-        comments_count = EXCLUDED.comments_count,
-        shares_count = EXCLUDED.shares_count,
+        total_views = EXCLUDED.total_views,
+        like_count = EXCLUDED.like_count,
+        comment_count = EXCLUDED.comment_count,
+        share_count = EXCLUDED.share_count,
         last_seen_at = NOW(),
         updated_at = NOW();
 
@@ -2812,7 +2812,7 @@ ADD COLUMN IF NOT EXISTS total_play_count BIGINT DEFAULT 0;
 CREATE INDEX IF NOT EXISTS idx_creators_total_play_count 
 ON creators_hot(total_play_count DESC);
 
-COMMENT ON COLUMN creators_hot.total_play_count IS 'Sum of all videos views_count for this creator';
+COMMENT ON COLUMN creators_hot.total_play_count IS 'Sum of all videos total_views for this creator';
 
 -- ============================================================================
 -- STAGING TABLE FOR DELTA CALCULATION
@@ -2835,7 +2835,7 @@ COMMENT ON TABLE video_play_count_history IS 'Track previous play_count to calcu
 
 UPDATE creators_hot c
 SET total_play_count = (
-  SELECT COALESCE(SUM(views_count), 0)
+  SELECT COALESCE(SUM(total_views), 0)
   FROM videos_hot v
   WHERE v.creator_id = c.creator_id
 );
@@ -2876,12 +2876,12 @@ BEGIN
       WHERE v.creator_id = c.creator_id
     ),
     likes_total = (
-      SELECT COALESCE(SUM(likes_count), 0) 
+      SELECT COALESCE(SUM(like_count), 0) 
       FROM videos_hot v 
       WHERE v.creator_id = c.creator_id
     ),
     total_play_count = (
-      SELECT COALESCE(SUM(views_count), 0)
+      SELECT COALESCE(SUM(total_views), 0)
       FROM videos_hot v
       WHERE v.creator_id = c.creator_id
     ),
@@ -2904,13 +2904,13 @@ BEGIN
       WHERE vsf.sound_id = s.sound_id
     ),
     views_total = (
-      SELECT COALESCE(SUM(v.views_count), 0)
+      SELECT COALESCE(SUM(v.total_views), 0)
       FROM video_sound_facts vsf
       JOIN videos_hot v ON v.video_id = vsf.video_id
       WHERE vsf.sound_id = s.sound_id
     ),
     likes_total = (
-      SELECT COALESCE(SUM(v.likes_count), 0)
+      SELECT COALESCE(SUM(v.like_count), 0)
       FROM video_sound_facts vsf
       JOIN videos_hot v ON v.video_id = vsf.video_id
       WHERE vsf.sound_id = s.sound_id
@@ -2940,13 +2940,13 @@ BEGIN
       WHERE vhf.hashtag = h.hashtag
     ),
     views_total = (
-      SELECT COALESCE(SUM(v.views_count), 0)
+      SELECT COALESCE(SUM(v.total_views), 0)
       FROM video_hashtag_facts vhf
       JOIN videos_hot v ON v.video_id = vhf.video_id
       WHERE vhf.hashtag = h.hashtag
     ),
     likes_total = (
-      SELECT COALESCE(SUM(v.likes_count), 0)
+      SELECT COALESCE(SUM(v.like_count), 0)
       FROM video_hashtag_facts vhf
       JOIN videos_hot v ON v.video_id = vhf.video_id
       WHERE vhf.hashtag = h.hashtag
@@ -3025,8 +3025,8 @@ BEGIN
     UPDATE creators_hot c
     SET 
       videos_count = (SELECT COUNT(*) FROM videos_hot v WHERE v.creator_id = c.creator_id),
-      likes_total = (SELECT COALESCE(SUM(likes_count), 0) FROM videos_hot v WHERE v.creator_id = c.creator_id),
-      total_play_count = (SELECT COALESCE(SUM(views_count), 0) FROM videos_hot v WHERE v.creator_id = c.creator_id),
+      likes_total = (SELECT COALESCE(SUM(like_count), 0) FROM videos_hot v WHERE v.creator_id = c.creator_id),
+      total_play_count = (SELECT COALESCE(SUM(total_views), 0) FROM videos_hot v WHERE v.creator_id = c.creator_id),
       updated_at = NOW();
   END IF;
 
@@ -3034,7 +3034,7 @@ BEGIN
     UPDATE sounds_hot s
     SET 
       videos_count = (SELECT COUNT(DISTINCT video_id) FROM video_sound_facts vsf WHERE vsf.sound_id = s.sound_id),
-      views_total = (SELECT COALESCE(SUM(v.views_count), 0) FROM video_sound_facts vsf JOIN videos_hot v ON v.video_id = vsf.video_id WHERE vsf.sound_id = s.sound_id),
+      views_total = (SELECT COALESCE(SUM(v.total_views), 0) FROM video_sound_facts vsf JOIN videos_hot v ON v.video_id = vsf.video_id WHERE vsf.sound_id = s.sound_id),
       updated_at = NOW();
   END IF;
 
@@ -3042,7 +3042,7 @@ BEGIN
     UPDATE hashtags_hot h
     SET 
       videos_count = (SELECT COUNT(DISTINCT video_id) FROM video_hashtag_facts vhf WHERE vhf.hashtag = h.hashtag),
-      views_total = (SELECT COALESCE(SUM(v.views_count), 0) FROM video_hashtag_facts vhf JOIN videos_hot v ON v.video_id = vhf.video_id WHERE vhf.hashtag = h.hashtag),
+      views_total = (SELECT COALESCE(SUM(v.total_views), 0) FROM video_hashtag_facts vhf JOIN videos_hot v ON v.video_id = vhf.video_id WHERE vhf.hashtag = h.hashtag),
       updated_at = NOW();
   END IF;
 
@@ -3200,17 +3200,15 @@ CREATE OR REPLACE FUNCTION public.compute_impact(
   p_saves INTEGER
 ) RETURNS NUMERIC AS $$
 BEGIN
-  RETURN ROUND(
-    100.0 * COALESCE(p_comments, 0)
-    + 0.1 * COALESCE(p_shares, 0)
-    + 0.001 * COALESCE(p_likes, 0)
-    + COALESCE(p_views, 0) / 100000.0
-    + 0.1 * COALESCE(p_saves, 0)
-  , 2);
+RETURN ROUND(
+  100.0 * COALESCE(p_comments, 0)
+  + 0.001 * COALESCE(p_likes, 0)
+  + COALESCE(p_views, 0) / 100000.0
+, 2);
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
-COMMENT ON FUNCTION public.compute_impact IS 'Compute Impact Score: 100×comments + 0.1×shares + 0.001×likes + views/100k + 0.1×saves';
+COMMENT ON FUNCTION public.compute_impact IS 'Compute Impact Score: 100×comments + 0.001×likes + views/100k';
 
 -- ============================================================================
 -- PART 2: ADD COLUMNS TO videos_hot
@@ -3231,11 +3229,11 @@ CREATE OR REPLACE FUNCTION public.videos_set_impact()
 RETURNS TRIGGER AS $$
 BEGIN
   NEW.impact_score := public.compute_impact(
-    NEW.views_count,
-    NEW.likes_count,
-    NEW.comments_count,
-    NEW.shares_count,
-    NEW.collect_count
+    NEW.total_views,
+    NEW.like_count,
+    NEW.comment_count,
+    NEW.share_count,
+    NEW.save_count
   );
   NEW.impact_updated_at := NOW();
   RETURN NEW;
@@ -3245,7 +3243,7 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS trg_videos_set_impact ON public.videos_hot;
 
 CREATE TRIGGER trg_videos_set_impact
-  BEFORE INSERT OR UPDATE OF views_count, likes_count, comments_count, shares_count, collect_count
+  BEFORE INSERT OR UPDATE OF total_views, like_count, comment_count, share_count, save_count
   ON public.videos_hot
   FOR EACH ROW 
   EXECUTE FUNCTION public.videos_set_impact();
@@ -3337,11 +3335,11 @@ BEGIN
   UPDATE public.videos_hot
   SET 
     impact_score = public.compute_impact(
-      views_count, 
-      likes_count, 
-      comments_count, 
-      shares_count, 
-      collect_count
+      total_views, 
+      like_count, 
+      comment_count, 
+      share_count, 
+      save_count
     ),
     impact_updated_at = NOW()
   WHERE TRUE;
@@ -3397,12 +3395,12 @@ BEGIN
       WHERE v.creator_id = c.creator_id
     ),
     likes_total = (
-      SELECT COALESCE(SUM(likes_count), 0) 
+      SELECT COALESCE(SUM(like_count), 0) 
       FROM videos_hot v 
       WHERE v.creator_id = c.creator_id
     ),
     total_play_count = (
-      SELECT COALESCE(SUM(views_count), 0)
+      SELECT COALESCE(SUM(total_views), 0)
       FROM videos_hot v
       WHERE v.creator_id = c.creator_id
     ),
@@ -3430,13 +3428,13 @@ BEGIN
       WHERE vsf.sound_id = s.sound_id
     ),
     views_total = (
-      SELECT COALESCE(SUM(v.views_count), 0)
+      SELECT COALESCE(SUM(v.total_views), 0)
       FROM video_sound_facts vsf
       JOIN videos_hot v ON v.video_id = vsf.video_id
       WHERE vsf.sound_id = s.sound_id
     ),
     likes_total = (
-      SELECT COALESCE(SUM(v.likes_count), 0)
+      SELECT COALESCE(SUM(v.like_count), 0)
       FROM video_sound_facts vsf
       JOIN videos_hot v ON v.video_id = vsf.video_id
       WHERE vsf.sound_id = s.sound_id
@@ -3472,13 +3470,13 @@ BEGIN
       WHERE vhf.hashtag = h.hashtag
     ),
     views_total = (
-      SELECT COALESCE(SUM(v.views_count), 0)
+      SELECT COALESCE(SUM(v.total_views), 0)
       FROM video_hashtag_facts vhf
       JOIN videos_hot v ON v.video_id = vhf.video_id
       WHERE vhf.hashtag = h.hashtag
     ),
     likes_total = (
-      SELECT COALESCE(SUM(v.likes_count), 0)
+      SELECT COALESCE(SUM(v.like_count), 0)
       FROM video_hashtag_facts vhf
       JOIN videos_hot v ON v.video_id = vhf.video_id
       WHERE vhf.hashtag = h.hashtag
@@ -3533,7 +3531,7 @@ BEGIN
       WHERE community_id = p_community_id
     ),
     total_views = (
-      SELECT COALESCE(SUM(v.views_count), 0)
+      SELECT COALESCE(SUM(v.total_views), 0)
       FROM community_video_memberships cvm
       JOIN videos_hot v ON v.video_id = cvm.video_id
       WHERE cvm.community_id = p_community_id
@@ -3544,7 +3542,7 @@ BEGIN
       WHERE community_id = p_community_id AND video_count > 0
     ),
     total_likes = (
-      SELECT COALESCE(SUM(v.likes_count), 0)
+      SELECT COALESCE(SUM(v.like_count), 0)
       FROM community_video_memberships cvm
       JOIN videos_hot v ON v.video_id = cvm.video_id
       WHERE cvm.community_id = p_community_id
@@ -3584,7 +3582,7 @@ BEGIN
     -- Count videos and sum metrics for this creator in this community
     SELECT 
       COUNT(*), 
-      COALESCE(SUM(v.views_count), 0),
+      COALESCE(SUM(v.total_views), 0),
       COALESCE(SUM(v.impact_score), 0),
       MIN(v.created_at),
       MAX(v.created_at)
@@ -3627,7 +3625,7 @@ BEGIN
       AND vhf.hashtag IN (SELECT UNNEST(linked_hashtags) FROM communities WHERE id = p_community_id)
   LOOP
     -- Count videos and sum metrics for this hashtag in this community
-    SELECT COUNT(*), COALESCE(SUM(v.views_count), 0), COALESCE(SUM(v.impact_score), 0)
+    SELECT COUNT(*), COALESCE(SUM(v.total_views), 0), COALESCE(SUM(v.impact_score), 0)
     INTO v_count, v_views, v_impact
     FROM community_video_memberships cvm
     JOIN video_hashtag_facts vhf ON vhf.video_id = cvm.video_id
@@ -3656,7 +3654,7 @@ BEGIN
   -- Recompute impact for recently updated videos
   UPDATE videos_hot
   SET 
-    impact_score = compute_impact(views_count, likes_count, comments_count, shares_count, collect_count),
+    impact_score = compute_impact(total_views, like_count, comment_count, share_count, save_count),
     impact_updated_at = NOW()
   WHERE updated_at >= v_cutoff;
   
@@ -3962,10 +3960,10 @@ BEGIN
     video_id, 
     creator_id, 
     created_at::DATE as video_date,
-    views_count,
-    likes_count,
-    comments_count,
-    shares_count,
+    total_views,
+    like_count,
+    comment_count,
+    share_count,
     impact_score
   INTO v_video
   FROM videos_hot
@@ -3981,10 +3979,10 @@ BEGIN
   v_is_new_video := (p_old_views = 0 AND p_old_likes = 0);
   
   -- Calculate deltas
-  v_views_delta := v_video.views_count - p_old_views;
-  v_likes_delta := v_video.likes_count - p_old_likes;
-  v_comments_delta := v_video.comments_count - p_old_comments;
-  v_shares_delta := v_video.shares_count - p_old_shares;
+  v_views_delta := v_video.total_views - p_old_views;
+  v_likes_delta := v_video.like_count - p_old_likes;
+  v_comments_delta := v_video.comment_count - p_old_comments;
+  v_shares_delta := v_video.share_count - p_old_shares;
   v_impact_delta := v_video.impact_score - p_old_impact;
   
   v_video_date := v_video.video_date;
@@ -4579,10 +4577,10 @@ BEGIN
     v.creator_id,
     v.created_at::DATE as date,
     COUNT(*) as videos_count,
-    COALESCE(SUM(v.views_count), 0) as views_total,
-    COALESCE(SUM(v.likes_count), 0) as likes_total,
-    COALESCE(SUM(v.comments_count), 0) as comments_total,
-    COALESCE(SUM(v.shares_count), 0) as shares_total,
+    COALESCE(SUM(v.total_views), 0) as views_total,
+    COALESCE(SUM(v.like_count), 0) as likes_total,
+    COALESCE(SUM(v.comment_count), 0) as comments_total,
+    COALESCE(SUM(v.share_count), 0) as shares_total,
     COALESCE(SUM(v.impact_score), 0) as impact_score_total
   FROM videos_hot v
   WHERE v.created_at::DATE >= v_cutoff_date
@@ -4618,8 +4616,8 @@ BEGIN
     v.created_at::DATE as date,
     COUNT(DISTINCT v.video_id) as videos_count,
     COUNT(DISTINCT v.creator_id) as creators_count,
-    COALESCE(SUM(v.views_count), 0) as views_total,
-    COALESCE(SUM(v.likes_count), 0) as likes_total,
+    COALESCE(SUM(v.total_views), 0) as views_total,
+    COALESCE(SUM(v.like_count), 0) as likes_total,
     COALESCE(SUM(v.impact_score), 0) as impact_score_total
   FROM video_hashtag_facts vhf
   JOIN videos_hot v ON v.video_id = vhf.video_id
@@ -4655,8 +4653,8 @@ BEGIN
     v.created_at::DATE as date,
     COUNT(DISTINCT v.video_id) as videos_count,
     COUNT(DISTINCT v.creator_id) as creators_count,
-    COALESCE(SUM(v.views_count), 0) as views_total,
-    COALESCE(SUM(v.likes_count), 0) as likes_total,
+    COALESCE(SUM(v.total_views), 0) as views_total,
+    COALESCE(SUM(v.like_count), 0) as likes_total,
     COALESCE(SUM(v.impact_score), 0) as impact_score_total
   FROM video_sound_facts vsf
   JOIN videos_hot v ON v.video_id = vsf.video_id
@@ -4692,8 +4690,8 @@ BEGIN
     v.created_at::DATE as date,
     COUNT(DISTINCT v.video_id) as videos_count,
     COUNT(DISTINCT v.creator_id) as creators_count,
-    COALESCE(SUM(v.views_count), 0) as views_total,
-    COALESCE(SUM(v.likes_count), 0) as likes_total,
+    COALESCE(SUM(v.total_views), 0) as views_total,
+    COALESCE(SUM(v.like_count), 0) as likes_total,
     COALESCE(SUM(v.impact_score), 0) as impact_score_total
   FROM communities c
   CROSS JOIN LATERAL unnest(c.linked_hashtags) AS lh
@@ -4912,15 +4910,15 @@ CREATE OR REPLACE FUNCTION update_community_video_membership_rejected(
 ) RETURNS void AS $$
 DECLARE
   v_matches BOOLEAN;
-  v_views_count BIGINT;
+  v_total_views BIGINT;
   v_creator_id TEXT;
   v_video_hashtags TEXT[];
   v_hashtag TEXT;
   v_community_hashtags TEXT[];
 BEGIN
   -- Get video details from rejected_videos
-  SELECT views_count, creator_id, hashtags 
-  INTO v_views_count, v_creator_id, v_video_hashtags
+  SELECT total_views, creator_id, hashtags 
+  INTO v_total_views, v_creator_id, v_video_hashtags
   FROM rejected_videos
   WHERE video_id = p_video_id;
   
@@ -4947,7 +4945,7 @@ BEGIN
     
     -- Update creator membership
     INSERT INTO community_creator_memberships (community_id, creator_id, total_views, video_count)
-    VALUES (p_community_id, v_creator_id, COALESCE(v_views_count, 0), 1)
+    VALUES (p_community_id, v_creator_id, COALESCE(v_total_views, 0), 1)
     ON CONFLICT (community_id, creator_id) DO UPDATE SET
       total_views = community_creator_memberships.total_views + EXCLUDED.total_views,
       video_count = community_creator_memberships.video_count + 1,
@@ -4960,7 +4958,7 @@ BEGIN
       WHERE hashtag = ANY(v_community_hashtags)
     LOOP
       INSERT INTO community_hashtag_memberships (community_id, hashtag, total_views, video_count)
-      VALUES (p_community_id, v_hashtag, COALESCE(v_views_count, 0), 1)
+      VALUES (p_community_id, v_hashtag, COALESCE(v_total_views, 0), 1)
       ON CONFLICT (community_id, hashtag) DO UPDATE SET
         total_views = community_hashtag_memberships.total_views + EXCLUDED.total_views,
         video_count = community_hashtag_memberships.video_count + 1,
@@ -4976,7 +4974,7 @@ BEGIN
     
     -- Update creator membership (decrement)
     UPDATE community_creator_memberships
-    SET total_views = GREATEST(0, total_views - COALESCE(v_views_count, 0)),
+    SET total_views = GREATEST(0, total_views - COALESCE(v_total_views, 0)),
         video_count = GREATEST(0, video_count - 1),
         last_updated = NOW()
     WHERE community_id = p_community_id AND creator_id = v_creator_id;
@@ -4985,7 +4983,7 @@ BEGIN
     FOR v_hashtag IN SELECT hashtag FROM UNNEST(v_video_hashtags) AS hashtag
     LOOP
       UPDATE community_hashtag_memberships
-      SET total_views = GREATEST(0, total_views - COALESCE(v_views_count, 0)),
+      SET total_views = GREATEST(0, total_views - COALESCE(v_total_views, 0)),
           video_count = GREATEST(0, video_count - 1),
           last_updated = NOW()
       WHERE community_id = p_community_id AND hashtag = v_hashtag;
@@ -5020,7 +5018,7 @@ BEGIN
   
   -- Process each rejected video that matches
   FOR v_video IN 
-    SELECT DISTINCT rv.video_id, rv.creator_id, rv.views_count
+    SELECT DISTINCT rv.video_id, rv.creator_id, rv.total_views
     FROM rejected_videos rv
     WHERE rv.hashtags && v_hashtags
       AND rv.video_id IS NOT NULL
@@ -5058,13 +5056,13 @@ BEGIN
     total_views = (
       -- Sum views from both edit videos and rejected videos
       SELECT COALESCE(
-        (SELECT SUM(v.views_count)
+        (SELECT SUM(v.total_views)
          FROM community_video_memberships cvm
          JOIN videos_hot v ON v.video_id = cvm.video_id
          WHERE cvm.community_id = p_community_id AND cvm.is_edit_video = TRUE),
         0
       ) + COALESCE(
-        (SELECT SUM(rv.views_count)
+        (SELECT SUM(rv.total_views)
          FROM community_video_memberships cvm
          JOIN rejected_videos rv ON rv.video_id = cvm.video_id
          WHERE cvm.community_id = p_community_id AND cvm.is_edit_video = FALSE),
@@ -5079,13 +5077,13 @@ BEGIN
     total_likes = (
       -- Sum likes from both edit videos and rejected videos
       SELECT COALESCE(
-        (SELECT SUM(v.likes_count)
+        (SELECT SUM(v.like_count)
          FROM community_video_memberships cvm
          JOIN videos_hot v ON v.video_id = cvm.video_id
          WHERE cvm.community_id = p_community_id AND cvm.is_edit_video = TRUE),
         0
       ) + COALESCE(
-        (SELECT SUM(rv.likes_count)
+        (SELECT SUM(rv.like_count)
          FROM community_video_memberships cvm
          JOIN rejected_videos rv ON rv.video_id = cvm.video_id
          WHERE cvm.community_id = p_community_id AND cvm.is_edit_video = FALSE),
@@ -5141,7 +5139,7 @@ BEGIN
   -- Add edit videos with new hashtags
   IF array_length(v_new_hashtags, 1) > 0 THEN
     FOR v_video IN 
-      SELECT DISTINCT v.video_id, v.creator_id, v.views_count
+      SELECT DISTINCT v.video_id, v.creator_id, v.total_views
       FROM video_hashtag_facts vhf
       JOIN videos_hot v ON v.video_id = vhf.video_id
       WHERE vhf.hashtag = ANY(v_new_hashtags)
@@ -5188,7 +5186,7 @@ BEGIN
   -- Add rejected videos with new hashtags
   IF array_length(v_new_hashtags, 1) > 0 THEN
     FOR v_video IN 
-      SELECT DISTINCT rv.video_id, rv.creator_id, rv.views_count
+      SELECT DISTINCT rv.video_id, rv.creator_id, rv.total_views
       FROM rejected_videos rv
       WHERE rv.hashtags && v_new_hashtags
         AND rv.video_id IS NOT NULL
@@ -5298,7 +5296,7 @@ BEGIN
       -- Edit videos
       SELECT 
         COUNT(*) as edit_count,
-        SUM(v.views_count) as edit_views
+        SUM(v.total_views) as edit_views
       FROM community_video_memberships cvm
       JOIN video_hashtag_facts vhf ON vhf.video_id = cvm.video_id
       JOIN videos_hot v ON v.video_id = cvm.video_id
@@ -5310,7 +5308,7 @@ BEGIN
       -- Rejected videos
       SELECT 
         COUNT(*) as rejected_count,
-        SUM(rv.views_count) as rejected_views
+        SUM(rv.total_views) as rejected_views
       FROM community_video_memberships cvm
       JOIN rejected_videos rv ON rv.video_id = cvm.video_id
       WHERE cvm.community_id = p_community_id
@@ -5378,7 +5376,7 @@ BEGIN
       -- Edit videos
       SELECT 
         COUNT(*) as edit_count,
-        SUM(v.views_count) as edit_views,
+        SUM(v.total_views) as edit_views,
         MIN(v.created_at) as edit_first,
         MAX(v.created_at) as edit_last
       FROM community_video_memberships cvm
@@ -5391,7 +5389,7 @@ BEGIN
       -- Rejected videos
       SELECT 
         COUNT(*) as rejected_count,
-        SUM(rv.views_count) as rejected_views,
+        SUM(rv.total_views) as rejected_views,
         MIN(rv.video_created_at) as rejected_first,
         MAX(rv.video_created_at) as rejected_last
       FROM community_video_memberships cvm
@@ -5452,7 +5450,7 @@ BEGIN
     c.avatar_url,
     c.verified,
     c.bio,
-    SUM(v.views_count)::BIGINT AS total_views,
+    SUM(v.total_views)::BIGINT AS total_views,
     COUNT(DISTINCT vsf.video_id)::INTEGER AS video_count
   FROM video_sound_facts vsf
   JOIN videos_hot v ON v.video_id = vsf.video_id
@@ -5621,7 +5619,7 @@ BEGIN
   -- Get counts
   SELECT COUNT(*) INTO v_total_videos FROM videos_hot;
   SELECT COUNT(*) INTO v_total_creators FROM creators_hot;
-  SELECT COALESCE(SUM(views_count), 0) INTO v_total_views FROM videos_hot;
+  SELECT COALESCE(SUM(total_views), 0) INTO v_total_views FROM videos_hot;
   
   -- Update cache
   UPDATE homepage_cache
@@ -5687,11 +5685,11 @@ BEGIN
       v.caption,
       v.description,
       v.created_at,
-      v.views_count,
-      v.likes_count,
-      v.comments_count,
-      v.shares_count,
-      v.collect_count,
+      v.total_views,
+      v.like_count,
+      v.comment_count,
+      v.share_count,
+      v.save_count,
       v.duration_seconds,
       v.video_url,
       v.cover_url,
@@ -5703,10 +5701,10 @@ BEGIN
       c.verified,
       ROW_NUMBER() OVER (
         PARTITION BY v.creator_id 
-        ORDER BY v.impact_score DESC, v.views_count DESC
+        ORDER BY v.impact_score DESC, v.total_views DESC
       ) as creator_rank,
       ROW_NUMBER() OVER (
-        ORDER BY v.impact_score DESC, v.views_count DESC
+        ORDER BY v.impact_score DESC, v.total_views DESC
       ) as global_rank
     FROM videos_hot v
     JOIN creators_hot c ON v.creator_id = c.creator_id
@@ -5722,11 +5720,11 @@ BEGIN
       caption,
       description,
       created_at,
-      views_count,
-      likes_count,
-      comments_count,
-      shares_count,
-      collect_count,
+      total_views,
+      like_count,
+      comment_count,
+      share_count,
+      save_count,
       duration_seconds,
       video_url,
       cover_url,
@@ -5738,7 +5736,7 @@ BEGIN
       verified
     FROM ranked_videos
     WHERE creator_rank = 1  -- Only highest impact video per creator
-    ORDER BY impact_score DESC, views_count DESC
+    ORDER BY impact_score DESC, total_views DESC
     LIMIT 20
   )
   SELECT jsonb_agg(
@@ -5755,11 +5753,11 @@ BEGIN
         'avatar', COALESCE(avatar_url, 'https://ui-avatars.com/api/?name=' || COALESCE(display_name, 'User') || '&background=120F23&color=fff'),
         'verified', COALESCE(verified, false)
       ),
-      'views', COALESCE(views_count, 0),
-      'likes', COALESCE(likes_count, 0),
-      'comments', COALESCE(comments_count, 0),
-      'shares', COALESCE(shares_count, 0),
-      'saves', COALESCE(collect_count, 0),
+      'views', COALESCE(total_views, 0),
+      'likes', COALESCE(like_count, 0),
+      'comments', COALESCE(comment_count, 0),
+      'shares', COALESCE(share_count, 0),
+      'saves', COALESCE(save_count, 0),
       'impact', COALESCE(impact_score, 0),
       'duration', COALESCE(duration_seconds, 0),
       'createdAt', created_at,
@@ -5827,8 +5825,8 @@ BEGIN
       c.verified,
       c.followers_count,
       COUNT(DISTINCT v.video_id) as video_count,
-      COALESCE(SUM(v.views_count), 0) as total_views,
-      COALESCE(SUM(v.likes_count), 0) as total_likes,
+      COALESCE(SUM(v.total_views), 0) as total_views,
+      COALESCE(SUM(v.like_count), 0) as total_likes,
       COALESCE(SUM(v.impact_score), 0) as total_impact
     FROM creators_hot c
     LEFT JOIN videos_hot v ON v.creator_id = c.creator_id
@@ -5909,8 +5907,8 @@ BEGIN
       h.hashtag,
       COUNT(DISTINCT vhf.video_id) as video_count,
       COUNT(DISTINCT v.creator_id) as creator_count,
-      COALESCE(SUM(v.views_count), 0) as total_views,
-      COALESCE(SUM(v.likes_count), 0) as total_likes,
+      COALESCE(SUM(v.total_views), 0) as total_views,
+      COALESCE(SUM(v.like_count), 0) as total_likes,
       COALESCE(SUM(v.impact_score), 0) as total_impact
     FROM hashtags_hot h
     JOIN video_hashtag_facts vhf ON vhf.hashtag = h.hashtag
@@ -5990,8 +5988,8 @@ BEGIN
       s.cover_url,
       COUNT(DISTINCT vsf.video_id) as video_count,
       COUNT(DISTINCT v.creator_id) as creator_count,
-      COALESCE(SUM(v.views_count), 0) as total_views,
-      COALESCE(SUM(v.likes_count), 0) as total_likes,
+      COALESCE(SUM(v.total_views), 0) as total_views,
+      COALESCE(SUM(v.like_count), 0) as total_likes,
       COALESCE(SUM(v.impact_score), 0) as total_impact
     FROM sounds_hot s
     JOIN video_sound_facts vsf ON vsf.sound_id = s.sound_id
@@ -6077,8 +6075,8 @@ BEGIN
       COALESCE(member_stats.member_count, 0) as member_count,
       COUNT(DISTINCT v.video_id) as video_count,
       COUNT(DISTINCT v.creator_id) as creator_count,
-      COALESCE(SUM(v.views_count), 0) as total_views,
-      COALESCE(SUM(v.likes_count), 0) as total_likes,
+      COALESCE(SUM(v.total_views), 0) as total_views,
+      COALESCE(SUM(v.like_count), 0) as total_likes,
       COALESCE(SUM(v.impact_score), 0) as total_impact
     FROM communities c
     LEFT JOIN video_hashtag_facts vhf ON vhf.hashtag = ANY(c.linked_hashtags)

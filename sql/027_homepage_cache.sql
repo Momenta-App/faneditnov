@@ -107,7 +107,7 @@ BEGIN
   -- Get counts
   SELECT COUNT(*) INTO v_total_videos FROM videos_hot;
   SELECT COUNT(*) INTO v_total_creators FROM creators_hot;
-  SELECT COALESCE(SUM(views_count), 0) INTO v_total_views FROM videos_hot;
+  SELECT COALESCE(SUM(total_views), 0) INTO v_total_views FROM videos_hot;
   
   -- Update cache
   UPDATE homepage_cache
@@ -173,11 +173,11 @@ BEGIN
       v.caption,
       v.description,
       v.created_at,
-      v.views_count,
-      v.likes_count,
-      v.comments_count,
-      v.shares_count,
-      v.collect_count,
+      v.total_views,
+      v.like_count,
+      v.comment_count,
+      v.share_count,
+      v.save_count,
       v.duration_seconds,
       v.video_url,
       v.cover_url,
@@ -189,10 +189,10 @@ BEGIN
       c.verified,
       ROW_NUMBER() OVER (
         PARTITION BY v.creator_id 
-        ORDER BY v.impact_score DESC, v.views_count DESC
+        ORDER BY v.impact_score DESC, v.total_views DESC
       ) as creator_rank,
       ROW_NUMBER() OVER (
-        ORDER BY v.impact_score DESC, v.views_count DESC
+        ORDER BY v.impact_score DESC, v.total_views DESC
       ) as global_rank
     FROM videos_hot v
     JOIN creators_hot c ON v.creator_id = c.creator_id
@@ -208,11 +208,11 @@ BEGIN
       caption,
       description,
       created_at,
-      views_count,
-      likes_count,
-      comments_count,
-      shares_count,
-      collect_count,
+      total_views,
+      like_count,
+      comment_count,
+      share_count,
+      save_count,
       duration_seconds,
       video_url,
       cover_url,
@@ -224,7 +224,7 @@ BEGIN
       verified
     FROM ranked_videos
     WHERE creator_rank = 1  -- Only highest impact video per creator
-    ORDER BY impact_score DESC, views_count DESC
+    ORDER BY impact_score DESC, total_views DESC
     LIMIT 20
   )
   SELECT jsonb_agg(
@@ -241,11 +241,11 @@ BEGIN
         'avatar', COALESCE(avatar_url, 'https://ui-avatars.com/api/?name=' || COALESCE(display_name, 'User') || '&background=120F23&color=fff'),
         'verified', COALESCE(verified, false)
       ),
-      'views', COALESCE(views_count, 0),
-      'likes', COALESCE(likes_count, 0),
-      'comments', COALESCE(comments_count, 0),
-      'shares', COALESCE(shares_count, 0),
-      'saves', COALESCE(collect_count, 0),
+      'views', COALESCE(total_views, 0),
+      'likes', COALESCE(like_count, 0),
+      'comments', COALESCE(comment_count, 0),
+      'shares', COALESCE(share_count, 0),
+      'saves', COALESCE(save_count, 0),
       'impact', COALESCE(impact_score, 0),
       'duration', COALESCE(duration_seconds, 0),
       'createdAt', created_at,
@@ -313,8 +313,8 @@ BEGIN
       c.verified,
       c.followers_count,
       COUNT(DISTINCT v.video_id) as video_count,
-      COALESCE(SUM(v.views_count), 0) as total_views,
-      COALESCE(SUM(v.likes_count), 0) as total_likes,
+      COALESCE(SUM(v.total_views), 0) as total_views,
+      COALESCE(SUM(v.like_count), 0) as total_likes,
       COALESCE(SUM(v.impact_score), 0) as total_impact
     FROM creators_hot c
     LEFT JOIN videos_hot v ON v.creator_id = c.creator_id
@@ -395,8 +395,8 @@ BEGIN
       h.hashtag,
       COUNT(DISTINCT vhf.video_id) as video_count,
       COUNT(DISTINCT v.creator_id) as creator_count,
-      COALESCE(SUM(v.views_count), 0) as total_views,
-      COALESCE(SUM(v.likes_count), 0) as total_likes,
+      COALESCE(SUM(v.total_views), 0) as total_views,
+      COALESCE(SUM(v.like_count), 0) as total_likes,
       COALESCE(SUM(v.impact_score), 0) as total_impact
     FROM hashtags_hot h
     JOIN video_hashtag_facts vhf ON vhf.hashtag = h.hashtag
@@ -476,8 +476,8 @@ BEGIN
       s.cover_url,
       COUNT(DISTINCT vsf.video_id) as video_count,
       COUNT(DISTINCT v.creator_id) as creator_count,
-      COALESCE(SUM(v.views_count), 0) as total_views,
-      COALESCE(SUM(v.likes_count), 0) as total_likes,
+      COALESCE(SUM(v.total_views), 0) as total_views,
+      COALESCE(SUM(v.like_count), 0) as total_likes,
       COALESCE(SUM(v.impact_score), 0) as total_impact
     FROM sounds_hot s
     JOIN video_sound_facts vsf ON vsf.sound_id = s.sound_id
@@ -563,8 +563,8 @@ BEGIN
       COALESCE(member_stats.member_count, 0) as member_count,
       COUNT(DISTINCT v.video_id) as video_count,
       COUNT(DISTINCT v.creator_id) as creator_count,
-      COALESCE(SUM(v.views_count), 0) as total_views,
-      COALESCE(SUM(v.likes_count), 0) as total_likes,
+      COALESCE(SUM(v.total_views), 0) as total_views,
+      COALESCE(SUM(v.like_count), 0) as total_likes,
       COALESCE(SUM(v.impact_score), 0) as total_impact
     FROM communities c
     LEFT JOIN video_hashtag_facts vhf ON vhf.hashtag = ANY(c.linked_hashtags)

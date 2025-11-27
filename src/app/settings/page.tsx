@@ -1996,7 +1996,12 @@ function ContestsSection({ onNavigateToOwnership }: { onNavigateToOwnership?: ()
             View and manage all your contest submissions. Expand each contest to see your submissions and their review status.
           </p>
         </div>
-        <Button variant="secondary" size="sm" onClick={fetchSubmissions} isLoading={loading}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => fetchSubmissions()}
+          isLoading={loading}
+        >
           Refresh
         </Button>
       </div>

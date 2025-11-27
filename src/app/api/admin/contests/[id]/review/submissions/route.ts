@@ -95,8 +95,8 @@ export async function GET(
     // Then fetch related data separately and attach manually
     // This ensures we get ALL submissions regardless of RLS on profiles/contests tables
     
-    let submissions;
-    let error;
+    let submissions: any[] | null = null;
+    let error: any = null;
     
     // Always use the test query results if available (they bypass RLS on the main table)
     // Then fetch related data separately

@@ -24,7 +24,6 @@ export async function GET(request: Request) {
     const fetchLimit = deduplicate ? Math.max(limit * 2, 50) : limit;
     
     // Query from new hot tables with join to creators
-    // Only show edit videos on public pages
     let query = supabaseAdmin
       .from('videos_hot')
       .select(`
@@ -36,8 +35,7 @@ export async function GET(request: Request) {
           avatar_url,
           verified
         )
-      `)
-      .eq('is_edit', true);
+      `);
 
     // Apply time range filter
     if (timeRange !== 'all') {

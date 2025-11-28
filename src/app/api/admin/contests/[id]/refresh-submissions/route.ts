@@ -29,33 +29,10 @@ export async function POST(
       userId: user.id,
     });
 
-    // Verify contest exists
-    const { data: contest, error: contestError } = await supabaseAdmin
-      .from('contests')
-      .select('id, title')
-      .eq('id', contestId)
-      .single();
-
-    if (contestError || !contest) {
-      console.error('[Refresh Submissions] Contest not found:', {
-        contestId,
-        error: contestError?.message,
-      });
-      return NextResponse.json(
-        { error: 'Contest not found', details: contestError?.message },
-        { status: 404 }
-      );
-    }
-
-    console.log('[Refresh Submissions] Contest found:', {
-      contestId,
-      title: contest.title,
-    });
-
-    // Get all submissions for this contest ONLY
+    // Get all submissions for this contest
     const { data: submissions, error: submissionsError } = await supabaseAdmin
       .from('contest_submissions')
-      .select('id, original_video_url, platform, snapshot_id, contest_id')
+      .select('id, original_video_url, platform, snapshot_id')
       .eq('contest_id', contestId);
 
     if (submissionsError) {
@@ -67,35 +44,17 @@ export async function POST(
     }
 
     if (!submissions || submissions.length === 0) {
-      console.log('[Refresh Submissions] No submissions found for contest:', contestId);
       return NextResponse.json({
         success: true,
         message: 'No submissions found for this contest',
         queued: 0,
         total: 0,
-        contestId,
       });
     }
 
-    // Verify all submissions belong to this contest (safety check)
-    const invalidSubmissions = submissions.filter(s => s.contest_id !== contestId);
-    if (invalidSubmissions.length > 0) {
-      console.error('[Refresh Submissions] Found submissions not belonging to contest:', {
-        contestId,
-        invalidCount: invalidSubmissions.length,
-        invalidIds: invalidSubmissions.map(s => s.id),
-      });
-      return NextResponse.json(
-        { error: 'Data integrity error: Some submissions do not belong to this contest' },
-        { status: 500 }
-      );
-    }
-
-    console.log('[Refresh Submissions] Found submissions for contest:', {
+    console.log('[Refresh Submissions] Found submissions:', {
       contestId,
-      contestTitle: contest.title,
       count: submissions.length,
-      submissionIds: submissions.map(s => s.id),
     });
 
     // Trigger BrightData for each submission
@@ -106,38 +65,14 @@ export async function POST(
     };
 
     for (const submission of submissions) {
-      // Double-check submission belongs to this contest
-      if (submission.contest_id !== contestId) {
-        console.error('[Refresh Submissions] Skipping submission - wrong contest:', {
-          submissionId: submission.id,
-          submissionContestId: submission.contest_id,
-          expectedContestId: contestId,
-        });
-        results.failed++;
-        results.errors.push(`Submission ${submission.id}: Does not belong to contest ${contestId}`);
-        continue;
-      }
-
       try {
         const platform = (submission.platform || detectPlatform(submission.original_video_url)) as Platform;
         
         if (!platform || platform === 'unknown') {
           results.failed++;
           results.errors.push(`Submission ${submission.id}: Unknown platform`);
-          console.warn('[Refresh Submissions] Unknown platform for submission:', {
-            submissionId: submission.id,
-            url: submission.original_video_url,
-            platform: submission.platform,
-          });
           continue;
         }
-
-        console.log('[Refresh Submissions] Processing submission:', {
-          submissionId: submission.id,
-          platform,
-          url: submission.original_video_url,
-          contestId,
-        });
 
         // Trigger BrightData collection
         const snapshotId = await triggerBrightDataCollection(
@@ -148,35 +83,20 @@ export async function POST(
 
         if (snapshotId) {
           // Update submission with new snapshot_id
-          const { error: updateError } = await supabaseAdmin
+          await supabaseAdmin
             .from('contest_submissions')
             .update({ snapshot_id: snapshotId })
-            .eq('id', submission.id)
-            .eq('contest_id', contestId); // Extra safety check
+            .eq('id', submission.id);
 
-          if (updateError) {
-            console.error('[Refresh Submissions] Failed to update snapshot_id:', {
-              submissionId: submission.id,
-              error: updateError.message,
-            });
-            results.failed++;
-            results.errors.push(`Submission ${submission.id}: Failed to update snapshot_id`);
-          } else {
-            results.queued++;
-            console.log('[Refresh Submissions] Successfully queued submission:', {
-              submissionId: submission.id,
-              snapshotId,
-              platform,
-              contestId,
-            });
-          }
+          results.queued++;
+          console.log('[Refresh Submissions] Queued submission:', {
+            submissionId: submission.id,
+            snapshotId,
+            platform,
+          });
         } else {
           results.failed++;
           results.errors.push(`Submission ${submission.id}: Failed to get snapshot_id`);
-          console.error('[Refresh Submissions] Failed to get snapshot_id for submission:', {
-            submissionId: submission.id,
-            platform,
-          });
         }
       } catch (error) {
         results.failed++;
@@ -184,19 +104,10 @@ export async function POST(
         results.errors.push(`Submission ${submission.id}: ${errorMessage}`);
         console.error('[Refresh Submissions] Error processing submission:', {
           submissionId: submission.id,
-          contestId,
           error: errorMessage,
-          stack: error instanceof Error ? error.stack : undefined,
         });
       }
     }
-
-    console.log('[Refresh Submissions] Refresh completed:', {
-      contestId,
-      total: submissions.length,
-      queued: results.queued,
-      failed: results.failed,
-    });
 
     return NextResponse.json({
       success: true,
@@ -204,7 +115,6 @@ export async function POST(
       queued: results.queued,
       failed: results.failed,
       total: submissions.length,
-      contestId,
       errors: results.errors.length > 0 ? results.errors : undefined,
     });
   } catch (error) {
@@ -348,5 +258,4 @@ async function triggerBrightDataCollection(
     throw error;
   }
 }
-
 

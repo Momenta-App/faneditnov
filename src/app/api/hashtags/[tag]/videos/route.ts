@@ -38,7 +38,6 @@ export async function GET(
     }
 
     // Now query videos with those IDs
-    // Only show edit videos on public pages
     let query = supabaseAdmin
       .from('videos_hot')
       .select(`
@@ -52,7 +51,6 @@ export async function GET(
         )
       `)
       .in('video_id', videoIds)
-      .eq('is_edit', true)
       .limit(limit)
       .range(offset, offset + limit - 1);
 

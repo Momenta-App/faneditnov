@@ -159,13 +159,9 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
   };
 
   const handleRefreshSubmissions = async () => {
-    if (!contestId) {
-      setError('Contest ID is missing');
-      return;
-    }
-    
+    if (!contestId) return;
     const confirmed = window.confirm(
-      `This will refresh data and stats for all ${submissions.length || 'submissions'} in this contest. This will trigger BrightData collection for each submission and may take several minutes. Continue?`
+      'This will rerun all submissions through BrightData and update their data. This may take several minutes. Continue?'
     );
     if (!confirmed) {
       return;
@@ -174,45 +170,24 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
     try {
       setIsRefreshing(true);
       setError(null);
-      setSubmissionsError(null);
-      
-      console.log('[Admin Contest Page] Refreshing submissions for contest:', contestId);
-      
       const response = await authFetch(`/api/admin/contests/${contestId}/refresh-submissions`, {
         method: 'POST',
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.error || errorData.details || `HTTP ${response.status}: ${response.statusText}`;
-        console.error('[Admin Contest Page] Refresh failed:', {
-          status: response.status,
-          error: errorMessage,
-          contestId,
-        });
-        throw new Error(errorMessage);
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to refresh submissions');
       }
 
       const data = await response.json();
-      console.log('[Admin Contest Page] Refresh response:', data);
+      alert(`Successfully queued ${data.queued} submissions for refresh. ${data.failed > 0 ? `${data.failed} failed.` : ''}`);
       
-      const successMessage = `Successfully queued ${data.queued} submission${data.queued !== 1 ? 's' : ''} for refresh. ${data.failed > 0 ? `${data.failed} failed.` : 'Stats will update as BrightData processes each submission.'}`;
-      alert(successMessage);
-      
-      // Refresh submissions list after a short delay to show updated stats
+      // Refresh submissions list after a short delay
       setTimeout(() => {
-        console.log('[Admin Contest Page] Refreshing submissions list after refresh');
         fetchSubmissions();
       }, 2000);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to refresh submissions';
-      console.error('[Admin Contest Page] Error refreshing submissions:', {
-        error: errorMessage,
-        contestId,
-        err,
-      });
-      setError(errorMessage);
-      setSubmissionsError(errorMessage);
+      setError(err instanceof Error ? err.message : 'Failed to refresh submissions');
     } finally {
       setIsRefreshing(false);
     }

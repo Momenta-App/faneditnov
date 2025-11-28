@@ -394,51 +394,29 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Check if this is just a notification webhook (no data payload)
-    // When using uncompressed_webhook=true, BrightData sends:
-    // 1. Notification webhook: {snapshot_id, status: "ready"} 
-    // 2. Data webhook: [array of records]
-    // We should acknowledge notification webhooks but wait for the data webhook
-    const isNotificationOnly = body.status && !Array.isArray(body) && !body.data && Object.keys(body).length <= 3;
-    
-    if (isNotificationOnly) {
-      console.log('Received notification-only webhook (no data), checking if already processed...', { 
-        snapshot_id, 
-        status: body.status 
-      });
+    // Check if we've already processed this snapshot
+    if (supabaseAdmin) {
+      const { data: existingIngestion } = await supabaseAdmin
+        .from('bd_ingestions')
+        .select('status')
+        .eq('snapshot_id', snapshot_id)
+        .maybeSingle();
       
-      // Check if we've already processed this snapshot (data webhook may have arrived first)
-      if (supabaseAdmin) {
-        const { data: existingIngestion } = await supabaseAdmin
-          .from('bd_ingestions')
-          .select('status')
-          .eq('snapshot_id', snapshot_id)
-          .maybeSingle();
-        
-        if (existingIngestion?.status === 'completed') {
-          console.log(`Snapshot ${snapshot_id} already processed, skipping notification`);
-          return NextResponse.json({
-            message: 'Snapshot already processed',
-            snapshot_id: snapshot_id,
-            status: existingIngestion.status,
-            skipped: true
-          });
-        }
-      }
-      
-      // If status is "ready", download the data from BrightData API instead of waiting
-      // BrightData may not send a separate data webhook, so we should download it
-      if (body.status === 'ready' || body.status === 'done') {
-        console.log(`Notification webhook indicates status "${body.status}" - proceeding to download data from API`);
-        // Fall through to download logic below
-      } else {
-        // For other statuses, just acknowledge
+      if (existingIngestion?.status === 'completed') {
+        console.log(`Snapshot ${snapshot_id} already processed, skipping`);
         return NextResponse.json({
-          message: 'Notification received',
+          message: 'Snapshot already processed',
           snapshot_id: snapshot_id,
-          status: body.status
+          status: existingIngestion.status,
+          skipped: true
         });
       }
+    }
+    
+    // For notification webhooks with status 'ready' or 'done', download the data
+    // BrightData sends notification webhooks, and we need to download the data from their API
+    if (body.status === 'ready' || body.status === 'done') {
+      console.log(`Notification webhook indicates status "${body.status}" - proceeding to download data from API`);
     }
     
     console.log('Received notification webhook, downloading data from BrightData...', { snapshot_id, status: body.status });

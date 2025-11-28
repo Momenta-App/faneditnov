@@ -20,19 +20,10 @@ export async function GET(
     const user = await requireAuth(request);
     const { id: contestId, submissionId } = await params;
 
-    // Get the contest submission with videos_hot
+    // Get the contest submission
     const { data: submission, error: submissionError } = await supabaseAdmin
       .from('contest_submissions')
-      .select(`
-        *,
-        videos_hot:video_hot_id (
-          video_id,
-          video_url,
-          url,
-          views_count,
-          likes_count
-        )
-      `)
+      .select('*')
       .eq('id', submissionId)
       .eq('contest_id', contestId)
       .single();
@@ -44,27 +35,26 @@ export async function GET(
       );
     }
 
-    // Get video_hot_id or try to find video by URL
-    let videoHot = submission.videos_hot;
+    // Try to find video in videos_hot by URL or video_id
+    let videoHot = null;
+    const videoUrl = submission.original_video_url;
     
-    // If video_hot_id is not set, try to find video by URL (for legacy submissions)
-    if (!videoHot && submission.video_hot_id) {
+    if (videoUrl) {
       const { data: foundVideo } = await supabaseAdmin
         .from('videos_hot')
         .select('id, video_id, video_url, url, views_count, likes_count')
-        .eq('video_id', submission.video_hot_id)
+        .or(`url.eq.${videoUrl},video_url.eq.${videoUrl}${submission.video_id ? `,video_id.eq.${submission.video_id},post_id.eq.${submission.video_id}` : ''}`)
         .maybeSingle();
       videoHot = foundVideo;
     }
     
-    const videoUrl = videoHot?.video_url || videoHot?.url;
-    if (!videoHot) {
+    if (!videoHot && videoUrl) {
       return NextResponse.json({
         success: false,
-        error: 'No video_hot_id linked to submission and video not found in videos_hot',
+        error: 'Video not found in videos_hot - ingestion may not have completed yet',
         submission: {
           id: submission.id,
-          video_hot_id: submission.video_hot_id,
+          original_video_url: submission.original_video_url,
           status: submission.processing_status,
         }
       });
@@ -167,8 +157,8 @@ export async function GET(
       criticalSuccess: criticalPassed,
       submission: {
         id: submission.id,
-        video_hot_id: submission.video_hot_id,
-        videoUrl: videoHot?.video_url || videoHot?.url,
+        original_video_url: submission.original_video_url,
+        videoUrl: videoHot?.video_url || videoHot?.url || submission.original_video_url,
         snapshotId: submission.snapshot_id,
         processingStatus: submission.processing_status,
         createdAt: submission.created_at,

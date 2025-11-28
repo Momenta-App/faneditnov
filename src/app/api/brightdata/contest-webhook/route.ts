@@ -713,15 +713,11 @@ export async function POST(request: NextRequest) {
               id: videoCheck.id
             });
             
-            // Link video_hot_id to submission
-            await supabaseAdmin
-              .from('contest_submissions')
-              .update({ video_hot_id: videoCheck.video_id })
-              .eq('id', submission.id);
-            
-            console.log('[Contest Webhook] ✓ Linked video_hot_id to submission:', {
+            // Video found in videos_hot - ingestion successful
+            // Note: Stats are now stored directly in contest_submissions, no linking needed
+            console.log('[Contest Webhook] ✓ Video found in videos_hot - ingestion successful:', {
               submission_id: submission.id,
-              video_hot_id: videoCheck.video_id
+              video_id: videoCheck.video_id
             });
           } else {
             console.warn('[Contest Webhook] ⚠ Verification: Video NOT found in videos_hot after ingestion:', {
@@ -744,15 +740,10 @@ export async function POST(request: NextRequest) {
                 id: videoCheck2.id
               });
               
-              // Link video_hot_id to submission
-              await supabaseAdmin
-                .from('contest_submissions')
-                .update({ video_hot_id: videoCheck2.video_id })
-                .eq('id', submission.id);
-              
-              console.log('[Contest Webhook] ✓ Linked video_hot_id to submission (standardized URL):', {
+              // Video found in videos_hot - ingestion successful
+              console.log('[Contest Webhook] ✓ Video found in videos_hot (standardized URL) - ingestion successful:', {
                 submission_id: submission.id,
-                video_hot_id: videoCheck2.video_id
+                video_id: videoCheck2.video_id
               });
             } else {
               console.error('[Contest Webhook] ✗ Verification FAILED: Video not in videos_hot after ingestion');
@@ -823,15 +814,10 @@ export async function POST(request: NextRequest) {
               console.log('[Contest Webhook] ✓ Fallback verification: Video now in videos_hot');
               ingestionSucceeded = true;
               
-              // Link video_hot_id to submission
-              await supabaseAdmin
-                .from('contest_submissions')
-                .update({ video_hot_id: videoCheck.video_id })
-                .eq('id', submission.id);
-              
-              console.log('[Contest Webhook] ✓ Linked video_hot_id to submission (fallback):', {
+              // Video found in videos_hot - ingestion successful
+              console.log('[Contest Webhook] ✓ Video found in videos_hot (fallback) - ingestion successful:', {
                 submission_id: submission.id,
-                video_hot_id: videoCheck.video_id
+                video_id: videoCheck.video_id
               });
             }
           }

@@ -849,7 +849,8 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
   // Get video data from videos_hot if available, otherwise use submission data
   const videoHot = submission.videos_hot;
   const coverImageUrl = videoHot?.cover_url || videoHot?.thumbnail_url || null;
-  const originalVideoUrl = videoHot?.video_url || videoHot?.url || '';
+  // Use submission.original_video_url as primary source (this is the actual social platform URL)
+  const originalVideoUrl = submission.original_video_url || videoHot?.video_url || videoHot?.url || '';
   
   // Get creator info from videos_hot
   const creatorFromHot = videoHot?.creators_hot;
@@ -1025,14 +1026,20 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                 </span>
               )}
             </div>
-            <a
-              href={originalVideoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-[var(--color-primary)] hover:underline break-all"
-            >
-              View Original Video →
-            </a>
+            {originalVideoUrl ? (
+              <a
+                href={originalVideoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-[var(--color-primary)] hover:underline break-all"
+              >
+                View Original Video →
+              </a>
+            ) : (
+              <span className="text-sm text-[var(--color-text-muted)]">
+                View Original Video →
+              </span>
+            )}
             {submission.created_at && (
               <p className="text-xs text-[var(--color-text-muted)] mt-1">
                 Submitted {formatDate(submission.created_at)}
@@ -1098,8 +1105,8 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                     avatar: 'https://ui-avatars.com/api/?name=U&background=120F23&color=fff',
                     verified: false,
                   },
-                  views: videoHot?.views_count ?? 0,
-                  likes: videoHot?.likes_count ?? 0,
+                  views: videoHot?.views_count ?? submission.views_count ?? 0,
+                  likes: videoHot?.likes_count ?? submission.likes_count ?? 0,
                   comments: videoHot?.comments_count ?? submission.comments_count ?? 0,
                   shares: videoHot?.shares_count ?? submission.shares_count ?? 0,
                   saves: videoHot?.collect_count ?? submission.saves_count ?? 0,
@@ -1355,20 +1362,20 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   <div className="p-3 rounded-lg bg-[var(--color-border)]/10 min-w-0">
                     <p className="text-xs text-[var(--color-text-muted)] mb-1 truncate">Views</p>
-                    <p className="text-lg font-semibold text-[var(--color-text-primary)] truncate" title={(videoHot?.views_count ?? 0).toLocaleString()}>
-                      {formatNumber(videoHot?.views_count ?? 0)}
+                    <p className="text-lg font-semibold text-[var(--color-text-primary)] truncate" title={(videoHot?.views_count ?? submission.views_count ?? 0).toLocaleString()}>
+                      {formatNumber(videoHot?.views_count ?? submission.views_count ?? 0)}
                     </p>
                   </div>
                   <div className="p-3 rounded-lg bg-[var(--color-border)]/10 min-w-0">
                     <p className="text-xs text-[var(--color-text-muted)] mb-1 truncate">Likes</p>
-                    <p className="text-lg font-semibold text-[var(--color-text-primary)] truncate" title={(videoHot?.likes_count ?? 0).toLocaleString()}>
-                      {formatNumber(videoHot?.likes_count ?? 0)}
+                    <p className="text-lg font-semibold text-[var(--color-text-primary)] truncate" title={(videoHot?.likes_count ?? submission.likes_count ?? 0).toLocaleString()}>
+                      {formatNumber(videoHot?.likes_count ?? submission.likes_count ?? 0)}
                     </p>
                   </div>
                   <div className="p-3 rounded-lg bg-[var(--color-border)]/10 min-w-0">
                     <p className="text-xs text-[var(--color-text-muted)] mb-1 truncate">Comments</p>
                     <p className="text-lg font-semibold text-[var(--color-text-primary)] truncate" title={(videoHot?.comments_count ?? submission.comments_count ?? 0).toLocaleString()}>
-                      {formatNumber(videoHot?.comments_count ?? submission.comments_count)}
+                      {formatNumber(videoHot?.comments_count ?? submission.comments_count ?? 0)}
                     </p>
                   </div>
                 </div>

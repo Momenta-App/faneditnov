@@ -46,31 +46,6 @@ export async function GET(request: NextRequest) {
             is_general,
             ranking_method
           )
-        ),
-        videos_hot:video_hot_id (
-          video_id,
-          post_id,
-          creator_id,
-          url,
-          caption,
-          description,
-          cover_url,
-          thumbnail_url,
-          video_url,
-          platform,
-          views_count,
-          likes_count,
-          comments_count,
-          shares_count,
-          collect_count,
-          impact_score,
-          creators_hot:creator_id (
-            creator_id,
-            username,
-            display_name,
-            avatar_url,
-            verified
-          )
         )
       `)
       .eq('user_id', user.id)

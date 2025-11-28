@@ -69,7 +69,7 @@ export async function GET(
     const sortBy = searchParams.get('sort_by') || 'views_count'; // views_count or created_at
     const sortOrder = searchParams.get('sort_order') || 'desc'; // asc or desc
 
-    // Build query with videos_hot join
+    // Build query (using direct columns from contest_submissions)
     let query = supabaseAdmin
       .from('contest_submissions')
       .select(`
@@ -101,31 +101,6 @@ export async function GET(
             name,
             is_general,
             ranking_method
-          )
-        ),
-        videos_hot:video_hot_id (
-          video_id,
-          post_id,
-          creator_id,
-          url,
-          caption,
-          description,
-          cover_url,
-          thumbnail_url,
-          video_url,
-          platform,
-          views_count,
-          likes_count,
-          comments_count,
-          shares_count,
-          collect_count,
-          impact_score,
-          creators_hot:creator_id (
-            creator_id,
-            username,
-            display_name,
-            avatar_url,
-            verified
           )
         )
       `)

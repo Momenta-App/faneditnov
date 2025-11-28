@@ -72,52 +72,129 @@ export async function POST(request: NextRequest) {
     console.log('[Process Submission] Status updated to fetching_stats');
 
     // Step 2: Check if BrightData was already triggered by submission route
-    // Find the most recent metadata record for this user and URL
-    const { data: metadataRecord, error: metadataFindError } = await supabaseAdmin
-      .from('submission_metadata')
-      .select('snapshot_id')
-      .eq('submitted_by', submission.user_id)
-      .contains('video_urls', [submission.original_video_url])
-      .order('created_at', { ascending: false })
-      .limit(1)
+    // First, check if there's a metadata entry linked via raw_video_assets (most reliable)
+    const { data: rawAsset } = await supabaseAdmin
+      .from('raw_video_assets')
+      .select('id, submission_metadata_id')
+      .eq('contest_submission_id', submissionId)
       .maybeSingle();
+
+    let metadataRecord: { snapshot_id: string; created_at: string } | null = null;
+    
+    if (rawAsset?.submission_metadata_id) {
+      // Found metadata linked via raw_video_assets - this is the one created during submission
+      const { data: metadata } = await supabaseAdmin
+        .from('submission_metadata')
+        .select('snapshot_id, created_at')
+        .eq('snapshot_id', rawAsset.submission_metadata_id)
+        .maybeSingle();
+      
+      if (metadata) {
+        metadataRecord = metadata;
+        console.log('[Process Submission] Found metadata via raw_video_assets:', {
+          submissionId,
+          snapshotId: metadata.snapshot_id,
+        });
+      }
+    }
+
+    // Fallback: Check for recent metadata by user and URL (within last 2 minutes)
+    if (!metadataRecord) {
+      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+      const { data: recentMetadata } = await supabaseAdmin
+        .from('submission_metadata')
+        .select('snapshot_id, created_at')
+        .eq('submitted_by', submission.user_id)
+        .contains('video_urls', [submission.original_video_url])
+        .gte('created_at', twoMinutesAgo)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (recentMetadata) {
+        metadataRecord = recentMetadata;
+        console.log('[Process Submission] Found recent metadata by URL match:', {
+          submissionId,
+          snapshotId: recentMetadata.snapshot_id,
+        });
+      }
+    }
 
     let snapshotId: string;
 
-    // Check if submission_metadata already has an actual snapshot_id (not a placeholder)
-    const hasActualSnapshotId = metadataRecord && 
-      !metadataRecord.snapshot_id.startsWith('pending_') && 
-      !metadataRecord.snapshot_id.startsWith('mock_');
+    if (metadataRecord) {
+      // Found metadata entry - check if it's a placeholder or actual snapshot_id
+      const isPlaceholder = metadataRecord.snapshot_id.startsWith('pending_') || metadataRecord.snapshot_id.startsWith('mock_');
+      
+      if (isPlaceholder) {
+        // Placeholder found - submission creation route created metadata but didn't trigger BrightData
+        // We need to trigger BrightData and update the placeholder with the actual snapshot_id
+        console.log('[Process Submission] Found placeholder snapshot_id - triggering BrightData for contest webhook:', {
+          submissionId,
+          placeholderSnapshotId: metadataRecord.snapshot_id,
+        });
+        
+        snapshotId = await triggerBrightDataCollection(
+          submission.platform as Platform,
+          submission.original_video_url
+        );
 
-    if (hasActualSnapshotId && metadataRecord) {
-      // Reuse existing snapshot_id from main webhook trigger
-      snapshotId = metadataRecord.snapshot_id;
-      console.log('[Process Submission] Reusing existing snapshot_id from main webhook trigger:', {
-        submissionId,
-        snapshotId,
-      });
+        // Update the placeholder with actual snapshot_id
+        await supabaseAdmin
+          .from('submission_metadata')
+          .update({ 
+            snapshot_id: snapshotId,
+            contest_submission_id: submissionId,
+          })
+          .eq('snapshot_id', metadataRecord.snapshot_id);
+
+        // Also update raw_video_assets if it exists and links to the old placeholder
+        if (rawAsset && rawAsset.submission_metadata_id === metadataRecord.snapshot_id) {
+          await supabaseAdmin
+            .from('raw_video_assets')
+            .update({ submission_metadata_id: snapshotId })
+            .eq('id', rawAsset.id);
+        }
+      } else {
+        // Actual snapshot_id found - BrightData was already triggered (shouldn't happen for new submissions)
+        snapshotId = metadataRecord.snapshot_id;
+        console.log('[Process Submission] Found existing snapshot_id (unexpected for new submission):', {
+          submissionId,
+          snapshotId,
+          note: 'Reusing existing snapshot_id',
+        });
+        
+        // Update metadata to link to this submission if not already linked
+        await supabaseAdmin
+          .from('submission_metadata')
+          .update({ contest_submission_id: submissionId })
+          .eq('snapshot_id', snapshotId);
+      }
     } else {
-      // Trigger BrightData stats retrieval for contest webhook
-      // This will be handled by the contest webhook when data arrives
-      console.log('[Process Submission] No existing snapshot_id found, triggering BrightData for contest webhook');
+      // No metadata found - trigger BrightData for contest webhook
+      console.log('[Process Submission] No existing metadata found - triggering BrightData for contest webhook:', {
+        submissionId,
+      });
+      
       snapshotId = await triggerBrightDataCollection(
         submission.platform as Platform,
         submission.original_video_url
       );
 
-      // If we found a placeholder snapshot_id, update it with the actual one
-      if (metadataRecord && !metadataFindError && metadataRecord.snapshot_id.startsWith('pending_')) {
-        const { error: metadataUpdateError } = await supabaseAdmin
-          .from('submission_metadata')
-          .update({ snapshot_id: snapshotId })
-          .eq('snapshot_id', metadataRecord.snapshot_id);
-
-        if (metadataUpdateError) {
-          console.warn('[Process Submission] Failed to update submission_metadata snapshot_id:', metadataUpdateError);
-        } else {
-          console.log('[Process Submission] Updated submission_metadata with snapshot_id:', snapshotId);
-        }
-      }
+      // Create submission_metadata entry for this trigger
+      await supabaseAdmin
+        .from('submission_metadata')
+        .upsert({
+          snapshot_id: snapshotId,
+          video_urls: [submission.original_video_url],
+          skip_validation: false,
+          submitted_by: submission.user_id,
+          contest_submission_id: submissionId,
+          created_at: new Date().toISOString(),
+        }, {
+          onConflict: 'snapshot_id',
+          ignoreDuplicates: false
+        });
     }
 
     // Store snapshot_id in submission for webhook matching

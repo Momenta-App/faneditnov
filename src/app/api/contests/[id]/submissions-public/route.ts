@@ -72,7 +72,7 @@ export async function GET(
     }
     console.log('[Submissions Public API] Basic query successful, found', basicTest.data?.length || 0, 'submissions');
     
-    // Step 2: Test with all main columns (now using videos_hot for stats)
+    // Step 2: Test with all main columns (using direct columns from contest_submissions)
     console.log('[Submissions Public API] Step 2: Testing with all main columns...');
     const columnsTest = await supabaseAdmin
       .from('contest_submissions')
@@ -81,26 +81,22 @@ export async function GET(
         contest_id,
         mp4_bucket,
         mp4_path,
-        video_hot_id,
+        original_video_url,
+        platform,
+        video_id,
+        views_count,
+        likes_count,
+        comments_count,
+        shares_count,
+        saves_count,
+        impact_score,
         created_at,
         hashtag_status,
         description_status,
         mp4_ownership_status,
         verification_status,
         content_review_status,
-        user_id,
-        videos_hot:video_hot_id (
-          video_id,
-          url,
-          video_url,
-          platform,
-          views_count,
-          likes_count,
-          comments_count,
-          shares_count,
-          collect_count,
-          impact_score
-        )
+        user_id
       `)
       .eq('contest_id', contestId)
       .limit(1);
@@ -191,7 +187,16 @@ export async function GET(
       contest_id,
       mp4_bucket,
       mp4_path,
-      video_hot_id,
+      original_video_url,
+      platform,
+      video_id,
+      views_count,
+      likes_count,
+      comments_count,
+      shares_count,
+      saves_count,
+      impact_score,
+      cover_url,
       created_at,
       hashtag_status,
       description_status,
@@ -209,34 +214,6 @@ export async function GET(
         email,
         avatar_url,
         is_verified
-      )`;
-    
-    // Include videos_hot data for enriched display
-    finalSelect += `,
-      videos_hot:video_hot_id (
-        video_id,
-        post_id,
-        creator_id,
-        url,
-        caption,
-        description,
-        cover_url,
-        thumbnail_url,
-        video_url,
-        platform,
-        views_count,
-        likes_count,
-        comments_count,
-        shares_count,
-        collect_count,
-        impact_score,
-        creators_hot:creator_id (
-          creator_id,
-          username,
-          display_name,
-          avatar_url,
-          verified
-        )
       )`;
     
     // Always try to include contest_submission_categories - needed for filtering

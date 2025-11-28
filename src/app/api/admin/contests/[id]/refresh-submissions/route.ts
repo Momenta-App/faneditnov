@@ -30,9 +30,10 @@ export async function POST(
     });
 
     // Get all submissions for this contest
+    // Note: snapshot_id may not exist on contest_submissions table, so we don't select it
     const { data: submissions, error: submissionsError } = await supabaseAdmin
       .from('contest_submissions')
-      .select('id, original_video_url, platform, snapshot_id')
+      .select('id, original_video_url, platform')
       .eq('contest_id', contestId);
 
     if (submissionsError) {
@@ -82,11 +83,32 @@ export async function POST(
         );
 
         if (snapshotId) {
-          // Update submission with new snapshot_id
+          // Update submission processing status
+          // Note: We don't update snapshot_id on contest_submissions since the column may not exist
+          // The webhook will find submissions via submission_metadata instead
           await supabaseAdmin
             .from('contest_submissions')
-            .update({ snapshot_id: snapshotId })
+            .update({ 
+              processing_status: 'fetching_stats'
+            })
             .eq('id', submission.id);
+
+          // Create/update submission_metadata entry - this is how the webhook finds submissions
+          const metadataPayload: any = {
+            snapshot_id: snapshotId,
+            video_urls: [submission.original_video_url],
+            skip_validation: false, // Don't skip validation for refreshes
+            submitted_by: user.id,
+            created_at: new Date().toISOString(),
+            contest_submission_id: submission.id, // Webhook uses this to find the submission
+          };
+          
+          await supabaseAdmin
+            .from('submission_metadata')
+            .upsert(metadataPayload, {
+              onConflict: 'snapshot_id',
+              ignoreDuplicates: false
+            });
 
           results.queued++;
           console.log('[Refresh Submissions] Queued submission:', {

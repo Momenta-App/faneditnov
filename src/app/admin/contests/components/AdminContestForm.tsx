@@ -29,7 +29,7 @@ interface ContestFormState {
   end_date: string;
   required_hashtags: string[];
   required_description_template: string;
-  status: 'upcoming' | 'live' | 'closed';
+  visibility: 'open' | 'private_link_only';
   profile_image_url: string;
   cover_image_url: string;
   display_stats: boolean;
@@ -66,6 +66,8 @@ export interface ContestSubmitPayload extends ContestFormState, SubmissionRulesS
 
 export interface ContestWithRelations extends ContestFormState, SubmissionRulesState {
   id: string;
+  status?: 'upcoming' | 'live' | 'ended' | 'draft';
+  visibility?: 'open' | 'private_link_only';
   required_hashtags: string[];
   contest_categories?: Array<{
     id: string;
@@ -107,7 +109,7 @@ const DEFAULT_FORM_DATA: ContestFormState = {
   end_date: '',
   required_hashtags: [],
   required_description_template: '',
-  status: 'upcoming',
+  visibility: 'open',
   profile_image_url: '',
   cover_image_url: '',
   display_stats: true,
@@ -178,7 +180,7 @@ export function AdminContestForm({
         ? initialContest.required_hashtags
         : [''],
       required_description_template: initialContest.required_description_template || '',
-      status: initialContest.status || 'upcoming',
+      visibility: (initialContest as any).visibility || 'open',
       profile_image_url: initialContest.profile_image_url || '',
       cover_image_url: initialContest.cover_image_url || '',
       display_stats: initialContest.display_stats ?? true,
@@ -573,13 +575,15 @@ export function AdminContestForm({
     };
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent, isDraft: boolean = false) => {
     event.preventDefault();
     setError(null);
     setLoading(true);
     try {
       const payload = buildPayload();
-      await onSubmit(payload);
+      // Add status: 'draft' if creating draft, otherwise let backend calculate
+      const finalPayload = isDraft ? { ...payload, status: 'draft' } : payload;
+      await onSubmit(finalPayload);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save contest');
     } finally {
@@ -588,7 +592,7 @@ export function AdminContestForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="text-xs">
+    <form onSubmit={(e) => { e.preventDefault(); handleSubmit(e, false); }} className="text-xs">
       <div className="space-y-3">
         {combinedError && (
           <Card className="border-red-500/20 bg-red-500/5">
@@ -682,18 +686,20 @@ export function AdminContestForm({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-[var(--color-text-primary)] mb-1">
-                    Status *
+                    Visibility *
                   </label>
                   <select
                     required
-                    value={formData.status}
-                    onChange={(e) => handleInputChange('status', e.target.value)}
+                    value={formData.visibility}
+                    onChange={(e) => handleInputChange('visibility', e.target.value)}
                     className="w-full px-4 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   >
-                    <option value="upcoming">Upcoming</option>
-                    <option value="live">Live</option>
-                    <option value="closed">Closed</option>
+                    <option value="open">Open</option>
+                    <option value="private_link_only">Private Link Only</option>
                   </select>
+                  <p className="text-[10px] text-[var(--color-text-muted)] mt-1">
+                    Open contests appear on the contest page. Private contests require a direct link.
+                  </p>
                 </div>
               </div>
 
@@ -988,9 +994,34 @@ export function AdminContestForm({
         {renderCategoriesSection()}
 
         <div className="flex flex-wrap gap-3">
-          <Button type="submit" variant="primary" size="sm" isLoading={loading} className="px-4 py-2 min-h-[38px]">
-            {submitLabel || (mode === 'create' ? 'Create Contest' : 'Save Changes')}
-          </Button>
+          {mode === 'create' ? (
+            <>
+              <Button 
+                type="button" 
+                variant="primary" 
+                size="sm" 
+                isLoading={loading} 
+                className="px-4 py-2 min-h-[38px]"
+                onClick={(e) => handleSubmit(e, false)}
+              >
+                Create Contest
+              </Button>
+              <Button 
+                type="button" 
+                variant="secondary" 
+                size="sm" 
+                isLoading={loading} 
+                className="px-4 py-2 min-h-[38px]"
+                onClick={(e) => handleSubmit(e, true)}
+              >
+                Create Draft
+              </Button>
+            </>
+          ) : (
+            <Button type="submit" variant="primary" size="sm" isLoading={loading} className="px-4 py-2 min-h-[38px]">
+              {submitLabel || 'Save Changes'}
+            </Button>
+          )}
           {footerActions}
         </div>
       </div>

@@ -52,9 +52,9 @@ export function CommunityCard({ community, onClick }: CommunityCardProps) {
         {/* Content Container with negative margin to overlap cover */}
         <div className="relative px-[var(--spacing-6)] pb-[var(--spacing-6)]">
           {/* Profile Picture - Overlapping the cover */}
-          <div className="flex items-end mb-[var(--spacing-4)]" style={{ marginTop: '-40px' }}>
+          <div className="flex items-end mb-[var(--spacing-4)]" style={{ marginTop: '-70px' }}>
             {community.profile_image_url ? (
-              <div className="relative w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 ring-4 ring-[var(--color-surface)] shadow-lg bg-[var(--color-surface)]">
+              <div className="relative w-20 rounded-2xl overflow-hidden flex-shrink-0 ring-4 ring-[var(--color-surface)] shadow-lg bg-[var(--color-surface)]" style={{ aspectRatio: '2/3' }}>
                 <img
                   src={community.profile_image_url}
                   alt={community.name}
@@ -62,7 +62,7 @@ export function CommunityCard({ community, onClick }: CommunityCardProps) {
                 />
               </div>
             ) : (
-              <div className="relative w-20 h-20 rounded-2xl flex-shrink-0 ring-4 ring-[var(--color-surface)] shadow-lg bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-light)] flex items-center justify-center">
+              <div className="relative w-20 rounded-2xl flex-shrink-0 ring-4 ring-[var(--color-surface)] shadow-lg bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-light)] flex items-center justify-center" style={{ aspectRatio: '2/3' }}>
                 <span className="text-3xl font-bold text-white">
                   {community.name.charAt(0).toUpperCase()}
                 </span>

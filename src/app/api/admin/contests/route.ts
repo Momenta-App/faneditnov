@@ -144,7 +144,8 @@ export async function POST(request: NextRequest) {
       required_description_template,
       prizes,
       categories,
-      status = 'upcoming',
+      status, // Optional - will be calculated if not provided or not 'draft'
+      visibility = 'open',
       allow_multiple_submissions = true,
       force_single_category = false,
       require_social_verification = false,
@@ -178,7 +179,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!['upcoming', 'live', 'closed'].includes(status)) {
+    // Validate visibility
+    if (!['open', 'private_link_only'].includes(visibility)) {
+      return NextResponse.json({ error: 'Invalid visibility value' }, { status: 400 });
+    }
+
+    // Calculate status if not provided or not draft
+    let finalStatus = status;
+    if (!status || status !== 'draft') {
+      // Calculate status based on dates using the database function
+      const { data: calculatedStatus, error: calcError } = await supabaseAdmin.rpc(
+        'calculate_contest_status',
+        {
+          start_date: start_date,
+          end_date: end_date,
+        }
+      );
+      
+      if (calcError) {
+        console.error('Error calculating contest status:', calcError);
+        // Fallback to manual calculation
+        const now = new Date();
+        const start = new Date(start_date);
+        const end = new Date(end_date);
+        
+        if (now < start) {
+          finalStatus = 'upcoming';
+        } else if (now >= start && now <= end) {
+          finalStatus = 'live';
+        } else {
+          finalStatus = 'ended';
+        }
+      } else {
+        finalStatus = calculatedStatus;
+      }
+    }
+
+    // Validate status if provided
+    if (status && !['upcoming', 'live', 'ended', 'draft'].includes(status)) {
       return NextResponse.json({ error: 'Invalid contest status' }, { status: 400 });
     }
 
@@ -199,7 +237,8 @@ export async function POST(request: NextRequest) {
         end_date,
         required_hashtags,
         required_description_template: required_description_template || null,
-        status,
+        status: finalStatus,
+        visibility,
         allow_multiple_submissions,
         force_single_category,
         require_social_verification,

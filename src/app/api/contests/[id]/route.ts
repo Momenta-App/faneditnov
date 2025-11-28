@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { getSessionUser } from '@/lib/auth-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const sessionUser = await getSessionUser(request);
+    const isAdmin = sessionUser?.role === 'admin';
 
     // Check if id is a valid UUID (format: 8-4-4-4-12 hex characters)
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -42,8 +45,7 @@ export async function GET(
             rank_order
           )
         )
-      `)
-      .in('status', ['live', 'upcoming', 'closed']); // Allow viewing closed contests too
+      `);
 
     // Query by UUID or slug
     if (isUUID) {
@@ -62,6 +64,65 @@ export async function GET(
         );
       }
       throw contestError;
+    }
+
+    // Check if contest is draft - only admin/creator can see
+    if (contest.status === 'draft') {
+      if (!isAdmin && contest.created_by !== sessionUser?.id) {
+        return NextResponse.json(
+          { error: 'Contest not found' },
+          { status: 404 }
+        );
+      }
+    }
+
+    // Check visibility for private contests
+    if (contest.visibility === 'private_link_only') {
+      // Admins and creators can always see
+      if (!isAdmin && contest.created_by !== sessionUser?.id) {
+        // Check if user has access
+        if (!sessionUser) {
+          return NextResponse.json(
+            { error: 'Authentication required' },
+            { status: 401 }
+          );
+        }
+
+        const { data: accessRecord } = await supabaseAdmin
+          .from('contest_user_access')
+          .select('id')
+          .eq('contest_id', contest.id)
+          .eq('user_id', sessionUser.id)
+          .single();
+
+        if (!accessRecord) {
+          return NextResponse.json(
+            { error: 'Access denied' },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
+    // Recalculate status if not draft (to ensure it's up-to-date)
+    if (contest.status !== 'draft') {
+      const { data: calculatedStatus, error: calcError } = await supabaseAdmin.rpc(
+        'calculate_contest_status',
+        {
+          start_date: contest.start_date,
+          end_date: contest.end_date,
+        }
+      );
+
+      if (!calcError && calculatedStatus && calculatedStatus !== contest.status) {
+        // Update status in database
+        await supabaseAdmin
+          .from('contests')
+          .update({ status: calculatedStatus })
+          .eq('id', contest.id);
+        
+        contest.status = calculatedStatus;
+      }
     }
 
     // Get the actual contest ID (in case we looked up by slug)

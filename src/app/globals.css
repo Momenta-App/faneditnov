@@ -235,6 +235,20 @@ input:focus, textarea:focus, select:focus {
   box-shadow: 0 0 0 3px rgb(10 132 255 / 0.2);
 }
 
+/* Style calendar picker icon for datetime-local inputs in dark mode */
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(0);
+  cursor: pointer;
+}
+
+[data-theme="dark"] input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.9;
+  }
+}
+
 html {
   scroll-behavior: smooth;
   background: var(--color-background);

@@ -16,7 +16,7 @@ interface Contest {
   movie_identifier?: string;
   start_date: string;
   end_date: string;
-  status: 'upcoming' | 'live' | 'closed';
+  status: 'upcoming' | 'live' | 'ended' | 'draft';
   required_hashtags: string[];
   created_at: string;
   stats: {
@@ -96,8 +96,10 @@ export default function AdminContestsPage() {
         return 'bg-green-500/10 text-green-500 border-green-500/20';
       case 'upcoming':
         return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
-      case 'closed':
+      case 'ended':
         return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
+      case 'draft':
+        return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
       default:
         return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
     }

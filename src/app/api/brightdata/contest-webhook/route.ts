@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { normalizeBrightDataRecord } from '@/lib/brightdata-normalizer';
 import { attachNormalizedMetrics } from '@/lib/brightdata-normalizer';
-import { downloadAndStoreImage, isSupabaseUrl } from '@/lib/image-storage';
+import { downloadAndStoreImage, isSupabaseUrl, storeImageWithDeduplication } from '@/lib/image-storage';
 import type { Platform } from '@/lib/url-utils';
 
 export const dynamic = 'force-dynamic';
@@ -547,6 +547,169 @@ export async function POST(request: NextRequest) {
     console.log('[Contest Webhook] Processing images before ingestion...');
     const processedData = await processImagesInPayload(data);
     const processedRecord = processedData[0] || record;
+
+    // Step 1.5: Store images with deduplication for contest_submissions
+    // Extract cover image and creator avatar URLs from BrightData payload
+    const coverUrl = processedRecord.preview_image 
+      || processedRecord.cover_url 
+      || processedRecord.thumbnail 
+      || processedRecord.cover 
+      || processedRecord.coverMedium
+      || processedRecord.coverLarge
+      || processedRecord.thumbnail_url
+      || processedRecord.thumb_url
+      || processedRecord.image_url
+      || processedRecord.media?.cover
+      || processedRecord.video?.cover;
+
+    const avatarUrl = processedRecord.profile_avatar 
+      || processedRecord.profile?.avatar 
+      || processedRecord.author?.avatarLarger 
+      || processedRecord.author?.avatar?.url_list?.[0] 
+      || processedRecord.author?.avatar_url 
+      || processedRecord.author?.profile_pic_url 
+      || processedRecord.profile?.profile_pic_url 
+      || processedRecord.profile_pic_url
+      || processedRecord.avatar
+      || processedRecord.avatar_url
+      || processedRecord.profile_picture
+      || processedRecord.profile_picture_url
+      || processedRecord.author?.avatarMedium
+      || processedRecord.author?.avatarThumb
+      || processedRecord.profile?.avatarMedium
+      || processedRecord.profile?.avatarThumb;
+
+    // Extract video_id and creator_id
+    const videoId = processedRecord.post_id 
+      || processedRecord.id 
+      || processedRecord.video_id
+      || processedRecord.aweme_id
+      || processedRecord.item_id
+      || processedRecord.short_id
+      || processedRecord.media_id
+      || submission.video_id;
+
+    const creatorId = processedRecord.profile_id 
+      || processedRecord.author?.id 
+      || processedRecord.profile?.id
+      || processedRecord.creator_id
+      || processedRecord.user_id
+      || processedRecord.uid
+      || processedRecord.user?.id
+      || processedRecord.author?.uid;
+
+    let coverImageUrl: string | null = null;
+    let creatorAvatarUrl: string | null = null;
+
+    // Store cover image with deduplication
+    if (coverUrl && videoId) {
+      if (isSupabaseUrl(coverUrl)) {
+        // Already a Supabase URL, use it directly
+        coverImageUrl = coverUrl;
+        console.log('[Contest Webhook] Cover image already in Supabase, using existing URL');
+      } else {
+        console.log('[Contest Webhook] Storing cover image with deduplication for video:', videoId);
+        
+        // Check if this video already exists in contest_submissions or videos_hot
+        let existingCoverUrl: string | null = null;
+        
+        // Check current submission first (might already have cover_image_url)
+        if (submission.cover_image_url && isSupabaseUrl(submission.cover_image_url)) {
+          existingCoverUrl = submission.cover_image_url;
+        }
+        
+        // Check contest_submissions for same video_id and platform
+        if (!existingCoverUrl && videoId && submission.platform) {
+          const { data: existingSubmission } = await supabaseAdmin
+            .from('contest_submissions')
+            .select('cover_image_url, video_id')
+            .eq('video_id', videoId)
+            .eq('platform', submission.platform)
+            .neq('id', submission.id)
+            .not('cover_image_url', 'is', null)
+            .limit(1)
+            .maybeSingle();
+          
+          if (existingSubmission?.cover_image_url && isSupabaseUrl(existingSubmission.cover_image_url)) {
+            existingCoverUrl = existingSubmission.cover_image_url;
+          }
+        }
+        
+        // Check videos_hot for same video_url
+        if (!existingCoverUrl && videoUrl) {
+          const { data: existingVideo } = await supabaseAdmin
+            .from('videos_hot')
+            .select('cover_url, video_url')
+            .eq('video_url', videoUrl)
+            .not('cover_url', 'is', null)
+            .limit(1)
+            .maybeSingle();
+          
+          if (existingVideo?.cover_url && isSupabaseUrl(existingVideo.cover_url)) {
+            existingCoverUrl = existingVideo.cover_url;
+          }
+        }
+        
+        // Use deduplication logic to check if we should reuse or replace
+        const result = await storeImageWithDeduplication(coverUrl, 'video-cover', videoId);
+        if (result.success && result.supabaseUrl) {
+          coverImageUrl = result.supabaseUrl;
+          console.log('[Contest Webhook] ✓ Stored/reused cover image:', coverImageUrl);
+        } else {
+          console.warn('[Contest Webhook] ✗ Failed to store cover image:', result.error);
+        }
+      }
+    }
+
+    // Store creator avatar with deduplication
+    if (avatarUrl && creatorId) {
+      if (isSupabaseUrl(avatarUrl)) {
+        // Already a Supabase URL, use it directly
+        creatorAvatarUrl = avatarUrl;
+        console.log('[Contest Webhook] Creator avatar already in Supabase, using existing URL');
+      } else {
+        console.log('[Contest Webhook] Storing creator avatar with deduplication for creator:', creatorId);
+        
+        // Check current submission first (might already have creator_avatar_url)
+        if (submission.creator_avatar_url && isSupabaseUrl(submission.creator_avatar_url)) {
+          // Current submission already has avatar, but check if source URL changed
+          const result = await storeImageWithDeduplication(avatarUrl, 'creator-avatar', creatorId);
+          if (result.success && result.supabaseUrl) {
+            creatorAvatarUrl = result.supabaseUrl;
+            console.log('[Contest Webhook] ✓ Stored/reused creator avatar:', creatorAvatarUrl);
+          } else {
+            console.warn('[Contest Webhook] ✗ Failed to store creator avatar:', result.error);
+          }
+        } else {
+          // Use deduplication logic (it will check storage for existing avatar)
+          const result = await storeImageWithDeduplication(avatarUrl, 'creator-avatar', creatorId);
+          if (result.success && result.supabaseUrl) {
+            creatorAvatarUrl = result.supabaseUrl;
+            console.log('[Contest Webhook] ✓ Stored/reused creator avatar:', creatorAvatarUrl);
+          } else {
+            console.warn('[Contest Webhook] ✗ Failed to store creator avatar:', result.error);
+          }
+        }
+      }
+    }
+
+    // Update contest_submissions with image URLs before ingestion
+    if (coverImageUrl || creatorAvatarUrl) {
+      const updateData: any = {};
+      if (coverImageUrl) updateData.cover_image_url = coverImageUrl;
+      if (creatorAvatarUrl) updateData.creator_avatar_url = creatorAvatarUrl;
+      
+      await supabaseAdmin
+        .from('contest_submissions')
+        .update(updateData)
+        .eq('id', submission.id);
+      
+      console.log('[Contest Webhook] Updated contest_submissions with image URLs:', {
+        submissionId: submission.id,
+        coverImageUrl: coverImageUrl ? 'set' : 'not set',
+        creatorAvatarUrl: creatorAvatarUrl ? 'set' : 'not set',
+      });
+    }
 
     // Extract metrics from BrightData response (use processed record)
     // Note: Stats are now stored in videos_hot, not contest_submissions

@@ -16,7 +16,9 @@ interface Contest {
   title: string;
   description: string;
   slug?: string;
-  status: 'upcoming' | 'live' | 'closed';
+  status: 'upcoming' | 'live' | 'ended' | 'draft';
+  start_date?: string;
+  end_date?: string;
   profile_image_url?: string;
   cover_image_url?: string;
   submission_count?: number;
@@ -44,14 +46,34 @@ export function ContestCard({ contest, onClick }: ContestCardProps) {
     return `$${amount.toFixed(2)}`;
   };
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const formatDateRange = (startDate?: string, endDate?: string) => {
+    if (!startDate || !endDate) return null;
+    const start = formatDate(startDate);
+    const end = formatDate(endDate);
+    return `${start} - ${end}`;
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'live':
-        return 'bg-green-500/10 text-green-500 border-green-500/20';
+        return 'bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/40';
       case 'upcoming':
-        return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+        return 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/40';
+      case 'ended':
+        return 'bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/40';
+      case 'draft':
+        return 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border-yellow-500/40';
       default:
-        return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
+        return 'bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/40';
     }
   };
 
@@ -71,7 +93,7 @@ export function ContestCard({ contest, onClick }: ContestCardProps) {
     >
       <Link href={`/contests/${contest.slug || contest.id}`} className="block">
         {/* Cover Photo Banner */}
-        <div className="relative h-32 overflow-hidden bg-gradient-to-br from-[var(--color-primary)] via-[var(--color-primary-light)] to-[var(--color-primary)]">
+        <div className="relative h-36 overflow-hidden bg-gradient-to-br from-[var(--color-primary)] via-[var(--color-primary-light)] to-[var(--color-primary)]">
           {contest.cover_image_url ? (
             <img
               src={contest.cover_image_url}
@@ -88,17 +110,17 @@ export function ContestCard({ contest, onClick }: ContestCardProps) {
         {/* Content Container with negative margin to overlap cover */}
         <div className="relative px-[var(--spacing-6)] pb-[var(--spacing-6)]">
           {/* Profile Picture - Overlapping the cover */}
-          <div className="flex items-end mb-[var(--spacing-4)]" style={{ marginTop: '-40px' }}>
+          <div className="flex items-end mb-[var(--spacing-4)]" style={{ marginTop: '-60px' }}>
             {contest.profile_image_url ? (
-              <div className="relative w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 ring-4 ring-[var(--color-surface)] shadow-lg bg-[var(--color-surface)]">
+              <div className="relative w-20 rounded-2xl overflow-hidden flex-shrink-0 ring-4 ring-[var(--color-surface)] shadow-lg bg-[var(--color-surface)]" style={{ aspectRatio: '2/3' }}>
                 <img
                   src={contest.profile_image_url}
                   alt={contest.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
               </div>
             ) : (
-              <div className="relative w-20 h-20 rounded-2xl flex-shrink-0 ring-4 ring-[var(--color-surface)] shadow-lg bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-light)] flex items-center justify-center">
+              <div className="relative w-20 rounded-2xl flex-shrink-0 ring-4 ring-[var(--color-surface)] shadow-lg bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-light)] flex items-center justify-center" style={{ aspectRatio: '2/3' }}>
                 <span className="text-3xl font-bold text-white">
                   {contest.title.charAt(0).toUpperCase()}
                 </span>
@@ -107,7 +129,7 @@ export function ContestCard({ contest, onClick }: ContestCardProps) {
             {/* Status Badge */}
             <div className="ml-auto">
               <span
-                className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(
+                className={`px-3 py-1.5 rounded-full text-sm font-semibold border backdrop-blur-sm ${getStatusColor(
                   contest.status
                 )}`}
               >
@@ -116,18 +138,14 @@ export function ContestCard({ contest, onClick }: ContestCardProps) {
             </div>
           </div>
 
-          {/* Contest Title & Description */}
+          {/* Contest Title & Dates */}
           <div className="mb-[var(--spacing-5)]">
             <h3 className="text-xl font-bold mb-2 truncate" style={{ color: 'var(--color-text-primary)' }}>
               {contest.title}
             </h3>
-            {contest.description ? (
-              <p className="text-sm line-clamp-2 leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
-                {contest.description}
-              </p>
-            ) : (
-              <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-muted-light)' }}>
-                Submit your fan edit to compete
+            {contest.start_date && contest.end_date && (
+              <p className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
+                📅 {formatDateRange(contest.start_date, contest.end_date)}
               </p>
             )}
           </div>

@@ -158,7 +158,8 @@ export async function PUT(
       slug,
       start_date,
       end_date,
-      status,
+      status, // Optional - will be calculated if not provided or not 'draft'
+      visibility,
       required_hashtags,
       required_description_template,
       categories,
@@ -173,6 +174,29 @@ export async function PUT(
       asset_links,
     } = body;
 
+    // Check if id is a valid UUID and resolve contestId early
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    
+    // First, get the contest ID (either from UUID or slug lookup)
+    let contestId: string;
+    if (isUUID) {
+      contestId = id;
+    } else {
+      const { data: contestLookup } = await supabaseAdmin
+        .from('contests')
+        .select('id')
+        .eq('slug', id)
+        .single();
+      
+      if (!contestLookup) {
+        return NextResponse.json(
+          { error: 'Contest not found' },
+          { status: 404 }
+        );
+      }
+      contestId = contestLookup.id;
+    }
+
     // Build update object (only include provided fields)
     const updateData: any = {};
     if (title !== undefined) updateData.title = title;
@@ -181,7 +205,12 @@ export async function PUT(
     if (slug !== undefined) updateData.slug = slug || null;
     if (start_date !== undefined) updateData.start_date = start_date;
     if (end_date !== undefined) updateData.end_date = end_date;
-    if (status !== undefined) updateData.status = status;
+    if (visibility !== undefined) {
+      if (!['open', 'private_link_only'].includes(visibility)) {
+        return NextResponse.json({ error: 'Invalid visibility value' }, { status: 400 });
+      }
+      updateData.visibility = visibility;
+    }
     if (profile_image_url !== undefined) updateData.profile_image_url = profile_image_url;
     if (cover_image_url !== undefined) updateData.cover_image_url = cover_image_url;
     if (display_stats !== undefined) updateData.display_stats = display_stats;
@@ -205,27 +234,85 @@ export async function PUT(
       }
     }
 
-    // Check if id is a valid UUID
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-    
-    // First, get the contest ID (either from UUID or slug lookup)
-    let contestId: string;
-    if (isUUID) {
-      contestId = id;
-    } else {
-      const { data: contestLookup } = await supabaseAdmin
-        .from('contests')
-        .select('id')
-        .eq('slug', id)
-        .single();
-      
-      if (!contestLookup) {
-        return NextResponse.json(
-          { error: 'Contest not found' },
-          { status: 404 }
-        );
+    // Handle status update
+    if (status !== undefined) {
+      // Validate status if provided
+      if (!['upcoming', 'live', 'ended', 'draft'].includes(status)) {
+        return NextResponse.json({ error: 'Invalid contest status' }, { status: 400 });
       }
-      contestId = contestLookup.id;
+      
+      // If status is not 'draft', calculate based on dates (use provided dates or fetch current)
+      if (status !== 'draft') {
+        const finalStartDate = updateData.start_date || (await supabaseAdmin.from('contests').select('start_date').eq('id', contestId).single()).data?.start_date;
+        const finalEndDate = updateData.end_date || (await supabaseAdmin.from('contests').select('end_date').eq('id', contestId).single()).data?.end_date;
+        
+        if (finalStartDate && finalEndDate) {
+          const { data: calculatedStatus, error: calcError } = await supabaseAdmin.rpc(
+            'calculate_contest_status',
+            {
+              start_date: finalStartDate,
+              end_date: finalEndDate,
+            }
+          );
+          
+          if (!calcError && calculatedStatus) {
+            updateData.status = calculatedStatus;
+          } else {
+            // Fallback to manual calculation
+            const now = new Date();
+            const start = new Date(finalStartDate);
+            const end = new Date(finalEndDate);
+            
+            if (now < start) {
+              updateData.status = 'upcoming';
+            } else if (now >= start && now <= end) {
+              updateData.status = 'live';
+            } else {
+              updateData.status = 'ended';
+            }
+          }
+        } else {
+          updateData.status = status;
+        }
+      } else {
+        // Status is 'draft', use it as-is
+        updateData.status = status;
+      }
+    } else if (updateData.start_date || updateData.end_date) {
+      // Status not provided but dates changed, recalculate status
+      const currentContest = await supabaseAdmin.from('contests').select('start_date, end_date, status').eq('id', contestId).single();
+      if (currentContest.data) {
+        const finalStartDate = updateData.start_date || currentContest.data.start_date;
+        const finalEndDate = updateData.end_date || currentContest.data.end_date;
+        
+        // Only recalculate if not draft
+        if (currentContest.data.status !== 'draft') {
+          const { data: calculatedStatus, error: calcError } = await supabaseAdmin.rpc(
+            'calculate_contest_status',
+            {
+              start_date: finalStartDate,
+              end_date: finalEndDate,
+            }
+          );
+          
+          if (!calcError && calculatedStatus) {
+            updateData.status = calculatedStatus;
+          } else {
+            // Fallback to manual calculation
+            const now = new Date();
+            const start = new Date(finalStartDate);
+            const end = new Date(finalEndDate);
+            
+            if (now < start) {
+              updateData.status = 'upcoming';
+            } else if (now >= start && now <= end) {
+              updateData.status = 'live';
+            } else {
+              updateData.status = 'ended';
+            }
+          }
+        }
+      }
     }
 
     // Update contest

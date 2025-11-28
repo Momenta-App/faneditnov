@@ -41,7 +41,8 @@ interface Contest {
   slug?: string;
   start_date: string;
   end_date: string;
-  status: 'upcoming' | 'live' | 'closed';
+  status: 'upcoming' | 'live' | 'ended' | 'draft';
+  visibility?: 'open' | 'private_link_only';
   required_hashtags: string[];
   required_description_template?: string;
   submission_count: number;
@@ -174,7 +175,8 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
         if (response.status === 401) {
           throw new Error('Session expired. Please log back in.');
         }
-        throw new Error('Failed to fetch your submissions');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to fetch your submissions');
       }
       const data = await response.json();
       
@@ -197,6 +199,10 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
         contestId,
       });
       setUserSubmissions(filteredData);
+      // Clear error if we successfully got an empty array (no submissions is valid)
+      if (filteredData.length === 0) {
+        setUserSubmissionsError(null);
+      }
     } catch (err) {
       setUserSubmissionsError(err instanceof Error ? err.message : 'Failed to load your submissions');
     } finally {
@@ -218,6 +224,20 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
       setUserSubmissions([]);
     }
   }, [user, contestId, fetchUserSubmissions]);
+
+  // Track private contest access when page loads
+  useEffect(() => {
+    if (contest && contest.visibility === 'private_link_only' && user) {
+      // Track access asynchronously (don't block page load)
+      fetch(`/api/contests/${contestId}/access`, {
+        method: 'POST',
+        credentials: 'include',
+      }).catch((err) => {
+        console.error('Error tracking contest access:', err);
+        // Don't show error to user - access tracking is not critical
+      });
+    }
+  }, [contest, contestId, user]);
 
   const fetchSubmissions = async (categoryId?: string | null, offset: number = 0, append: boolean = false) => {
     if (!contestId) return;
@@ -253,6 +273,15 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
       });
       
       if (!response.ok) {
+        // If it's a 404 or empty result, that's fine - just return empty array
+        if (response.status === 404) {
+          console.log('[ContestDetailPage] No submissions found (404)');
+          setSubmissions([]);
+          setSubmissionsTotal(0);
+          setSubmissionsHasMore(false);
+          return;
+        }
+        
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData.error || errorData.message || errorData.details || `HTTP ${response.status}: ${response.statusText}`;
         const errorCode = errorData.code || '';
@@ -280,6 +309,15 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
       }
       
       const data = await response.json();
+      
+      // If we got an empty result, that's fine - don't treat it as an error
+      if (!data.data || data.data.length === 0) {
+        console.log('[ContestDetailPage] No submissions found (empty result)');
+        setSubmissions([]);
+        setSubmissionsTotal(0);
+        setSubmissionsHasMore(false);
+        return;
+      }
       
       // CRITICAL: Safety filter - ensure all submissions belong to this contest
       const rawData = data.data || [];
@@ -329,9 +367,16 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
       setSubmissionsOffset(offset);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load submissions';
-      setAllSubmissionsError(errorMessage);
+      // Only set error if it's a real error, not just an empty result
+      if (!errorMessage.includes('404') && !errorMessage.includes('No submissions')) {
+        setAllSubmissionsError(errorMessage);
+      } else {
+        setAllSubmissionsError(null);
+      }
       if (!append) {
         setSubmissions([]);
+        setSubmissionsTotal(0);
+        setSubmissionsHasMore(false);
       }
       console.error('[ContestDetailPage] Error fetching submissions:', err);
     } finally {
@@ -587,6 +632,30 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
     router.push(submitUrl);
   };
 
+  const handleLaunchContest = async () => {
+    if (!isAdmin && contest?.created_by !== user?.id) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/contests/${contestId}/launch`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to launch contest');
+      }
+
+      // Refresh the contest data
+      fetchContest();
+    } catch (err) {
+      console.error('Error launching contest:', err);
+      alert(err instanceof Error ? err.message : 'Failed to launch contest');
+    }
+  };
+
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-background)' }}>
       {/* Netflix-style Hero Section */}
@@ -692,10 +761,14 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                       ? 'bg-green-500/20 text-green-400 border-green-500/30'
                       : contest.status === 'upcoming'
                       ? 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                      : contest.status === 'ended'
+                      ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+                      : contest.status === 'draft'
+                      ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
                       : 'bg-gray-500/20 text-gray-400 border-gray-500/30'
                   }`}
                 >
-                  {contest.status.toUpperCase()}
+                  {contest.status === 'ended' ? 'ENDED' : contest.status.toUpperCase()}
                 </span>
               </motion.div>
             </div>
@@ -708,7 +781,7 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
             transition={{ duration: 0.6, delay: 0.5 }}
             className="flex flex-wrap items-center gap-4 mt-8"
           >
-            {/* Submit Video Button */}
+            {/* Submit Video Button - Only show for live contests */}
             {contest.status === 'live' && (
               <div>
                 {user ? (
@@ -732,6 +805,18 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                   </Link>
                 )}
               </div>
+            )}
+
+            {/* Launch Contest Button - Only show for draft contests (admin/creator only) */}
+            {contest.status === 'draft' && (isAdmin || contest.created_by === user?.id) && (
+              <Button 
+                variant="primary" 
+                size="lg" 
+                onClick={handleLaunchContest}
+                className="px-6 py-3 text-base sm:text-lg font-bold"
+              >
+                🚀 Launch Contest
+              </Button>
             )}
 
             {/* Asset Links - In same row */}
@@ -825,7 +910,7 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                     Status
                   </p>
                   <p className="text-3xl sm:text-4xl lg:text-5xl font-bold capitalize" style={{ color: 'var(--color-text-primary)' }}>
-                    {contest.status}
+                    {contest.status === 'ended' ? 'Ended' : contest.status}
                   </p>
                 </div>
               </motion.div>
@@ -895,10 +980,14 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                       ? 'bg-green-500/20 text-green-500 border-green-500/30'
                       : contest.status === 'upcoming'
                       ? 'bg-blue-500/20 text-blue-500 border-blue-500/30'
+                      : contest.status === 'ended'
+                      ? 'bg-gray-500/20 text-gray-500 border-gray-500/30'
+                      : contest.status === 'draft'
+                      ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30'
                       : 'bg-gray-500/20 text-gray-500 border-gray-500/30'
                   }`}
                 >
-                  {contest.status.toUpperCase()}
+                  {contest.status === 'ended' ? 'ENDED' : contest.status.toUpperCase()}
                 </span>
               </div>
 
@@ -1315,8 +1404,8 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
             </Card>
           )}
 
-          {/* User Submissions - At the top, very visible */}
-          {user && (userSubmissionsLoading || userSubmissions.length > 0 || userSubmissionsError) && (
+          {/* User Submissions - At the top, very visible - Only show if user has actual submissions */}
+          {user && !userSubmissionsLoading && userSubmissions.length > 0 && (
             <Card className="mb-8">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex-1">

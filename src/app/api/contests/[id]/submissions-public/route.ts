@@ -370,6 +370,7 @@ export async function GET(
       
       // If final query fails, use the columns-only version
       console.log('[Submissions Public API] Final query failed, using columns-only fallback...');
+      // Don't try to join videos_hot in fallback - just get basic submission data
       const fallbackQuery = supabaseAdmin
         .from('contest_submissions')
         .select(`
@@ -377,20 +378,23 @@ export async function GET(
           contest_id,
           mp4_bucket,
           mp4_path,
-          video_hot_id,
+          original_video_url,
+          platform,
+          video_id,
+          views_count,
+          likes_count,
+          comments_count,
+          shares_count,
+          saves_count,
+          impact_score,
+          cover_url,
           created_at,
           hashtag_status,
           description_status,
           mp4_ownership_status,
           verification_status,
           content_review_status,
-          user_id,
-          videos_hot:video_hot_id (
-            video_id,
-            impact_score,
-            views_count,
-            likes_count
-          )
+          user_id
         `)
         .eq('contest_id', contestId)
         .order('created_at', { ascending: false })
@@ -399,18 +403,29 @@ export async function GET(
       const { data: fallbackData, error: fallbackError } = await fallbackQuery;
       
       if (fallbackError) {
+        console.error('[Submissions Public API] Fallback query also failed:', fallbackError);
         throw fallbackError;
       }
       
       // Filter and return fallback data
-      const filteredFallback = (fallbackData || []).filter((submission: any) => {
+      let filteredFallback = (fallbackData || []).filter((submission: any) => {
         if (submission.hashtag_status === 'fail') return false;
         if (submission.description_status === 'fail') return false;
         if (submission.content_review_status === 'rejected') return false;
         const ownershipStatus = submission.mp4_ownership_status || submission.verification_status;
         if (ownershipStatus === 'failed') return false;
         return true;
-      }).slice(0, limit);
+      });
+      
+      // Apply category filter if specified
+      if (categoryId && validSubmissionIds) {
+        filteredFallback = filteredFallback.filter((s: any) => validSubmissionIds.includes(s.id));
+      }
+      
+      // Sort by impact_score and apply pagination
+      filteredFallback = filteredFallback
+        .sort((a: any, b: any) => (b.impact_score || 0) - (a.impact_score || 0))
+        .slice(offset, offset + limit);
       
       // Try to fetch profiles separately for fallback data
       const userIds = [...new Set(filteredFallback.map((s: any) => s.user_id).filter(Boolean))];
@@ -429,8 +444,36 @@ export async function GET(
         });
       }
       
+      // Try to fetch contest_submission_categories separately
+      const submissionIds = filteredFallback.map((s: any) => s.id);
+      if (submissionIds.length > 0) {
+        const { data: categoriesData } = await supabaseAdmin
+          .from('contest_submission_categories')
+          .select('submission_id, category_id, is_primary')
+          .in('submission_id', submissionIds);
+        
+        // Attach categories to submissions
+        const categoriesMap = new Map<number, any[]>();
+        categoriesData?.forEach((c: any) => {
+          if (!categoriesMap.has(c.submission_id)) {
+            categoriesMap.set(c.submission_id, []);
+          }
+          categoriesMap.get(c.submission_id)!.push(c);
+        });
+        
+        filteredFallback.forEach((submission: any) => {
+          if (categoriesMap.has(submission.id)) {
+            submission.contest_submission_categories = categoriesMap.get(submission.id);
+          }
+        });
+      }
+      
       return NextResponse.json({
         data: filteredFallback,
+        total: totalCountBeforePagination,
+        limit,
+        offset,
+        hasMore: offset + limit < totalCountBeforePagination,
       });
     }
 

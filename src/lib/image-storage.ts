@@ -165,3 +165,125 @@ export function isSupabaseUrl(url: string): boolean {
   return url.includes(supabaseUrl || '') && url.includes('/storage/');
 }
 
+/**
+ * Find existing image in storage for a given entity
+ * Returns the file path if found, null otherwise
+ */
+export async function findExistingImageInStorage(
+  imageType: ImageType,
+  entityId: string
+): Promise<string | null> {
+  if (!supabaseAdmin || !entityId) {
+    return null;
+  }
+
+  try {
+    // List files in the image type folder
+    const { data: files, error } = await supabaseAdmin.storage
+      .from(STORAGE_BUCKET)
+      .list(imageType, {
+        search: entityId,
+      });
+
+    if (error) {
+      console.warn(`[Image Storage] Error listing files for ${imageType}/${entityId}:`, error.message);
+      return null;
+    }
+
+    // Find file that starts with entityId
+    const matchingFile = files?.find((file) => file.name.startsWith(`${entityId}-`));
+    
+    if (matchingFile) {
+      return `${imageType}/${matchingFile.name}`;
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`[Image Storage] Error finding existing image:`, error);
+    return null;
+  }
+}
+
+/**
+ * Get existing image URL from storage if it exists
+ */
+export async function getExistingImageUrl(
+  imageType: ImageType,
+  entityId: string
+): Promise<string | null> {
+  const existingPath = await findExistingImageInStorage(imageType, entityId);
+  
+  if (!existingPath) {
+    return null;
+  }
+
+  if (!supabaseAdmin) {
+    return null;
+  }
+
+  try {
+    const { data: publicUrlData } = supabaseAdmin.storage
+      .from(STORAGE_BUCKET)
+      .getPublicUrl(existingPath);
+
+    return publicUrlData.publicUrl;
+  } catch (error) {
+    console.error(`[Image Storage] Error getting public URL for ${existingPath}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Store image with deduplication logic
+ * Checks if image exists for entity, compares source URLs
+ * If source URL is different, downloads and replaces; if same, reuses existing
+ */
+export async function storeImageWithDeduplication(
+  sourceImageUrl: string,
+  imageType: ImageType,
+  entityId: string
+): Promise<DownloadImageResult> {
+  if (!sourceImageUrl || !sourceImageUrl.startsWith('http')) {
+    return { success: false, error: 'Invalid image URL' };
+  }
+
+  // If already a Supabase URL, return it
+  if (isSupabaseUrl(sourceImageUrl)) {
+    return { success: true, supabaseUrl: sourceImageUrl };
+  }
+
+  // Check if image exists in storage for this entity
+  const existingPath = await findExistingImageInStorage(imageType, entityId);
+  
+  if (existingPath) {
+    // Image exists - check if source URL matches
+    // Extract hash from existing filename: {entityId}-{hash}.{ext}
+    const existingHash = existingPath.split('-')[1]?.split('.')[0];
+    const newHash = crypto.createHash('md5').update(sourceImageUrl).digest('hex').slice(0, 8);
+    
+    if (existingHash === newHash) {
+      // Same source URL - reuse existing image
+      const existingUrl = await getExistingImageUrl(imageType, entityId);
+      if (existingUrl) {
+        console.log(`[Image Storage] Reusing existing image for ${imageType}/${entityId} (same source URL)`);
+        return { success: true, supabaseUrl: existingUrl };
+      }
+    } else {
+      // Different source URL - image has changed, replace it
+      console.log(`[Image Storage] Source URL changed for ${imageType}/${entityId}, replacing image`);
+      // Delete old file
+      if (supabaseAdmin) {
+        await supabaseAdmin.storage
+          .from(STORAGE_BUCKET)
+          .remove([existingPath])
+          .catch((err) => {
+            console.warn(`[Image Storage] Error removing old image ${existingPath}:`, err);
+          });
+      }
+    }
+  }
+
+  // Download and store new image (or replace if source URL changed)
+  return await downloadAndStoreImage(sourceImageUrl, imageType, entityId);
+}
+

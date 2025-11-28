@@ -16,7 +16,8 @@ interface Contest {
   movie_identifier?: string;
   start_date: string;
   end_date: string;
-  status: 'upcoming' | 'live' | 'closed';
+  status: 'upcoming' | 'live' | 'ended' | 'draft';
+  visibility?: 'open' | 'private_link_only';
   required_hashtags: string[];
   required_description_template?: string;
   created_at: string;
@@ -76,6 +77,7 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
   const [submissionsError, setSubmissionsError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLaunching, setIsLaunching] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
   // Filters
@@ -155,6 +157,48 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
       setError(err instanceof Error ? err.message : 'Failed to delete contest');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleLaunchContest = async () => {
+    if (!contestId || !contest) return;
+    
+    const confirmed = window.confirm(
+      `Are you sure you want to launch this contest? The status will be updated to "${contest.start_date && contest.end_date ? (() => {
+        const now = new Date();
+        const start = new Date(contest.start_date);
+        const end = new Date(contest.end_date);
+        if (now < start) return 'upcoming';
+        if (now >= start && now <= end) return 'live';
+        return 'ended';
+      })() : 'upcoming'}" based on the start and end dates.`
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setIsLaunching(true);
+      setError(null);
+      const response = await authFetch(`/api/admin/contests/${contestId}/launch`, {
+        method: 'POST',
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to launch contest');
+      }
+
+      const data = await response.json();
+      setContest(data.data);
+      
+      // Show success message
+      alert(`Contest launched successfully! Status updated to "${data.data.status}".`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to launch contest');
+    } finally {
+      setIsLaunching(false);
     }
   };
 
@@ -336,6 +380,17 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                 Edit Contest
               </Button>
             </Link>
+            {contest.status === 'draft' && (
+              <Button
+                variant="primary"
+                size="xs"
+                className="px-2 py-1 min-h-0 min-w-0 text-[10px]"
+                onClick={handleLaunchContest}
+                isLoading={isLaunching}
+              >
+                Launch Contest
+              </Button>
+            )}
             <Button
               variant="secondary"
               size="xs"

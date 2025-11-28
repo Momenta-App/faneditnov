@@ -24,7 +24,7 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
   const [connectedAccounts, setConnectedAccounts] = useState<any[]>([]);
   const [checkingAccounts, setCheckingAccounts] = useState(false);
   const [contest, setContest] = useState<any>(null);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [loadingContest, setLoadingContest] = useState(true);
 
   useEffect(() => {
@@ -72,16 +72,7 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
           const specificCategories = data.data.contest_categories?.filter((cat: any) => cat.is_general === false) || [];
           const categoryExists = specificCategories.some((cat: any) => cat.id === categoryParam);
           if (categoryExists) {
-            setSelectedCategoryId(categoryParam);
-          }
-        } else {
-          // If no URL parameter, use default logic
-          // If specific (non-general) categories exist and force_single_category is true, select first category by default
-          const specificCategories = data.data.contest_categories?.filter((cat: any) => cat.is_general === false) || [];
-          if (specificCategories.length > 0) {
-            if (data.data.force_single_category && specificCategories.length === 1) {
-              setSelectedCategoryId(specificCategories[0].id);
-            }
+            setSelectedCategoryIds([categoryParam]);
           }
         }
       }
@@ -120,6 +111,22 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
     contest?.contest_categories?.filter((cat: any) => cat.is_general === true) ?? [];
   const hasSpecificCategories = specificCategories.length > 0;
   const hasGeneralCategories = generalCategories.length > 0;
+  const forceSingleCategory = contest?.force_single_category ?? false;
+  const allowMultipleCategories = !forceSingleCategory;
+
+  const handleCategoryToggle = (categoryId: string) => {
+    if (forceSingleCategory) {
+      // Single selection mode
+      setSelectedCategoryIds(selectedCategoryIds.includes(categoryId) ? [] : [categoryId]);
+    } else {
+      // Multiple selection mode
+      setSelectedCategoryIds((prev) =>
+        prev.includes(categoryId)
+          ? prev.filter((id) => id !== categoryId)
+          : [...prev, categoryId]
+      );
+    }
+  };
 
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const url = e.target.value;
@@ -183,9 +190,16 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
       return;
     }
 
-    // Validate category selection if categories exist
-    if (hasSpecificCategories && !selectedCategoryId) {
-      setError('Please select a category for your submission');
+    // Validate category selection: only required if no general categories exist
+    // If general categories exist, category selection is optional
+    if (hasSpecificCategories && !hasGeneralCategories && selectedCategoryIds.length === 0) {
+      setError('Please select at least one category for your submission');
+      return;
+    }
+
+    // Validate single category if force_single_category is enabled
+    if (contest?.force_single_category && selectedCategoryIds.length > 1) {
+      setError('You can only select one category for this contest');
       return;
     }
 
@@ -195,9 +209,10 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
       const formData = new FormData();
       formData.append('video_url', videoUrl);
       formData.append('mp4_file', mp4File);
-      if (selectedCategoryId) {
-        formData.append('category_id', selectedCategoryId);
-      }
+      // Append all selected category IDs
+      selectedCategoryIds.forEach((categoryId) => {
+        formData.append('category_ids', categoryId);
+      });
 
       const headers: HeadersInit = sessionToken 
         ? { Authorization: `Bearer ${sessionToken}` }
@@ -300,69 +315,105 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
                   </div>
                 )}
 
-                {/* Category Selection - Only show specific (non-general) categories */}
-                {hasSpecificCategories && (
+                {/* Category Selection */}
+                {(hasSpecificCategories || hasGeneralCategories) && (
                   <div>
                     <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                      Select Category *
+                      Select Categories {!hasGeneralCategories && hasSpecificCategories ? '*' : ''}
                     </label>
-                    <select
-                      required
-                      value={selectedCategoryId || ''}
-                      onChange={(e) => setSelectedCategoryId(e.target.value)}
-                      className="w-full px-4 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                    >
-                      <option value="">-- Select a category --</option>
-                      {specificCategories
-                        .sort((a: any, b: any) => a.display_order - b.display_order)
-                        .map((category: any) => (
-                          <option key={category.id} value={category.id}>
-                            {category.name}
-                          </option>
-                        ))}
-                    </select>
-                    <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                      Choose which category you're submitting to
-                    </p>
-                  </div>
-                )}
+                    <div className="space-y-2">
+                      {/* General Categories - Always selected, unselectable */}
+                      {hasGeneralCategories && (
+                        <div className="space-y-2 mb-4">
+                          {generalCategories
+                            .sort((a: any, b: any) => a.display_order - b.display_order)
+                            .map((category: any) => {
+                              const rankingLabels: Record<string, string> = {
+                                manual: 'Manual Judging',
+                                views: 'Most Views',
+                                likes: 'Most Likes',
+                                comments: 'Most Comments',
+                              };
+                              const showRanking =
+                                category.ranking_method &&
+                                category.ranking_method !== 'manual' &&
+                                category.ranking_method !== 'shares';
+                              return (
+                                <label
+                                  key={category.id}
+                                  className="flex items-start gap-3 p-3 rounded-lg border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 cursor-not-allowed opacity-75"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={true}
+                                    disabled={true}
+                                    className="mt-0.5 h-4 w-4 rounded border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-primary)] focus:ring-[var(--color-primary)] disabled:opacity-50"
+                                  />
+                                  <div className="flex-1">
+                                    <span className="text-sm font-medium text-[var(--color-text-primary)]">
+                                      {category.name}
+                                    </span>
+                                    {showRanking && (
+                                      <span className="ml-2 text-xs text-[var(--color-text-muted)]">
+                                        (Ranked by: {rankingLabels[category.ranking_method] || category.ranking_method})
+                                      </span>
+                                    )}
+                                    <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                                      Automatically included
+                                    </p>
+                                  </div>
+                                </label>
+                              );
+                            })}
+                        </div>
+                      )}
 
-                {/* General Categories Info */}
-                {hasGeneralCategories && (
-                  <div className="p-4 border border-[var(--color-primary)]/20 bg-[var(--color-primary)]/5 rounded-lg">
-                    <p className="text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                      {hasSpecificCategories
-                        ? 'Your submission will also be automatically entered in:'
-                        : 'This contest only has general categories. Your submission will automatically be entered in:'}
+                      {/* Specific Categories - User selectable */}
+                      {hasSpecificCategories && (
+                        <div className="space-y-2">
+                          {specificCategories
+                            .sort((a: any, b: any) => a.display_order - b.display_order)
+                            .map((category: any) => {
+                              const isSelected = selectedCategoryIds.includes(category.id);
+                              return (
+                                <label
+                                  key={category.id}
+                                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                                    isSelected
+                                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10'
+                                      : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-primary)]/50'
+                                  }`}
+                                >
+                                  <input
+                                    type={forceSingleCategory ? 'radio' : 'checkbox'}
+                                    name={forceSingleCategory ? 'category-selection' : undefined}
+                                    checked={isSelected}
+                                    onChange={() => handleCategoryToggle(category.id)}
+                                    className="mt-0.5 h-4 w-4 rounded border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
+                                  />
+                                  <div className="flex-1">
+                                    <span className="text-sm font-medium text-[var(--color-text-primary)]">
+                                      {category.name}
+                                    </span>
+                                    {category.description && (
+                                      <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                                        {category.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                </label>
+                              );
+                            })}
+                        </div>
+                      )}
+                    </div>
+                    <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+                      {hasGeneralCategories && hasSpecificCategories
+                        ? 'General categories are automatically included. Select additional categories above.'
+                        : hasGeneralCategories
+                          ? 'Your submission will automatically be entered in all general categories.'
+                          : 'Choose which category you are submitting to'}
                     </p>
-                    <ul className="space-y-2">
-                      {generalCategories
-                        .sort((a: any, b: any) => a.display_order - b.display_order)
-                        .map((category: any) => {
-                          const rankingLabels: Record<string, string> = {
-                            manual: 'Manual Judging',
-                            views: 'Most Views',
-                            likes: 'Most Likes',
-                            comments: 'Most Comments',
-                          };
-                          const showRanking =
-                            category.ranking_method &&
-                            category.ranking_method !== 'manual' &&
-                            category.ranking_method !== 'shares';
-                          return (
-                            <li key={category.id} className="flex items-center gap-2 text-sm">
-                              <span className="text-[var(--color-text-primary)] font-medium">
-                                {category.name}
-                              </span>
-                              {showRanking && (
-                                <span className="text-xs text-[var(--color-text-muted)]">
-                                  (Ranked by: {rankingLabels[category.ranking_method] || category.ranking_method})
-                                </span>
-                              )}
-                            </li>
-                          );
-                        })}
-                    </ul>
                   </div>
                 )}
 

@@ -30,20 +30,41 @@ export async function GET(
     let contestId: string;
     if (isUUID) {
       contestId = id;
+      console.log('[Submissions Public API] Using UUID as contestId:', contestId);
     } else {
-      const { data: contest } = await supabaseAdmin
+      console.log('[Submissions Public API] Looking up contest by slug:', id);
+      const { data: contest, error: contestError } = await supabaseAdmin
         .from('contests')
-        .select('id')
+        .select('id, slug, title')
         .eq('slug', id)
         .single();
       
+      if (contestError) {
+        console.error('[Submissions Public API] Contest lookup error:', {
+          error: contestError.message,
+          code: contestError.code,
+          slug: id,
+        });
+        return NextResponse.json(
+          { error: 'Contest not found', details: contestError.message },
+          { status: 404 }
+        );
+      }
+      
       if (!contest) {
+        console.error('[Submissions Public API] Contest not found for slug:', id);
         return NextResponse.json(
           { error: 'Contest not found' },
           { status: 404 }
         );
       }
+      
       contestId = contest.id;
+      console.log('[Submissions Public API] Found contest:', {
+        id: contestId,
+        slug: contest.slug,
+        title: contest.title,
+      });
     }
 
     // Verify contestId is set
@@ -58,19 +79,40 @@ export async function GET(
     // Test query step by step to identify the issue
     console.log('[Submissions Public API] Starting query for contestId:', contestId, 'from input id:', id);
     
-    // Step 1: Test basic query without relations
+      // Step 1: Test basic query without relations
     console.log('[Submissions Public API] Step 1: Testing basic query...');
     const basicTest = await supabaseAdmin
       .from('contest_submissions')
-      .select('id, contest_id')
+      .select('id, contest_id, user_removed, hashtag_status, description_status, content_review_status, verification_status')
       .eq('contest_id', contestId)
-      .limit(1);
+      .limit(10);
     
     if (basicTest.error) {
       console.error('[Submissions Public API] Basic test failed:', basicTest.error);
       throw new Error(`Basic query failed: ${basicTest.error.message} (Code: ${basicTest.error.code})`);
     }
     console.log('[Submissions Public API] Basic query successful, found', basicTest.data?.length || 0, 'submissions');
+    if (basicTest.data && basicTest.data.length > 0) {
+      console.log('[Submissions Public API] Sample submissions:', basicTest.data.map((s: any) => ({
+        id: s.id,
+        contest_id: s.contest_id,
+        user_removed: s.user_removed,
+        hashtag_status: s.hashtag_status,
+        description_status: s.description_status,
+        content_review_status: s.content_review_status,
+        verification_status: s.verification_status,
+      })));
+      
+      // Check how many are not removed
+      const notRemoved = basicTest.data.filter((s: any) => !s.user_removed);
+      console.log('[Submissions Public API] Submissions not removed:', notRemoved.length);
+    } else {
+      console.warn('[Submissions Public API] No submissions found for contest:', {
+        contestId,
+        inputId: id,
+        isUUID,
+      });
+    }
     
     // Step 2: Test with all main columns (using direct columns from contest_submissions)
     console.log('[Submissions Public API] Step 2: Testing with all main columns...');
@@ -212,8 +254,7 @@ export async function GET(
         id,
         display_name,
         email,
-        avatar_url,
-        is_verified
+        avatar_url
       )`;
     
     // Always try to include contest_submission_categories - needed for filtering
@@ -250,7 +291,8 @@ export async function GET(
     let finalQuery = supabaseAdmin
       .from('contest_submissions')
       .select(finalSelect)
-      .eq('contest_id', contestId); // CRITICAL: Filter by contest_id
+      .eq('contest_id', contestId) // CRITICAL: Filter by contest_id
+      .eq('user_removed', false); // Exclude submissions removed by user
     
     // Filter by category if specified - use database-level filtering
     // Check BOTH direct category_id column AND junction table (like admin API does)
@@ -263,7 +305,8 @@ export async function GET(
         .from('contest_submissions')
         .select('id')
         .eq('contest_id', contestId)
-        .eq('category_id', categoryId);
+        .eq('category_id', categoryId)
+        .eq('user_removed', false);
       
       // 2. Get all submission IDs from junction table for this category
       const { data: junctionSubmissions } = await supabaseAdmin
@@ -283,6 +326,7 @@ export async function GET(
           .from('contest_submissions')
           .select('id')
           .eq('contest_id', contestId)
+          .eq('user_removed', false)
           .in('id', junctionIds);
         
         const validJunctionIds = junctionSubmissionsWithContest?.map((s: any) => s.id) || [];
@@ -316,7 +360,8 @@ export async function GET(
       const { count } = await supabaseAdmin
         .from('contest_submissions')
         .select('id', { count: 'exact', head: true })
-        .eq('contest_id', contestId);
+        .eq('contest_id', contestId)
+        .eq('user_removed', false);
       totalCountBeforePagination = count || 0;
     }
     
@@ -397,6 +442,7 @@ export async function GET(
           user_id
         `)
         .eq('contest_id', contestId)
+        .eq('user_removed', false)
         .order('created_at', { ascending: false })
         .limit(limit * 2);
       
@@ -432,7 +478,7 @@ export async function GET(
       if (userIds.length > 0) {
         const { data: profilesData } = await supabaseAdmin
           .from('profiles')
-          .select('id, display_name, email, avatar_url, is_verified')
+          .select('id, display_name, email, avatar_url')
           .in('id', userIds);
         
         // Attach profiles to submissions
@@ -477,29 +523,72 @@ export async function GET(
       });
     }
 
+    // Log all submissions before filtering for debugging
+    console.log('[Submissions Public API] Submissions before filtering:', {
+      count: sortedSubmissions?.length || 0,
+      submissions: (sortedSubmissions || []).map((s: any) => ({
+        id: s.id,
+        contest_id: s.contest_id,
+        hashtag_status: s.hashtag_status,
+        description_status: s.description_status,
+        content_review_status: s.content_review_status,
+        verification_status: s.verification_status,
+        mp4_ownership_status: s.mp4_ownership_status,
+      })),
+    });
+
     // Filter out submissions with failed checks (client-side filtering for better control)
     // Also filter by category if specified
+    // Show all submissions except those explicitly rejected/failed
     let filteredSubmissions = (sortedSubmissions || []).filter((submission: any) => {
-      // Exclude if hashtag check failed
+      // Exclude if hashtag check explicitly failed (but allow pending_review, pass, approved_manual)
       if (submission.hashtag_status === 'fail') {
+        console.log('[Submissions Public API] Filtering out submission (hashtag fail):', {
+          submissionId: submission.id,
+          hashtag_status: submission.hashtag_status,
+        });
         return false;
       }
       
-      // Exclude if description check failed
+      // Exclude if description check explicitly failed (but allow pending_review, pass, approved_manual)
       if (submission.description_status === 'fail') {
+        console.log('[Submissions Public API] Filtering out submission (description fail):', {
+          submissionId: submission.id,
+          description_status: submission.description_status,
+        });
         return false;
       }
       
-      // Exclude if content review rejected
+      // Exclude if content review explicitly rejected (but allow pending, approved)
       if (submission.content_review_status === 'rejected') {
+        console.log('[Submissions Public API] Filtering out submission (content review rejected):', {
+          submissionId: submission.id,
+          content_review_status: submission.content_review_status,
+        });
         return false;
       }
       
-      // Exclude if ownership has failed (check both fields)
+      // Exclude if ownership has explicitly failed (check both fields)
+      // But allow pending, verified, contested states
       const ownershipStatus = submission.mp4_ownership_status || submission.verification_status;
       if (ownershipStatus === 'failed') {
+        console.log('[Submissions Public API] Filtering out submission (ownership failed):', {
+          submissionId: submission.id,
+          mp4_ownership_status: submission.mp4_ownership_status,
+          verification_status: submission.verification_status,
+        });
         return false;
       }
+      
+      // Log submissions that pass the filter for debugging
+      console.log('[Submissions Public API] Submission passed filter:', {
+        submissionId: submission.id,
+        hashtag_status: submission.hashtag_status,
+        description_status: submission.description_status,
+        content_review_status: submission.content_review_status,
+        verification_status: submission.verification_status,
+        mp4_ownership_status: submission.mp4_ownership_status,
+      });
 
       // Category filtering is now done at database level, but keep this as a safety check
       if (categoryId) {
@@ -570,8 +659,9 @@ export async function GET(
     }
     
     // Debug logging
-    console.log('[Submissions Public API] Success:', {
+    console.log('[Submissions Public API] Final Summary:', {
       contestId,
+      inputId: id,
       categoryId: categoryId || 'all',
       totalFetched: sortedSubmissions?.length || 0,
       afterStatusFiltering: filteredSubmissions.length,
@@ -585,7 +675,21 @@ export async function GET(
         categoryName: c.contest_categories?.name,
       })) : [],
       firstSubmissionId: filteredSubmissions.length > 0 ? filteredSubmissions[0].id : null,
+      filteredOutCount: (sortedSubmissions?.length || 0) - filteredSubmissions.length,
     });
+    
+    if (filteredSubmissions.length === 0 && (sortedSubmissions?.length || 0) > 0) {
+      console.warn('[Submissions Public API] WARNING: All submissions were filtered out!', {
+        totalFound: sortedSubmissions?.length || 0,
+        filteredOut: (sortedSubmissions?.length || 0) - filteredSubmissions.length,
+      });
+    } else if (filteredSubmissions.length === 0) {
+      console.warn('[Submissions Public API] No submissions found for contest:', {
+        contestId,
+        inputId: id,
+        categoryId: categoryId || 'all',
+      });
+    }
 
     return NextResponse.json({
       data: filteredSubmissions,

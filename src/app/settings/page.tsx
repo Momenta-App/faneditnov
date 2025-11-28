@@ -9,6 +9,7 @@ import { Page, PageSection, Stack } from '../components/layout';
 import { Button } from '../components/Button';
 import { Skeleton } from '../components/Skeleton';
 import { Tabs, TabList, Tab, TabPanels, TabPanel } from '../components/Tabs';
+import { Modal } from '../components/Modal';
 import { getRoleDisplayName, getRoleDescription } from '@/lib/role-utils';
 import { ContestVideoPlayer } from '../components/ContestVideoPlayer';
 import { MP4VideoModal } from '../components/MP4VideoModal';
@@ -776,22 +777,74 @@ function getStatusConfig(status: string, type: 'processing' | 'review' | 'owners
       ),
       description: 'Another creator has also submitted this video. Ownership will be assigned once verified.',
     },
+    // Bot detection status
+    scanning_bots: {
+      color: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+      label: 'Scanning',
+      icon: (
+        <div className="relative w-3.5 h-3.5">
+          <svg className="w-3.5 h-3.5 absolute inset-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+            <circle cx="12" cy="12" r="10" className="opacity-20" />
+            <circle cx="12" cy="12" r="6" className="opacity-30" />
+            <circle cx="12" cy="12" r="2" fill="currentColor" className="opacity-70" />
+          </svg>
+          <div className="absolute inset-0 bot-scan-line" />
+          <style jsx>{`
+            .bot-scan-line {
+              width: 100%;
+              height: 100%;
+              border-radius: 50%;
+              background: conic-gradient(
+                from 0deg,
+                transparent 0deg,
+                transparent 270deg,
+                rgba(59, 130, 246, 0.9) 270deg,
+                rgba(59, 130, 246, 0.5) 300deg,
+                transparent 330deg,
+                transparent 360deg
+              );
+              animation: radar-sweep 2s linear infinite;
+              pointer-events: none;
+            }
+            
+            @keyframes radar-sweep {
+              0% {
+                transform: rotate(0deg);
+              }
+              100% {
+                transform: rotate(360deg);
+              }
+            }
+          `}</style>
+        </div>
+      ),
+      description: 'Generating AI Report for End-of-Campaign Analysis. Continuously monitoring for suspicious bot activity and view manipulation. Videos detected for view botting will be ineligible for prizes. Assessment occurs at contest end.',
+    },
   };
 
-  return configs[status] || {
+  // Normalize status to handle null/undefined
+  const normalizedStatus = status || 'pending';
+  
+  return configs[normalizedStatus] || {
     color: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
-    label: status,
-    icon: null,
-    description: 'Status unknown.',
+    label: normalizedStatus === 'pending' ? 'Pending' : normalizedStatus,
+    icon: (
+      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+    description: normalizedStatus === 'pending' ? 'Waiting to be reviewed.' : `Status: ${normalizedStatus}`,
   };
 }
 
-function StatusBadge({ status, type, label, hasFailed }: { status: string; type?: 'processing' | 'review' | 'ownership'; label?: string; hasFailed?: boolean }) {
-  const config = getStatusConfig(status, type);
+function StatusBadge({ status, type, label, hasFailed }: { status: string | null | undefined; type?: 'processing' | 'review' | 'ownership'; label?: string; hasFailed?: boolean }) {
+  // Handle null/undefined status values
+  const normalizedStatus = status || 'pending';
+  const config = getStatusConfig(normalizedStatus, type);
   const displayLabel = label || config.label;
 
   // If fetching_stats has failed, show error state instead
-  if (hasFailed && status === 'fetching_stats') {
+  if (hasFailed && normalizedStatus === 'fetching_stats') {
     return (
       <span
         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-red-500/10 text-red-500 border-red-500/20"
@@ -805,18 +858,75 @@ function StatusBadge({ status, type, label, hasFailed }: { status: string; type?
     );
   }
 
+  // Special handling for bot detection badge
+  const isBotDetection = normalizedStatus === 'scanning_bots';
+  
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${config.color}`}
-      title={config.description}
-    >
-      {config.icon}
-      {displayLabel}
-    </span>
+    <>
+      <span
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${config.color} ${isBotDetection ? 'bot-detection-active' : ''}`}
+        title={config.description}
+        data-bot-detection-badge={isBotDetection ? 'true' : undefined}
+      >
+        {config.icon}
+        {displayLabel}
+      </span>
+      {isBotDetection && (
+        <style jsx>{`
+          :global(.bot-detection-active) {
+            position: relative;
+            animation: bot-pulse-border 2s ease-in-out infinite;
+          }
+          
+          @keyframes bot-pulse-border {
+            0%, 100% {
+              border-color: rgba(59, 130, 246, 0.2);
+              box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.3);
+            }
+            50% {
+              border-color: rgba(59, 130, 246, 0.5);
+              box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+            }
+          }
+          
+          :global(.bot-detection-active::before) {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: inherit;
+            padding: 2px;
+            background: conic-gradient(
+              from 0deg,
+              transparent 0deg,
+              transparent 270deg,
+              rgba(59, 130, 246, 0.6) 270deg,
+              rgba(59, 130, 246, 0.3) 300deg,
+              transparent 330deg,
+              transparent 360deg
+            );
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            animation: radar-sweep-border 2s linear infinite;
+            pointer-events: none;
+            z-index: -1;
+          }
+          
+          @keyframes radar-sweep-border {
+            0% {
+              transform: rotate(0deg);
+            }
+            100% {
+              transform: rotate(360deg);
+            }
+          }
+        `}</style>
+      )}
+    </>
   );
 }
 
-function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onRequestReview, onDelete, canRefreshStats, sessionToken, actionError, onNavigateToOwnership }: {
+function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onRequestReview, onDelete, canRefreshStats, sessionToken, actionError, onNavigateToOwnership, contestStatus, submissionNumber }: {
   submission: any;
   onRefreshStats: (id: number) => void;
   onRetryProcessing: (id: number) => void;
@@ -826,6 +936,8 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
   sessionToken: string | null;
   actionError?: string;
   onNavigateToOwnership?: () => void;
+  contestStatus?: 'upcoming' | 'live' | 'ended' | 'draft';
+  submissionNumber?: number;
 }) {
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -841,6 +953,7 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
   const [appealError, setAppealError] = useState<string | null>(null);
   const [appealSuccess, setAppealSuccess] = useState(false);
   const [showEmbeddedVideoPopup, setShowEmbeddedVideoPopup] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const allCategories = submission.contest_submission_categories || [];
   const primaryCategory = allCategories.find((c: any) => c.is_primary)?.contest_categories;
@@ -888,10 +1001,12 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm('Remove this submission from your profile? It will be hidden from your view but will still be counted in contest statistics. The video and data will be preserved.')) {
-      return;
-    }
+  const handleDelete = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    setShowDeleteConfirm(false);
     setDeleting(true);
     try {
       await onDelete(submission.id);
@@ -996,56 +1111,127 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
 
   return (
     <Card className="border border-[var(--color-border)]">
-      <div className="space-y-4">
-        {/* Header */}
+      <div className="space-y-5">
+        {/* Header Section */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <StatusBadge 
-                status={submission.processing_status} 
-                type="processing" 
-                hasFailed={statsFetchFailed}
-              />
-              <span className="px-2 py-1 rounded text-xs font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)] uppercase">
-                {videoHot?.platform || 'unknown'}
-              </span>
-              {needsRetry && !statsFetchFailed && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-red-500/10 text-red-500 border-red-500/20">
-                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  Processing Failed
-                </span>
-              )}
-              {isStuck && !statsFetchFailed && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-orange-500/10 text-orange-500 border-orange-500/20">
-                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  Stuck - Try Retry
+            {/* Submission Title */}
+            <div className="flex items-center gap-3 mb-4">
+              <h3 className="text-lg font-bold text-[var(--color-text-primary)]">
+                Submission {submissionNumber !== undefined ? submissionNumber : ''}
+              </h3>
+              {submission.created_at && (
+                <span className="text-xs text-[var(--color-text-muted)]">
+                  Submitted {formatDate(submission.created_at)}
                 </span>
               )}
             </div>
-            {originalVideoUrl ? (
-              <a
-                href={originalVideoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-[var(--color-primary)] hover:underline break-all"
-              >
-                View Original Video →
-              </a>
-            ) : (
-              <span className="text-sm text-[var(--color-text-muted)]">
-                View Original Video →
-              </span>
-            )}
-            {submission.created_at && (
-              <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                Submitted {formatDate(submission.created_at)}
+
+            {/* Approval Requirement Notice */}
+            <div className="mb-4 p-3 rounded-lg bg-[var(--color-primary)]/5 border border-[var(--color-primary)]/20">
+              <p className="text-xs font-medium text-[var(--color-text-primary)]">
+                ⚠️ All checks below must pass for this video to be approved
               </p>
+            </div>
+
+            {/* Status Badges */}
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusBadge 
+                  status={submission.hashtag_status || 'pending_review'} 
+                  type="review"
+                  label={
+                    submission.hashtag_status === 'pass' || submission.hashtag_status === 'approved_manual' 
+                      ? 'Hashtag ✓' 
+                      : submission.hashtag_status === 'fail' 
+                        ? 'Hashtag ✗' 
+                        : 'Hashtag ⏳'
+                  }
+                />
+                <StatusBadge 
+                  status={submission.description_status || 'pending_review'} 
+                  type="review"
+                  label={
+                    submission.description_status === 'pass' || submission.description_status === 'approved_manual' 
+                      ? 'Description ✓' 
+                      : submission.description_status === 'fail' 
+                        ? 'Description ✗' 
+                        : 'Description ⏳'
+                  }
+                />
+                <StatusBadge 
+                  status={submission.mp4_ownership_status || submission.verification_status || 'pending'} 
+                  type="ownership"
+                  label={
+                    submission.mp4_ownership_status === 'verified' || submission.verification_status === 'verified'
+                      ? 'Ownership ✓'
+                      : submission.mp4_ownership_status === 'failed' || submission.verification_status === 'failed'
+                        ? 'Ownership ✗'
+                        : 'Ownership ⏳'
+                  }
+                />
+                <StatusBadge 
+                  status={submission.content_review_status || 'pending'} 
+                  type="review"
+                  label={
+                    submission.content_review_status === 'approved'
+                      ? 'Content ✓'
+                      : submission.content_review_status === 'rejected'
+                        ? 'Content ✗'
+                        : 'Content ⏳'
+                  }
+                />
+                {contestStatus !== 'ended' && (
+                  <StatusBadge 
+                    status="scanning_bots" 
+                    type="review"
+                    label="Bot Detection - Generating AI Report for End-of-Campaign Analysis"
+                  />
+                )}
+              </div>
+
+              {/* Error/Warning Badges */}
+              {(needsRetry || isStuck || statsFetchFailed) && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {needsRetry && !statsFetchFailed && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-red-500/10 text-red-500 border-red-500/20">
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      Processing Failed
+                    </span>
+                  )}
+                  {isStuck && !statsFetchFailed && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-orange-500/10 text-orange-500 border-orange-500/20">
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      Stuck - Try Retry
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Video Link */}
+            {originalVideoUrl && (
+              <div className="mt-4">
+                <a
+                  href={originalVideoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-primary)] hover:underline"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  View Original Video
+                </a>
+              </div>
             )}
           </div>
+          
+          {/* Expand/Collapse Button */}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="shrink-0 p-2 rounded-lg hover:bg-[var(--color-surface)] transition-colors"
@@ -1356,37 +1542,67 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
               
               {/* Stats Grid */}
               <div className={(videoUrl || coverImageUrl || originalVideoUrl) ? "lg:col-span-2" : "lg:col-span-3"}>
-                <h4 className="text-sm font-semibold text-[var(--color-text-primary)] mb-3">
+                <h4 className="text-sm font-semibold text-[var(--color-text-primary)] mb-4">
                   Video Statistics
                 </h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  <div className="p-3 rounded-lg bg-[var(--color-border)]/10 min-w-0">
-                    <p className="text-xs text-[var(--color-text-muted)] mb-1 truncate">Views</p>
-                    <p className="text-lg font-semibold text-[var(--color-text-primary)] truncate" title={(videoHot?.views_count ?? submission.views_count ?? 0).toLocaleString()}>
-                      {formatNumber(videoHot?.views_count ?? submission.views_count ?? 0)}
-                    </p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[var(--color-border)]/10 min-w-0">
-                    <p className="text-xs text-[var(--color-text-muted)] mb-1 truncate">Likes</p>
-                    <p className="text-lg font-semibold text-[var(--color-text-primary)] truncate" title={(videoHot?.likes_count ?? submission.likes_count ?? 0).toLocaleString()}>
-                      {formatNumber(videoHot?.likes_count ?? submission.likes_count ?? 0)}
-                    </p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[var(--color-border)]/10 min-w-0">
-                    <p className="text-xs text-[var(--color-text-muted)] mb-1 truncate">Comments</p>
-                    <p className="text-lg font-semibold text-[var(--color-text-primary)] truncate" title={(videoHot?.comments_count ?? submission.comments_count ?? 0).toLocaleString()}>
-                      {formatNumber(videoHot?.comments_count ?? submission.comments_count ?? 0)}
-                    </p>
-                  </div>
-                </div>
-                {(videoHot?.impact_score !== null && videoHot?.impact_score !== undefined) || (submission.impact_score !== null && submission.impact_score !== undefined) ? (
-                  <div className="mt-4 p-3 rounded-lg bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/20">
-                    <p className="text-xs text-[var(--color-text-muted)] mb-1">Impact Score</p>
-                    <p className="text-xl font-bold text-[var(--color-primary)]">
-                      {formatNumber(videoHot?.impact_score ?? submission.impact_score)}
-                    </p>
-                  </div>
-                ) : null}
+                {(() => {
+                  const views = videoHot?.views_count ?? submission.views_count ?? 0;
+                  const likes = videoHot?.likes_count ?? submission.likes_count ?? 0;
+                  const comments = videoHot?.comments_count ?? submission.comments_count ?? 0;
+                  
+                  // Calculate ratios and percentages
+                  const viewsToLikesRatio = views > 0 && likes > 0 ? (views / likes).toFixed(1) : null;
+                  const viewsToCommentsRatio = views > 0 && comments > 0 ? (views / comments).toFixed(1) : null;
+                  const likesPercentage = views > 0 ? ((likes / views) * 100).toFixed(2) : null;
+                  const commentsPercentage = views > 0 ? ((comments / views) * 100).toFixed(2) : null;
+                  
+                  return (
+                    <div className="space-y-4">
+                      {/* Primary Stats */}
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="p-4 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] min-w-0">
+                          <p className="text-xs font-medium text-[var(--color-text-muted)] mb-2">Views</p>
+                          <p className="text-2xl font-bold text-[var(--color-text-primary)] truncate" title={views.toLocaleString()}>
+                            {formatNumber(views)}
+                          </p>
+                        </div>
+                        <div className="p-4 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] min-w-0">
+                          <p className="text-xs font-medium text-[var(--color-text-muted)] mb-2">Likes</p>
+                          <p className="text-2xl font-bold text-[var(--color-text-primary)] truncate" title={likes.toLocaleString()}>
+                            {formatNumber(likes)}
+                          </p>
+                        </div>
+                        <div className="p-4 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] min-w-0">
+                          <p className="text-xs font-medium text-[var(--color-text-muted)] mb-2">Comments</p>
+                          <p className="text-2xl font-bold text-[var(--color-text-primary)] truncate" title={comments.toLocaleString()}>
+                            {formatNumber(comments)}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Engagement Insights */}
+                      <div>
+                        <h5 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide mb-3">Engagement Rate</h5>
+                        <div className="grid grid-cols-2 gap-3">
+                          {likesPercentage && (
+                            <div className="p-4 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)]">
+                              <p className="text-xs font-medium text-[var(--color-text-muted)] mb-1">Like Rate</p>
+                              <p className="text-2xl font-bold text-[var(--color-text-primary)]">{likesPercentage}%</p>
+                              <p className="text-xs text-[var(--color-text-muted)] mt-1">of viewers liked this video</p>
+                            </div>
+                          )}
+                          {commentsPercentage && (
+                            <div className="p-4 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)]">
+                              <p className="text-xs font-medium text-[var(--color-text-muted)] mb-1">Comment Rate</p>
+                              <p className="text-2xl font-bold text-[var(--color-text-primary)]">{commentsPercentage}%</p>
+                              <p className="text-xs text-[var(--color-text-muted)] mt-1">of viewers commented</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
             </>
@@ -1395,19 +1611,21 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
 
         {/* Action Buttons - Always Visible */}
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleRetryProcessing}
-            isLoading={retryingProcessing}
-            disabled={retryingProcessing || deleting}
-          >
-            {statsFetchFailed 
-              ? 'Retry Submission' 
-              : isStuck 
-                ? 'Retry Processing (Stuck)' 
-                : 'Retry Processing'}
-          </Button>
+          {(statsFetchFailed || submission.invalid_stats_flag === true || isStuck) && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleRetryProcessing}
+              isLoading={retryingProcessing}
+              disabled={retryingProcessing || deleting}
+            >
+              {statsFetchFailed 
+                ? 'Retry Submission' 
+                : isStuck 
+                  ? 'Retry Processing (Stuck)' 
+                  : 'Retry Processing'}
+            </Button>
+          )}
                 <Button
                   variant="danger"
                   size="sm"
@@ -1477,37 +1695,91 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                     </div>
                   </div>
 
-                  {/* Review Status Summary */}
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--color-border)]">
-                    <div>
-                      <span className="text-xs text-[var(--color-text-muted)]">Hashtags:</span>
-                      <StatusBadge 
-                        status={submission.hashtag_status} 
-                        type="review"
-                        label={submission.hashtag_status === 'pass' || submission.hashtag_status === 'approved_manual' ? 'Passed' : submission.hashtag_status === 'fail' ? 'Failed' : 'Pending'}
-                      />
-                    </div>
-                    <div>
-                      <span className="text-xs text-[var(--color-text-muted)]">Description:</span>
-                      <StatusBadge 
-                        status={submission.description_status} 
-                        type="review"
-                        label={submission.description_status === 'pass' || submission.description_status === 'approved_manual' ? 'Passed' : submission.description_status === 'fail' ? 'Failed' : 'Pending'}
-                      />
-                    </div>
-                    <div>
-                      <span className="text-xs text-[var(--color-text-muted)]">Content:</span>
-                      <StatusBadge 
-                        status={submission.content_review_status || 'pending'} 
-                        type="review"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-xs text-[var(--color-text-muted)]">Ownership:</span>
-                      <StatusBadge 
-                        status={submission.mp4_ownership_status || submission.verification_status || 'pending'} 
-                        type="ownership"
-                      />
+                  {/* Review Status Summary - Check Order: Hashtag → Description → Ownership → Content → Bot Detection */}
+                  <div className="pt-2 border-t border-[var(--color-border)]">
+                    <h5 className="text-xs font-semibold text-[var(--color-text-muted)] mb-3">Submission Checks (in order)</h5>
+                    <div className="space-y-2">
+                      {/* Check 1: Hashtag */}
+                      <div className="flex items-center justify-between p-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)]">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-[var(--color-text-muted)] w-6">1.</span>
+                          <span className="text-xs font-medium text-[var(--color-text-primary)]">Hashtag Check</span>
+                        </div>
+                        <StatusBadge 
+                          status={submission.hashtag_status || 'pending_review'} 
+                          type="review"
+                          label={
+                            submission.hashtag_status === 'pass' || submission.hashtag_status === 'approved_manual' 
+                              ? 'Passed' 
+                              : submission.hashtag_status === 'fail' 
+                                ? 'Failed' 
+                                : 'Pending Review'
+                          }
+                        />
+                      </div>
+                      
+                      {/* Check 2: Description */}
+                      <div className="flex items-center justify-between p-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)]">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-[var(--color-text-muted)] w-6">2.</span>
+                          <span className="text-xs font-medium text-[var(--color-text-primary)]">Description Check</span>
+                        </div>
+                        <StatusBadge 
+                          status={submission.description_status || 'pending_review'} 
+                          type="review"
+                          label={
+                            submission.description_status === 'pass' || submission.description_status === 'approved_manual' 
+                              ? 'Passed' 
+                              : submission.description_status === 'fail' 
+                                ? 'Failed' 
+                                : 'Pending Review'
+                          }
+                        />
+                      </div>
+                      
+                      {/* Check 3: Ownership */}
+                      <div className="flex items-center justify-between p-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)]">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-[var(--color-text-muted)] w-6">3.</span>
+                          <span className="text-xs font-medium text-[var(--color-text-primary)]">Ownership Verification</span>
+                        </div>
+                        <StatusBadge 
+                          status={submission.mp4_ownership_status || submission.verification_status || 'pending'} 
+                          type="ownership"
+                        />
+                      </div>
+                      
+                      {/* Check 4: Content */}
+                      <div className="flex items-center justify-between p-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)]">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-[var(--color-text-muted)] w-6">4.</span>
+                          <span className="text-xs font-medium text-[var(--color-text-primary)]">Content Review</span>
+                        </div>
+                        <StatusBadge 
+                          status={submission.content_review_status || 'pending'} 
+                          type="review"
+                        />
+                      </div>
+                      
+                      {/* Check 5: Bot Detection - Only show for live contests */}
+                      {contestStatus !== 'ended' && (
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)]">
+                          <div className="flex items-center gap-2 flex-1">
+                            <span className="text-xs font-medium text-[var(--color-text-muted)] w-6">5.</span>
+                            <div className="flex-1">
+                              <span className="text-xs font-medium text-[var(--color-text-primary)]">Bot Detection</span>
+                              <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                                Videos detected for view botting will be ineligible for prizes. Assessed at contest end.
+                              </p>
+                            </div>
+                          </div>
+                          <StatusBadge 
+                            status="scanning_bots" 
+                            type="review"
+                            label="Bot Detection - Generating AI Report for End-of-Campaign Analysis"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1625,7 +1897,7 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-[var(--color-text-muted)]">BrightData Processing</span>
                     <StatusBadge 
-                      status={submission.processing_status} 
+                      status={submission.processing_status || 'uploaded'} 
                       type="processing" 
                       hasFailed={statsFetchFailed}
                     />
@@ -1633,22 +1905,23 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                   <p className="text-xs text-[var(--color-text-muted)]">
                     {statsFetchFailed 
                       ? 'Stats fetching failed. Click "Retry Submission" below to try again.'
-                      : getStatusConfig(submission.processing_status, 'processing').description}
+                      : getStatusConfig(submission.processing_status || 'uploaded', 'processing').description}
                   </p>
-                  <div className="mt-2">
-                    <Button
-                      variant={statsFetchFailed ? "primary" : "secondary"}
-                      size="sm"
-                      onClick={handleRetryProcessing}
-                      isLoading={retryingProcessing}
-                      disabled={retryingProcessing}
-                    >
-                      {statsFetchFailed 
-                        ? 'Retry Submission' 
-                        : isStuck 
-                          ? 'Retry Processing (Stuck)' 
-                          : 'Retry Processing'}
-                    </Button>
+                  {(statsFetchFailed || submission.invalid_stats_flag === true || isStuck) && (
+                    <div className="mt-2">
+                      <Button
+                        variant={statsFetchFailed ? "primary" : "secondary"}
+                        size="sm"
+                        onClick={handleRetryProcessing}
+                        isLoading={retryingProcessing}
+                        disabled={retryingProcessing}
+                      >
+                        {statsFetchFailed 
+                          ? 'Retry Submission' 
+                          : isStuck 
+                            ? 'Retry Processing (Stuck)' 
+                            : 'Retry Processing'}
+                      </Button>
                     {statsFetchFailed && (
                       <p className="text-xs text-red-500 mt-1">
                         Stats fetching failed. Click "Retry Submission" to restart the submission process.
@@ -1659,7 +1932,8 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                         This submission appears to be stuck. Click retry to restart processing.
                       </p>
                     )}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
@@ -1694,32 +1968,86 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                 <div className="p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-[var(--color-text-muted)]">Hashtags</span>
-                    <StatusBadge status={submission.hashtag_status} type="review" />
+                    <StatusBadge status={submission.hashtag_status || 'pending_review'} type="review" />
                   </div>
                   <p className="text-xs text-[var(--color-text-muted)]">
-                    {getStatusConfig(submission.hashtag_status, 'review').description}
+                    {getStatusConfig(submission.hashtag_status || 'pending_review', 'review').description}
                   </p>
                 </div>
 
                 <div className="p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-[var(--color-text-muted)]">Description</span>
-                    <StatusBadge status={submission.description_status} type="review" />
+                    <StatusBadge status={submission.description_status || 'pending_review'} type="review" />
                   </div>
                   <p className="text-xs text-[var(--color-text-muted)]">
-                    {getStatusConfig(submission.description_status, 'review').description}
+                    {getStatusConfig(submission.description_status || 'pending_review', 'review').description}
                   </p>
                 </div>
 
                 <div className="p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-[var(--color-text-muted)]">Content Review</span>
-                    <StatusBadge status={submission.content_review_status} type="review" />
+                    <StatusBadge status={submission.content_review_status || 'pending'} type="review" />
                   </div>
                   <p className="text-xs text-[var(--color-text-muted)]">
-                    {getStatusConfig(submission.content_review_status, 'review').description}
+                    {getStatusConfig(submission.content_review_status || 'pending', 'review').description}
                   </p>
                 </div>
+
+                {contestStatus !== 'ended' && (
+                  <div className="p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] relative overflow-hidden">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-[var(--color-text-muted)]">Bot Detection</span>
+                      <StatusBadge status="scanning_bots" type="review" label="Bot Detection - Generating AI Report for End-of-Campaign Analysis" />
+                    </div>
+                    <p className="text-xs text-[var(--color-text-muted)] mb-2">
+                      Continuously monitoring for suspicious bot activity and view manipulation.
+                    </p>
+                    <div className="mt-2 p-2 rounded bg-red-500/10 border border-red-500/20">
+                      <p className="text-xs font-medium text-red-500 mb-1">⚠️ Important Notice</p>
+                      <p className="text-xs text-[var(--color-text-muted)]">
+                        Videos detected for view botting will be <span className="font-semibold text-red-500">ineligible for prizes</span>. This assessment occurs at the end of the contest.
+                      </p>
+                    </div>
+                    <style jsx>{`
+                      :global(.bot-detection-active) {
+                        position: relative;
+                      }
+                      
+                      :global(.bot-detection-active::before) {
+                        content: '';
+                        position: absolute;
+                        inset: -2px;
+                        border-radius: inherit;
+                        padding: 2px;
+                        background: conic-gradient(
+                          from 0deg,
+                          transparent 0deg,
+                          transparent 270deg,
+                          rgba(59, 130, 246, 0.6) 270deg,
+                          rgba(59, 130, 246, 0.3) 300deg,
+                          transparent 330deg,
+                          transparent 360deg
+                        );
+                        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+                        -webkit-mask-composite: xor;
+                        mask-composite: exclude;
+                        animation: radar-sweep-border 2s linear infinite;
+                        pointer-events: none;
+                      }
+                      
+                      @keyframes radar-sweep-border {
+                        0% {
+                          transform: rotate(0deg);
+                        }
+                        100% {
+                          transform: rotate(360deg);
+                        }
+                      }
+                    `}</style>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1825,21 +2153,23 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                 <div className="p-3 rounded-lg border border-red-500/20 bg-red-500/5">
                   <p className="text-xs text-red-500">{actionError}</p>
                 </div>
-              )}
+                    )}
               <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleRetryProcessing}
-                  isLoading={retryingProcessing}
-                  disabled={retryingProcessing || deleting}
-                >
-                  {statsFetchFailed 
-                    ? 'Retry Submission' 
-                    : isStuck 
-                      ? 'Retry Processing (Stuck)' 
-                      : 'Retry Processing'}
-                </Button>
+                {(statsFetchFailed || submission.invalid_stats_flag === true || isStuck) && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleRetryProcessing}
+                    isLoading={retryingProcessing}
+                    disabled={retryingProcessing || deleting}
+                  >
+                    {statsFetchFailed 
+                      ? 'Retry Submission' 
+                      : isStuck 
+                        ? 'Retry Processing (Stuck)' 
+                        : 'Retry Processing'}
+                  </Button>
+                )}
                 {canRefreshStats(submission) && !statsFetchFailed && (
                   <Button
                     variant="secondary"
@@ -1886,6 +2216,37 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
           </div>
         )}
       </div>
+      
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        title="Remove from Profile"
+      >
+        <div className="space-y-4">
+          <p className="text-[var(--color-text-primary)]">
+            Remove this submission from your profile? It will be hidden from your view but will still be counted in contest statistics. The video and data will be preserved.
+          </p>
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowDeleteConfirm(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={confirmDelete}
+              disabled={deleting}
+              isLoading={deleting}
+            >
+              {deleting ? 'Removing...' : 'Remove from Profile'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </Card>
   );
 }
@@ -1915,6 +2276,20 @@ function ContestsSection({ onNavigateToOwnership }: { onNavigateToOwnership?: ()
       return acc;
     }, {} as Record<string, { contest: any; submissions: any[] }>);
   }, [submissions]);
+
+  // Split contests into live and ended
+  const { liveContests, endedContests } = useMemo(() => {
+    const contestsArray = Object.entries(groupedByContest) as [string, { contest: any; submissions: any[] }][];
+    const live = contestsArray.filter(([_, group]) => {
+      const status = group.contest?.status || 'live';
+      return status === 'live' || status === 'upcoming';
+    });
+    const ended = contestsArray.filter(([_, group]) => {
+      const status = group.contest?.status || 'live';
+      return status === 'ended';
+    });
+    return { liveContests: live, endedContests: ended };
+  }, [groupedByContest]);
 
   const fetchSubmissions = useCallback(async (silent = false) => {
     if (!sessionToken) {
@@ -2187,23 +2562,13 @@ function ContestsSection({ onNavigateToOwnership }: { onNavigateToOwnership?: ()
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-[var(--color-text-primary)]">
-            My Contest Submissions
-          </h2>
-          <p className="text-sm text-[var(--color-text-muted)]">
-            View and manage all your contest submissions. Expand each contest to see your submissions and their review status.
-          </p>
-        </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => fetchSubmissions()}
-          isLoading={loading}
-        >
-          Refresh
-        </Button>
+      <div>
+        <h2 className="text-xl font-bold text-[var(--color-text-primary)]">
+          My Contest Submissions
+        </h2>
+        <p className="text-sm text-[var(--color-text-muted)]">
+          View and manage all your contest submissions. Expand each contest to see your submissions and their review status.
+        </p>
       </div>
 
       {error && (
@@ -2248,56 +2613,149 @@ function ContestsSection({ onNavigateToOwnership }: { onNavigateToOwnership?: ()
         </Card>
       )}
 
-      <div className="space-y-4">
-        {(Object.entries(groupedByContest) as [string, { contest: any; submissions: any[] }][]).map(([contestId, group]) => {
-          const { contest, submissions: contestSubmissions } = group;
-          const isExpanded = expandedContests.has(contestId);
-          
-          return (
-            <Card key={contestId} className="border border-[var(--color-border)]">
-              <button
-                onClick={() => toggleContest(contestId)}
-                className="w-full flex items-center justify-between p-4 hover:bg-[var(--color-surface)] transition-colors rounded-lg"
-              >
-                <div className="flex-1 text-left">
-                  <h3 className="text-lg font-bold text-[var(--color-text-primary)] mb-1">
-                    {contest?.title || 'Unknown Contest'}
-                  </h3>
-                  <p className="text-sm text-[var(--color-text-muted)]">
-                    {contestSubmissions.length} {contestSubmissions.length === 1 ? 'submission' : 'submissions'}
-                  </p>
-                </div>
-                <svg
-                  className={`w-5 h-5 text-[var(--color-text-muted)] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+      {/* Live Contests Section */}
+      {liveContests.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Live Contests</h3>
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-500 border border-green-500/20">
+              {liveContests.length} {liveContests.length === 1 ? 'contest' : 'contests'}
+            </span>
+          </div>
+          {liveContests.map(([contestId, group]) => {
+            const { contest, submissions: contestSubmissions } = group;
+            const isExpanded = expandedContests.has(contestId);
+            const contestStatus = contest?.status || 'live';
+            
+            return (
+              <Card key={contestId} className="border border-[var(--color-border)]">
+                <button
+                  onClick={() => toggleContest(contestId)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-[var(--color-surface)] transition-colors rounded-lg"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {isExpanded && (
-                <div className="px-4 pb-4 space-y-4 border-t border-[var(--color-border)] pt-4">
-                  {contestSubmissions.map((submission) => (
-                    <SubmissionCard
-                      key={submission.id}
-                      submission={submission}
-                      onRefreshStats={handleRefreshStats}
-                      onRetryProcessing={handleRetryProcessing}
-                      onRequestReview={handleRequestReview}
-                      onDelete={handleDelete}
-                      canRefreshStats={canRefreshStats}
-                      sessionToken={sessionToken}
-                      actionError={actionErrors[submission.id]}
-                      onNavigateToOwnership={onNavigateToOwnership}
-                    />
-                  ))}
-                </div>
-              )}
-            </Card>
-          );
-        })}
-      </div>
+                  <div className="flex-1 text-left">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-lg font-bold text-[var(--color-text-primary)]">
+                        {contest?.title || 'Unknown Contest'}
+                      </h3>
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${
+                          contestStatus === 'live'
+                            ? 'bg-green-500/20 text-green-500 border-green-500/30'
+                            : contestStatus === 'upcoming'
+                            ? 'bg-blue-500/20 text-blue-500 border-blue-500/30'
+                            : 'bg-gray-500/20 text-gray-500 border-gray-500/30'
+                        }`}
+                      >
+                        {contestStatus === 'ended' ? 'ENDED' : contestStatus.toUpperCase()}
+                      </span>
+                    </div>
+                    <p className="text-sm text-[var(--color-text-muted)]">
+                      {contestSubmissions.length} {contestSubmissions.length === 1 ? 'submission' : 'submissions'}
+                    </p>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-[var(--color-text-muted)] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {isExpanded && (
+                  <div className="px-4 pb-4 space-y-4 border-t border-[var(--color-border)] pt-4">
+                    {contestSubmissions.map((submission, index) => (
+                      <SubmissionCard
+                        key={submission.id}
+                        submission={submission}
+                        onRefreshStats={handleRefreshStats}
+                        onRetryProcessing={handleRetryProcessing}
+                        onRequestReview={handleRequestReview}
+                        onDelete={handleDelete}
+                        canRefreshStats={canRefreshStats}
+                        sessionToken={sessionToken}
+                        actionError={actionErrors[submission.id]}
+                        onNavigateToOwnership={onNavigateToOwnership}
+                        contestStatus={contestStatus}
+                        submissionNumber={index + 1}
+                      />
+                    ))}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Ended Contests Section */}
+      {endedContests.length > 0 && (
+        <div className="space-y-4 mt-8">
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">Ended Contests</h3>
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-500/10 text-gray-500 border border-gray-500/20">
+              {endedContests.length} {endedContests.length === 1 ? 'contest' : 'contests'}
+            </span>
+          </div>
+          {endedContests.map(([contestId, group]) => {
+            const { contest, submissions: contestSubmissions } = group;
+            const isExpanded = expandedContests.has(contestId);
+            const contestStatus = contest?.status || 'ended';
+            
+            return (
+              <Card key={contestId} className="border border-[var(--color-border)]">
+                <button
+                  onClick={() => toggleContest(contestId)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-[var(--color-surface)] transition-colors rounded-lg"
+                >
+                  <div className="flex-1 text-left">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-lg font-bold text-[var(--color-text-primary)]">
+                        {contest?.title || 'Unknown Contest'}
+                      </h3>
+                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium border bg-gray-500/20 text-gray-500 border-gray-500/30">
+                        ENDED
+                      </span>
+                    </div>
+                    <p className="text-sm text-[var(--color-text-muted)]">
+                      {contestSubmissions.length} {contestSubmissions.length === 1 ? 'submission' : 'submissions'}
+                    </p>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-[var(--color-text-muted)] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {isExpanded && (
+                  <div className="px-4 pb-4 space-y-4 border-t border-[var(--color-border)] pt-4">
+                    {contestSubmissions.map((submission, index) => (
+                      <SubmissionCard
+                        key={submission.id}
+                        submission={submission}
+                        onRefreshStats={handleRefreshStats}
+                        onRetryProcessing={handleRetryProcessing}
+                        onRequestReview={handleRequestReview}
+                        onDelete={handleDelete}
+                        canRefreshStats={canRefreshStats}
+                        sessionToken={sessionToken}
+                        actionError={actionErrors[submission.id]}
+                        onNavigateToOwnership={onNavigateToOwnership}
+                        contestStatus={contestStatus}
+                        submissionNumber={index + 1}
+                      />
+                    ))}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

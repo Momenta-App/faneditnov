@@ -32,7 +32,7 @@ export function Button({
     primary: 'text-white hover:opacity-90 active:opacity-80 shadow-md hover:shadow-lg border-2',
     secondary: 'bg-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-border-hover)] active:bg-[var(--color-border-hover)]',
     ghost: 'bg-transparent text-[var(--color-text-primary)] hover:bg-[var(--color-border)]/50 active:bg-[var(--color-border)]',
-    danger: 'bg-[var(--color-danger)] text-white hover:bg-[var(--color-danger)]/90 active:bg-[var(--color-danger)]/80',
+    danger: 'bg-[var(--color-danger)] text-white hover:bg-[var(--color-danger)]/90 active:bg-[var(--color-danger)]/80 shadow-md hover:shadow-lg',
   };
   
   // Sizes with generous padding on all sides - text should never touch edges
@@ -44,12 +44,16 @@ export function Button({
     lg: 'px-10 py-5 text-sm min-h-[48px] min-w-[140px]', // 40px horizontal, 20px vertical, min 140px wide
   };
 
-  // Get inline styles for primary variant to ensure blue is visible
+  // Get inline styles for primary and danger variants to ensure colors are visible
   const getStyles = () => {
     const baseStyles = variant === 'primary' 
       ? {
           backgroundColor: 'var(--color-primary)',
           borderColor: 'var(--color-primary)',
+        }
+      : variant === 'danger'
+      ? {
+          backgroundColor: 'var(--color-danger)',
         }
       : {};
     

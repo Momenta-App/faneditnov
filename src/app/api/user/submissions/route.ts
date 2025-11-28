@@ -18,6 +18,39 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const contestIdFilter = searchParams.get('contest_id');
 
+    // Resolve contest ID if a slug was provided
+    let resolvedContestId: string | null = null;
+    if (contestIdFilter) {
+      // Check if it's a UUID or a slug
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(contestIdFilter);
+      
+      if (isUUID) {
+        resolvedContestId = contestIdFilter;
+        console.log('[User Submissions API] Using UUID as contest_id:', resolvedContestId);
+      } else {
+        // Look up contest by slug
+        console.log('[User Submissions API] Looking up contest by slug:', contestIdFilter);
+        const { data: contest, error: contestError } = await supabaseAdmin
+          .from('contests')
+          .select('id')
+          .eq('slug', contestIdFilter)
+          .single();
+        
+        if (contestError || !contest) {
+          console.error('[User Submissions API] Contest not found for slug:', contestIdFilter, contestError);
+          return NextResponse.json({
+            data: [],
+          });
+        }
+        
+        resolvedContestId = contest.id;
+        console.log('[User Submissions API] Found contest:', {
+          slug: contestIdFilter,
+          id: resolvedContestId,
+        });
+      }
+    }
+
     let query = supabaseAdmin
       .from('contest_submissions')
       .select(`
@@ -52,9 +85,9 @@ export async function GET(request: NextRequest) {
       .eq('user_removed', false) // Exclude submissions removed by user
       .order('created_at', { ascending: false });
 
-    if (contestIdFilter) {
-      query = query.eq('contest_id', contestIdFilter);
-      console.log('[User Submissions API] Filtering by contest_id:', contestIdFilter);
+    if (resolvedContestId) {
+      query = query.eq('contest_id', resolvedContestId);
+      console.log('[User Submissions API] Filtering by contest_id:', resolvedContestId);
     } else {
       console.log('[User Submissions API] No contest_id filter - returning all user submissions');
     }
@@ -64,11 +97,11 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
 
     // Safety check: verify all submissions belong to the filtered contest
-    if (contestIdFilter) {
-      const wrongContestSubmissions = (submissions || []).filter((s: any) => s.contest_id !== contestIdFilter);
+    if (resolvedContestId) {
+      const wrongContestSubmissions = (submissions || []).filter((s: any) => s.contest_id !== resolvedContestId);
       if (wrongContestSubmissions.length > 0) {
         console.error('[User Submissions API] WARNING: Found submissions from wrong contest!', {
-          expectedContestId: contestIdFilter,
+          expectedContestId: resolvedContestId,
           wrongSubmissions: wrongContestSubmissions.map((s: any) => ({ id: s.id, contest_id: s.contest_id })),
         });
       }
@@ -76,7 +109,7 @@ export async function GET(request: NextRequest) {
 
     console.log('[User Submissions API] Returning submissions:', {
       count: submissions?.length || 0,
-      contestIdFilter: contestIdFilter || 'all',
+      contestIdFilter: resolvedContestId || contestIdFilter || 'all',
     });
 
     return NextResponse.json({

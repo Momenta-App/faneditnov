@@ -181,22 +181,62 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
       const data = await response.json();
       
       // Safety filter: ensure all submissions belong to this contest
-      const filteredData = (data.data || []).filter((submission: any) => {
-        if (submission.contest_id && submission.contest_id !== contestId) {
-          console.warn('[ContestDetailPage] Filtering out user submission from wrong contest:', {
-            submissionId: submission.id,
-            submissionContestId: submission.contest_id,
-            currentContestId: contestId,
-          });
-          return false;
-        }
-        return true;
+      // Use contest.id (UUID) if available for filtering
+      // If contest not loaded yet, trust the API (it already filters by contest_id)
+      const rawData = data.data || [];
+      let filteredData = rawData;
+      
+      console.log('[ContestDetailPage] User submissions raw data:', {
+        count: rawData.length,
+        contestId: contestId,
+        contestLoaded: !!contest,
+        contestIdFromContest: contest?.id,
+        submissions: rawData.map((s: any) => ({
+          id: s.id,
+          contest_id: s.contest_id,
+          user_id: s.user_id,
+        })),
       });
       
+      if (contest?.id) {
+        // We have the contest UUID, so we can filter properly
+        filteredData = rawData.filter((submission: any) => {
+          if (submission.contest_id && submission.contest_id !== contest.id) {
+            console.warn('[ContestDetailPage] Filtering out user submission from wrong contest:', {
+              submissionId: submission.id,
+              submissionContestId: submission.contest_id,
+              expectedContestId: contest.id,
+              currentContestId: contestId,
+            });
+            return false;
+          }
+          return true;
+        });
+        console.log('[ContestDetailPage] After UUID filter:', {
+          before: rawData.length,
+          after: filteredData.length,
+        });
+      } else {
+        // Contest not loaded yet - trust the API filtering
+        // The API already filters by contest_id, so submissions should be correct
+        console.log('[ContestDetailPage] Contest not loaded yet for user submissions, trusting API filtering. Raw data:', {
+          count: rawData.length,
+          firstSubmission: rawData[0] ? {
+            id: rawData[0].id,
+            contest_id: rawData[0].contest_id,
+          } : null,
+        });
+      }
+      
       console.log('[ContestDetailPage] User submissions fetched:', {
-        count: data.data?.length || 0,
+        rawCount: rawData.length,
         afterContestFilter: filteredData.length,
         contestId,
+        contestLoaded: !!contest,
+        finalSubmissions: filteredData.map((s: any) => ({
+          id: s.id,
+          contest_id: s.contest_id,
+        })),
       });
       setUserSubmissions(filteredData);
       // Clear error if we successfully got an empty array (no submissions is valid)
@@ -224,6 +264,56 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
       setUserSubmissions([]);
     }
   }, [user, contestId, fetchUserSubmissions]);
+
+  // Re-filter user submissions when contest loads (to use correct UUID for filtering)
+  useEffect(() => {
+    if (contest?.id) {
+      setUserSubmissions(prev => {
+        console.log('[ContestDetailPage] Re-filter useEffect triggered:', {
+          contestId: contest.id,
+          currentSubmissionsCount: prev.length,
+          submissions: prev.map((s: any) => ({
+            id: s.id,
+            contest_id: s.contest_id,
+          })),
+        });
+        
+        if (prev.length === 0) {
+          console.log('[ContestDetailPage] No submissions to re-filter');
+          return prev;
+        }
+        
+        const filtered = prev.filter((submission: any) => {
+          if (submission.contest_id && submission.contest_id !== contest.id) {
+            console.warn('[ContestDetailPage] Re-filtering: Removing user submission from wrong contest:', {
+              submissionId: submission.id,
+              submissionContestId: submission.contest_id,
+              expectedContestId: contest.id,
+            });
+            return false;
+          }
+          console.log('[ContestDetailPage] Re-filtering: Keeping submission:', {
+            submissionId: submission.id,
+            submissionContestId: submission.contest_id,
+            expectedContestId: contest.id,
+            match: submission.contest_id === contest.id,
+          });
+          return true;
+        });
+        
+        console.log('[ContestDetailPage] Re-filter result:', {
+          before: prev.length,
+          after: filtered.length,
+          filteredOut: prev.length - filtered.length,
+        });
+        
+        if (filtered.length !== prev.length) {
+          return filtered;
+        }
+        return prev;
+      });
+    }
+  }, [contest?.id]);
 
   // Track private contest access when page loads
   useEffect(() => {
@@ -320,27 +410,40 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
       }
       
       // CRITICAL: Safety filter - ensure all submissions belong to this contest
+      // Use contest.id (UUID) if available for filtering
+      // If contest not loaded yet, trust the API (it already filters by contest_id)
       const rawData = data.data || [];
-      const filteredData = rawData.filter((submission: any) => {
-        // If contest_id exists and doesn't match, filter it out
-        if (submission.contest_id) {
-          if (submission.contest_id !== contestId) {
-            console.warn('[ContestDetailPage] Filtering out submission from wrong contest:', {
+      let filteredData = rawData;
+      
+      if (contest?.id) {
+        // We have the contest UUID, so we can filter properly
+        filteredData = rawData.filter((submission: any) => {
+          // If contest_id exists and doesn't match, filter it out
+          if (submission.contest_id) {
+            if (submission.contest_id !== contest.id) {
+              console.warn('[ContestDetailPage] Filtering out submission from wrong contest:', {
+                submissionId: submission.id,
+                submissionContestId: submission.contest_id,
+                expectedContestId: contest.id,
+                currentContestId: contestId,
+              });
+              return false;
+            }
+          } else {
+            // If contest_id is missing, log a warning but include it (might be a data issue)
+            console.warn('[ContestDetailPage] Submission missing contest_id:', {
               submissionId: submission.id,
-              submissionContestId: submission.contest_id,
+              expectedContestId: contest.id,
               currentContestId: contestId,
             });
-            return false;
           }
-        } else {
-          // If contest_id is missing, log a warning but include it (might be a data issue)
-          console.warn('[ContestDetailPage] Submission missing contest_id:', {
-            submissionId: submission.id,
-            currentContestId: contestId,
-          });
-        }
-        return true;
-      });
+          return true;
+        });
+      } else {
+        // Contest not loaded yet - trust the API filtering
+        // The API already filters by contest_id, so submissions should be correct
+        console.log('[ContestDetailPage] Contest not loaded yet, trusting API filtering');
+      }
       
       // Additional check: verify we're not showing submissions from other contests
       const wrongContestCount = rawData.length - filteredData.length;
@@ -535,12 +638,16 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
   // Filter submissions by category and ensure they belong to current contest
   const filterSubmissionsByCategory = (submissions: any[], categoryId: string | null) => {
     // First, filter by contest_id to ensure we only show submissions for this contest
+    // Use contest.id (UUID) if available, otherwise trust the submissions (API already filtered)
+    const expectedContestId = contest?.id || contestId;
     let filtered = submissions.filter((submission) => {
       // Safety check: ensure submission belongs to current contest
-      if (submission.contest_id && submission.contest_id !== contestId) {
+      // Only filter if we have the contest UUID, otherwise trust the API filtering
+      if (contest?.id && submission.contest_id && submission.contest_id !== contest.id) {
         console.warn('[ContestDetailPage] Filtering out submission from wrong contest:', {
           submissionId: submission.id,
           submissionContestId: submission.contest_id,
+          expectedContestId: contest.id,
           currentContestId: contestId,
         });
         return false;

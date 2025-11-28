@@ -24,10 +24,13 @@ export async function POST(
   let uploadedAsset: { assetId: string; storagePath: string; bucket: string } | null = null;
   try {
     const user = await requireAuth(request);
-    const { id: contestId } = await params;
+    const { id } = await params;
 
-    // Get contest with categories (including general categories)
-    const { data: contest, error: contestError } = await supabaseAdmin
+    // Check if id is a valid UUID (format: 8-4-4-4-12 hex characters)
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    
+    // Build query - support both UUID and slug lookups
+    let query = supabaseAdmin
       .from('contests')
       .select(`
         *,
@@ -37,16 +40,39 @@ export async function POST(
           is_general,
           ranking_method
         )
-      `)
-      .eq('id', contestId)
-      .single();
+      `);
 
-    if (contestError || !contest) {
+    // Query by UUID or slug
+    if (isUUID) {
+      query = query.eq('id', id);
+    } else {
+      query = query.eq('slug', id);
+    }
+
+    const { data: contest, error: contestError } = await query.single();
+
+    if (contestError) {
+      if (contestError.code === 'PGRST116') {
+        return NextResponse.json(
+          { error: 'Contest not found' },
+          { status: 404 }
+        );
+      }
       return NextResponse.json(
         { error: 'Contest not found' },
         { status: 404 }
       );
     }
+
+    if (!contest) {
+      return NextResponse.json(
+        { error: 'Contest not found' },
+        { status: 404 }
+      );
+    }
+
+    // Get the actual contest ID (in case we looked up by slug)
+    const contestId = contest.id;
 
     // Check if contest is live
     if (contest.status !== 'live') {
@@ -60,36 +86,54 @@ export async function POST(
     const formData = await request.formData();
     const videoUrl = formData.get('video_url') as string;
     const mp4File = formData.get('mp4_file') as File | null;
-    const categoryId = formData.get('category_id') as string | null;
+    
+    // Get all category_ids (can be multiple)
+    const categoryIds = formData.getAll('category_ids') as string[];
+    const categoryId = formData.get('category_id') as string | null; // Legacy support
 
-    // Validate category if contest has specific (non-general) categories
+    // Validate categories
     const categories = contest.contest_categories || [];
     const specificCategories = categories.filter((cat: any) => cat.is_general === false);
     const generalCategories = categories.filter((cat: any) => cat.is_general === true);
-    let validatedCategoryId: string | null = null;
-
-    if (specificCategories.length > 0) {
-      // Contest has specific categories - category_id is required
-      if (!categoryId) {
-        return NextResponse.json(
-          { error: 'Category selection is required for this contest' },
-          { status: 400 }
-        );
-      }
-
-      // Validate category belongs to this contest and is not general
-      const categoryExists = specificCategories.some((cat: any) => cat.id === categoryId);
-      if (!categoryExists) {
-        return NextResponse.json(
-          { error: 'Invalid category selected' },
-          { status: 400 }
-        );
-      }
-
-      validatedCategoryId = categoryId;
+    
+    // Use categoryIds if provided, otherwise fall back to categoryId for legacy support
+    const selectedCategoryIds = categoryIds.length > 0 ? categoryIds : (categoryId ? [categoryId] : []);
+    
+    // Validate: category selection is only required if no general categories exist
+    if (specificCategories.length > 0 && generalCategories.length === 0 && selectedCategoryIds.length === 0) {
+      return NextResponse.json(
+        { error: 'Category selection is required for this contest' },
+        { status: 400 }
+      );
     }
-    // If no specific categories, categoryId remains null (submission goes to contest directly)
-    // General categories will be auto-assigned via trigger
+
+    // Validate all selected categories belong to this contest and are not general
+    const invalidCategories = selectedCategoryIds.filter(
+      (id) => !specificCategories.some((cat: any) => cat.id === id)
+    );
+    if (invalidCategories.length > 0) {
+      return NextResponse.json(
+        { error: 'Invalid category selected' },
+        { status: 400 }
+      );
+    }
+
+    // Validate single category if force_single_category is enabled
+    if (contest.force_single_category && selectedCategoryIds.length > 1) {
+      return NextResponse.json(
+        { error: 'You can only select one category for this contest' },
+        { status: 400 }
+      );
+    }
+
+    // Primary category is the first selected category (or null if none selected)
+    const validatedCategoryId = selectedCategoryIds.length > 0 ? selectedCategoryIds[0] : null;
+    
+    // All categories to associate with submission: selected + general
+    const allCategoryIds = [
+      ...selectedCategoryIds,
+      ...generalCategories.map((cat: any) => cat.id)
+    ];
 
     if (!videoUrl) {
       return NextResponse.json(
@@ -156,31 +200,85 @@ export async function POST(
     const matchedAccountId = ownership.account?.id ?? null;
     const isOwnershipVerified = ownership.status === 'verified';
 
-    // Check for duplicate submission (within same category if categories exist)
-    const duplicateQuery = supabaseAdmin
+    // Check for duplicate submission
+    // Check if this video URL has already been submitted to this contest by this user
+    // We check across all categories using both the junction table and legacy category_id field
+    const { data: existingSubmissions } = await supabaseAdmin
       .from('contest_submissions')
-      .select('id')
+      .select(`
+        id,
+        category_id,
+        contest_submission_categories (
+          category_id
+        )
+      `)
       .eq('contest_id', contestId)
       .eq('user_id', user.id)
       .eq('original_video_url', standardizedUrl);
 
-    // Include category_id in duplicate check if categories exist
-    if (validatedCategoryId) {
-      duplicateQuery.eq('category_id', validatedCategoryId);
-    } else {
-      duplicateQuery.is('category_id', null);
-    }
-
-    const { data: existingSubmission } = await duplicateQuery.maybeSingle();
-
-    if (existingSubmission) {
-      const errorMsg = validatedCategoryId
-        ? 'You have already submitted this video to this category'
-        : 'You have already submitted this video to this contest';
-      return NextResponse.json(
-        { error: errorMsg },
-        { status: 400 }
-      );
+    if (existingSubmissions && existingSubmissions.length > 0) {
+      // Collect all category IDs from existing submissions (both junction table and legacy category_id)
+      const existingCategoryIds = new Set<string>();
+      existingSubmissions.forEach((sub: any) => {
+        // Add category_id if it exists (legacy support)
+        if (sub.category_id) {
+          existingCategoryIds.add(sub.category_id);
+        }
+        // Add categories from junction table
+        if (sub.contest_submission_categories) {
+          sub.contest_submission_categories.forEach((csc: any) => {
+            if (csc.category_id) {
+              existingCategoryIds.add(csc.category_id);
+            }
+          });
+        }
+      });
+      
+      // Check if any of the selected categories overlap with existing submissions
+      const overlappingCategories = selectedCategoryIds.filter((id) => existingCategoryIds.has(id));
+      
+      if (overlappingCategories.length > 0) {
+        return NextResponse.json(
+          { error: 'You have already submitted this video to one or more of the selected categories' },
+          { status: 400 }
+        );
+      }
+      
+      // If no specific categories selected but general categories exist, check if submission exists
+      // This prevents duplicate submissions when only general categories are available
+      if (selectedCategoryIds.length === 0 && generalCategories.length > 0) {
+        // Check if there's already a submission with only general categories (or no specific categories)
+        const hasSubmissionWithOnlyGeneralCategories = existingSubmissions.some((sub: any) => {
+          const subCategoryIds = new Set<string>();
+          if (sub.category_id) {
+            subCategoryIds.add(sub.category_id);
+          }
+          if (sub.contest_submission_categories) {
+            sub.contest_submission_categories.forEach((csc: any) => {
+              if (csc.category_id) {
+                subCategoryIds.add(csc.category_id);
+              }
+            });
+          }
+          
+          // If submission has no categories or only general categories, it's a duplicate
+          if (subCategoryIds.size === 0) {
+            return true; // No categories = general only
+          }
+          
+          // Check if all categories are general
+          return Array.from(subCategoryIds).every((id: string) => 
+            generalCategories.some((gc: any) => gc.id === id)
+          );
+        });
+        
+        if (hasSubmissionWithOnlyGeneralCategories) {
+          return NextResponse.json(
+            { error: 'You have already submitted this video to this contest' },
+            { status: 400 }
+          );
+        }
+      }
     }
 
     // Check if same video URL exists in another contest for same movie using database function
@@ -293,7 +391,7 @@ export async function POST(
       .from('contest_submissions')
       .insert({
         contest_id: contestId,
-        category_id: validatedCategoryId,
+        category_id: validatedCategoryId, // Primary category for backward compatibility
         user_id: user.id,
         social_account_id: matchedAccountId,
         original_video_url: standardizedUrl,
@@ -323,6 +421,26 @@ export async function POST(
         await supabaseAdmin.from('raw_video_assets').delete().eq('id', uploadedAsset.assetId);
       }
       throw submissionError || new Error('Failed to create submission');
+    }
+
+    // Create entries in contest_submission_categories for all categories
+    // User-selected categories have is_primary=true, general categories have is_primary=false
+    if (allCategoryIds.length > 0) {
+      const submissionCategoryEntries = allCategoryIds.map((categoryId) => ({
+        submission_id: submission.id,
+        category_id: categoryId,
+        is_primary: selectedCategoryIds.includes(categoryId), // true for user-selected, false for general
+      }));
+
+      const { error: categoryLinkError } = await supabaseAdmin
+        .from('contest_submission_categories')
+        .insert(submissionCategoryEntries);
+
+      if (categoryLinkError) {
+        console.error('[Submission Creation] Failed to link categories:', categoryLinkError);
+        // Don't fail the submission if category linking fails - it's not critical
+        // The primary category_id is still set on the submission
+      }
     }
 
     // Create submission_metadata record for main ingestion pipeline

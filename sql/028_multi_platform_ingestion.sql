@@ -33,6 +33,8 @@ DECLARE
   -- Hashtag validation variables
   v_has_edit_hashtag BOOLEAN := FALSE;
   v_hashtag_check TEXT;
+  -- is_edit flag for filtering
+  v_is_edit BOOLEAN := FALSE;
   -- Daily aggregation tracking variables
   v_old_likes INTEGER := 0;
   v_old_comments INTEGER := 0;
@@ -43,6 +45,7 @@ DECLARE
   v_new_comments INTEGER;
   v_new_shares INTEGER;
   v_new_saves INTEGER;
+  v_cover_url TEXT;
   v_new_impact NUMERIC;
   -- Platform detection
   v_platform TEXT;
@@ -330,7 +333,18 @@ BEGIN
         END IF;
       END IF;
       
+      -- =======================================================================
+      -- CALCULATE IS_EDIT FLAG
+      -- =======================================================================
+      -- is_edit = TRUE if:
+      --   - Has edit hashtag OR
+      --   - Bypassed (p_skip_validation = TRUE)
+      -- is_edit = FALSE otherwise
+      -- Note: Contest submissions are handled separately via contest webhook
+      v_is_edit := v_has_edit_hashtag OR p_skip_validation;
+      
       -- If no "edit" hashtag found, reject and skip processing (unless validation is skipped)
+      -- Regular uploads must have edit hashtag or be bypassed
       IF NOT v_has_edit_hashtag AND NOT p_skip_validation THEN
         -- Extract structured data for rejected_videos table
         DECLARE
@@ -624,7 +638,8 @@ BEGIN
               v_element->'profile'->>'unique_id',
               v_element->>'author_username',
               v_element->>'profile_username',
-              v_element->>'account_id'
+              v_element->>'account_id',
+              v_creator_id  -- Fallback to creator_id if no username found
             )
           WHEN v_platform = 'youtube' THEN
             COALESCE(
@@ -860,13 +875,31 @@ BEGIN
       -- Calculate delta
       v_delta := v_new_play_count - v_old_play_count;
 
+      -- Extract cover_url based on platform
+      v_cover_url := CASE 
+        WHEN v_platform = 'youtube' THEN
+          COALESCE(
+            v_element->>'thumbnail',
+            v_element->>'cover_url',
+            ''
+          )
+        ELSE
+          COALESCE(
+            v_element->>'preview_image',
+            v_element->>'cover_url',
+            v_element->>'thumbnail',  -- Instagram uses thumbnail field
+            v_element->'author'->>'cover_url',
+            ''
+          )
+      END;
+
       -- =======================================================================
       -- UPSERT VIDEO (HOT) - Platform-aware field extraction
       -- =======================================================================
       INSERT INTO videos_hot (
         video_id, post_id, creator_id, url, caption, description,
         created_at, views_count, likes_count, comments_count,
-        shares_count, collect_count, duration_seconds, video_url, cover_url, platform
+        shares_count, collect_count, duration_seconds, video_url, cover_url, platform, is_edit
       )
       VALUES (
         v_post_id,
@@ -938,25 +971,12 @@ BEGIN
           v_element->>'video_play_url',
           ''
         ),
-        -- Extract cover_url based on platform
-        CASE 
-          WHEN v_platform = 'youtube' THEN
-            COALESCE(
-              v_element->>'thumbnail',
-              v_element->>'cover_url',
-              ''
-            )
-          ELSE
-            COALESCE(
-              v_element->>'preview_image',
-              v_element->>'cover_url',
-              v_element->>'thumbnail',  -- Instagram uses thumbnail field
-              v_element->'author'->>'cover_url',
-              ''
-            )
-        END,
+        -- Use extracted cover_url
+        v_cover_url,
         -- Store platform
-        v_platform
+        v_platform,
+        -- Set is_edit flag (ensure it's never NULL)
+        COALESCE(v_is_edit, FALSE)
       )
       ON CONFLICT (video_id) DO UPDATE SET
         views_count = EXCLUDED.views_count,
@@ -966,8 +986,21 @@ BEGIN
         collect_count = EXCLUDED.collect_count,
         cover_url = EXCLUDED.cover_url,
         platform = EXCLUDED.platform,
+        is_edit = EXCLUDED.is_edit,
         last_seen_at = NOW(),
         updated_at = NOW();
+      
+      RAISE NOTICE 'Video % - Successfully INSERTED/UPDATED in videos_hot with is_edit = %', v_post_id, COALESCE(v_is_edit, FALSE);
+
+      -- =======================================================================
+      -- UPDATE CONTEST_SUBMISSIONS COVER_URL
+      -- Sync cover_url to contest_submissions when videos_hot is updated
+      -- =======================================================================
+      UPDATE contest_submissions
+      SET cover_url = v_cover_url,
+      updated_at = NOW()
+      WHERE video_hot_id = v_post_id
+        AND cover_url IS DISTINCT FROM v_cover_url;
 
       -- =======================================================================
       -- UPSERT COLD STORAGE DATA

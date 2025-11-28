@@ -603,7 +603,7 @@ export default function ContestReviewPage() {
                                   {submission.profiles?.display_name || submission.profiles?.email}
                                 </h3>
                                 <span className="px-2 py-1 rounded text-xs font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)] uppercase">
-                                  {submission.platform}
+                                  {submission.videos_hot?.platform || 'unknown'}
                                 </span>
                               </div>
                               <p className="text-sm text-[var(--color-text-muted)]">
@@ -629,7 +629,7 @@ export default function ContestReviewPage() {
                                 </div>
                               )}
                               <a
-                                href={submission.original_video_url}
+                                href={submission.videos_hot?.video_url || submission.videos_hot?.url || '#'}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="mt-2 text-xs text-[var(--color-primary)] hover:underline break-all block"
@@ -647,13 +647,13 @@ export default function ContestReviewPage() {
                                 <div className="p-3 rounded-lg bg-[var(--color-border)]/10">
                                   <p className="text-xs text-[var(--color-text-muted)] mb-1">Views</p>
                                   <p className="text-lg font-semibold text-[var(--color-text-primary)]">
-                                    {submission.views_count.toLocaleString()}
+                                    {(submission.videos_hot?.views_count || 0).toLocaleString()}
                                   </p>
                                 </div>
                                 <div className="p-3 rounded-lg bg-[var(--color-border)]/10">
                                   <p className="text-xs text-[var(--color-text-muted)] mb-1">Likes</p>
                                   <p className="text-lg font-semibold text-[var(--color-text-primary)]">
-                                    {submission.likes_count.toLocaleString()}
+                                    {(submission.videos_hot?.likes_count || 0).toLocaleString()}
                                   </p>
                                 </div>
                                 <div className="p-3 rounded-lg bg-[var(--color-border)]/10">

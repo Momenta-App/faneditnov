@@ -104,10 +104,10 @@ DECLARE
   v_total_views BIGINT;
   v_total_creators BIGINT;
 BEGIN
-  -- Get counts
-  SELECT COUNT(*) INTO v_total_videos FROM videos_hot;
+  -- Get counts (only edit videos for public stats)
+  SELECT COUNT(*) INTO v_total_videos FROM videos_hot WHERE is_edit = TRUE;
   SELECT COUNT(*) INTO v_total_creators FROM creators_hot;
-  SELECT COALESCE(SUM(total_views), 0) INTO v_total_views FROM videos_hot;
+  SELECT COALESCE(SUM(views_count), 0) INTO v_total_views FROM videos_hot WHERE is_edit = TRUE;
   
   -- Update cache
   UPDATE homepage_cache
@@ -173,11 +173,11 @@ BEGIN
       v.caption,
       v.description,
       v.created_at,
-      v.total_views,
-      v.like_count,
-      v.comment_count,
-      v.share_count,
-      v.save_count,
+      v.views_count as total_views,
+      v.likes_count as like_count,
+      v.comments_count as comment_count,
+      v.shares_count as share_count,
+      v.collect_count as save_count,
       v.duration_seconds,
       v.video_url,
       v.cover_url,
@@ -189,15 +189,16 @@ BEGIN
       c.verified,
       ROW_NUMBER() OVER (
         PARTITION BY v.creator_id 
-        ORDER BY v.impact_score DESC, v.total_views DESC
+        ORDER BY v.impact_score DESC, v.views_count DESC
       ) as creator_rank,
       ROW_NUMBER() OVER (
-        ORDER BY v.impact_score DESC, v.total_views DESC
+        ORDER BY v.impact_score DESC, v.views_count DESC
       ) as global_rank
     FROM videos_hot v
     JOIN creators_hot c ON v.creator_id = c.creator_id
     WHERE 
-      (v_cutoff_date IS NULL OR v.created_at >= v_cutoff_date)
+      v.is_edit = TRUE
+      AND (v_cutoff_date IS NULL OR v.created_at >= v_cutoff_date)
   ),
   deduplicated_videos AS (
     SELECT 
@@ -313,11 +314,12 @@ BEGIN
       c.verified,
       c.followers_count,
       COUNT(DISTINCT v.video_id) as video_count,
-      COALESCE(SUM(v.total_views), 0) as total_views,
-      COALESCE(SUM(v.like_count), 0) as total_likes,
+      COALESCE(SUM(v.views_count), 0) as total_views,
+      COALESCE(SUM(v.likes_count), 0) as total_likes,
       COALESCE(SUM(v.impact_score), 0) as total_impact
     FROM creators_hot c
     LEFT JOIN videos_hot v ON v.creator_id = c.creator_id
+      AND v.is_edit = TRUE
       AND (v_cutoff_date IS NULL OR v.created_at >= v_cutoff_date)
     GROUP BY c.creator_id, c.username, c.display_name, c.avatar_url, c.verified, c.followers_count
     HAVING COUNT(DISTINCT v.video_id) > 0
@@ -395,13 +397,14 @@ BEGIN
       h.hashtag,
       COUNT(DISTINCT vhf.video_id) as video_count,
       COUNT(DISTINCT v.creator_id) as creator_count,
-      COALESCE(SUM(v.total_views), 0) as total_views,
-      COALESCE(SUM(v.like_count), 0) as total_likes,
+      COALESCE(SUM(v.views_count), 0) as total_views,
+      COALESCE(SUM(v.likes_count), 0) as total_likes,
       COALESCE(SUM(v.impact_score), 0) as total_impact
     FROM hashtags_hot h
     JOIN video_hashtag_facts vhf ON vhf.hashtag = h.hashtag
     JOIN videos_hot v ON v.video_id = vhf.video_id
-    WHERE (v_cutoff_date IS NULL OR v.created_at >= v_cutoff_date)
+    WHERE v.is_edit = TRUE
+      AND (v_cutoff_date IS NULL OR v.created_at >= v_cutoff_date)
     GROUP BY h.hashtag
     ORDER BY total_impact DESC, total_views DESC
     LIMIT 20
@@ -476,13 +479,14 @@ BEGIN
       s.cover_url,
       COUNT(DISTINCT vsf.video_id) as video_count,
       COUNT(DISTINCT v.creator_id) as creator_count,
-      COALESCE(SUM(v.total_views), 0) as total_views,
-      COALESCE(SUM(v.like_count), 0) as total_likes,
+      COALESCE(SUM(v.views_count), 0) as total_views,
+      COALESCE(SUM(v.likes_count), 0) as total_likes,
       COALESCE(SUM(v.impact_score), 0) as total_impact
     FROM sounds_hot s
     JOIN video_sound_facts vsf ON vsf.sound_id = s.sound_id
     JOIN videos_hot v ON v.video_id = vsf.video_id
-    WHERE (v_cutoff_date IS NULL OR v.created_at >= v_cutoff_date)
+    WHERE v.is_edit = TRUE
+      AND (v_cutoff_date IS NULL OR v.created_at >= v_cutoff_date)
     GROUP BY s.sound_id, s.sound_title, s.sound_author, s.cover_url
     ORDER BY total_impact DESC, total_views DESC
     LIMIT 20
@@ -563,12 +567,13 @@ BEGIN
       COALESCE(member_stats.member_count, 0) as member_count,
       COUNT(DISTINCT v.video_id) as video_count,
       COUNT(DISTINCT v.creator_id) as creator_count,
-      COALESCE(SUM(v.total_views), 0) as total_views,
-      COALESCE(SUM(v.like_count), 0) as total_likes,
+      COALESCE(SUM(v.views_count), 0) as total_views,
+      COALESCE(SUM(v.likes_count), 0) as total_likes,
       COALESCE(SUM(v.impact_score), 0) as total_impact
     FROM communities c
     LEFT JOIN video_hashtag_facts vhf ON vhf.hashtag = ANY(c.linked_hashtags)
     LEFT JOIN videos_hot v ON v.video_id = vhf.video_id
+      AND v.is_edit = TRUE
       AND (v_cutoff_date IS NULL OR v.created_at >= v_cutoff_date)
     LEFT JOIN (
       SELECT community_id, COUNT(DISTINCT creator_id) as member_count

@@ -402,7 +402,7 @@ export async function POST(request: NextRequest) {
     const isNotificationOnly = body.status && !Array.isArray(body) && !body.data && Object.keys(body).length <= 3;
     
     if (isNotificationOnly) {
-      console.log('Received notification-only webhook (no data), acknowledging and waiting for data webhook...', { 
+      console.log('Received notification-only webhook (no data), checking if already processed...', { 
         snapshot_id, 
         status: body.status 
       });
@@ -426,12 +426,19 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      // Acknowledge the notification - the actual data will come in a separate webhook
-      return NextResponse.json({
-        message: 'Notification received, waiting for data webhook',
-        snapshot_id: snapshot_id,
-        status: body.status
-      });
+      // If status is "ready", download the data from BrightData API instead of waiting
+      // BrightData may not send a separate data webhook, so we should download it
+      if (body.status === 'ready' || body.status === 'done') {
+        console.log(`Notification webhook indicates status "${body.status}" - proceeding to download data from API`);
+        // Fall through to download logic below
+      } else {
+        // For other statuses, just acknowledge
+        return NextResponse.json({
+          message: 'Notification received',
+          snapshot_id: snapshot_id,
+          status: body.status
+        });
+      }
     }
     
     console.log('Received notification webhook, downloading data from BrightData...', { snapshot_id, status: body.status });

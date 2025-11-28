@@ -69,7 +69,7 @@ export async function GET(
     const sortBy = searchParams.get('sort_by') || 'views_count'; // views_count or created_at
     const sortOrder = searchParams.get('sort_order') || 'desc'; // asc or desc
 
-    // Build query
+    // Build query with videos_hot join
     let query = supabaseAdmin
       .from('contest_submissions')
       .select(`
@@ -101,6 +101,31 @@ export async function GET(
             name,
             is_general,
             ranking_method
+          )
+        ),
+        videos_hot:video_hot_id (
+          video_id,
+          post_id,
+          creator_id,
+          url,
+          caption,
+          description,
+          cover_url,
+          thumbnail_url,
+          video_url,
+          platform,
+          views_count,
+          likes_count,
+          comments_count,
+          shares_count,
+          collect_count,
+          impact_score,
+          creators_hot:creator_id (
+            creator_id,
+            username,
+            display_name,
+            avatar_url,
+            verified
           )
         )
       `)
@@ -185,23 +210,16 @@ export async function GET(
     }
     
     const ascending = sortOrder === 'asc';
-    // Order by the selected field
-    if (sortField === 'views_count') {
-      query = query.order('views_count', { ascending });
-    } else if (sortField === 'likes_count') {
-      query = query.order('likes_count', { ascending });
-    } else if (sortField === 'comments_count') {
-      query = query.order('comments_count', { ascending });
-    } else if (sortField === 'shares_count') {
-      query = query.order('shares_count', { ascending });
-    } else if (sortField === 'created_at') {
+    
+    // Note: We can't order by nested videos_hot columns directly in Supabase
+    // So we'll fetch all matching records, sort in memory, then paginate
+    // For created_at (which is on contest_submissions), we can still use DB ordering
+    if (sortField === 'created_at') {
       query = query.order('created_at', { ascending });
-    } else {
-      query = query.order('views_count', { ascending: false });
+      // Apply pagination before fetching
+      query = query.range(offset, offset + limit - 1);
     }
-
-    // Apply pagination
-    query = query.range(offset, offset + limit - 1);
+    // For stats fields, we'll sort in memory after fetching
 
     const { data: submissions, error } = await query;
 
@@ -265,12 +283,54 @@ export async function GET(
       sortOrder,
     });
     
-    // Log submission IDs for debugging
-    if (submissions && submissions.length > 0) {
-      console.log('[Admin Submissions API] Submission IDs returned:', submissions.map((s: any) => s.id));
+    // Sort by videos_hot stats if needed (not created_at)
+    let sortedSubmissions = submissions || [];
+    if (sortField !== 'created_at' && submissions && submissions.length > 0) {
+      sortedSubmissions = [...submissions].sort((a: any, b: any) => {
+        const videoHotA = a.videos_hot;
+        const videoHotB = b.videos_hot;
+        
+        // Get values from videos_hot, fallback to 0 if missing
+        const getValue = (sub: any, field: string): number => {
+          const videoHot = sub.videos_hot;
+          if (!videoHot) return 0;
+          return videoHot[field] || 0;
+        };
+        
+        let valueA = 0;
+        let valueB = 0;
+        
+        if (sortField === 'views_count') {
+          valueA = getValue(a, 'views_count');
+          valueB = getValue(b, 'views_count');
+        } else if (sortField === 'likes_count') {
+          valueA = getValue(a, 'likes_count');
+          valueB = getValue(b, 'likes_count');
+        } else if (sortField === 'comments_count') {
+          valueA = getValue(a, 'comments_count');
+          valueB = getValue(b, 'comments_count');
+        } else if (sortField === 'shares_count') {
+          valueA = getValue(a, 'shares_count');
+          valueB = getValue(b, 'shares_count');
+        } else if (sortField === 'impact_score') {
+          valueA = getValue(a, 'impact_score');
+          valueB = getValue(b, 'impact_score');
+        }
+        
+        const comparison = valueA - valueB;
+        return ascending ? comparison : -comparison;
+      });
+      
+      // Apply pagination after sorting
+      sortedSubmissions = sortedSubmissions.slice(offset, offset + limit);
     }
 
-    const normalizedSubmissions = (submissions || []).map(submission => {
+    // Log submission IDs for debugging
+    if (sortedSubmissions && sortedSubmissions.length > 0) {
+      console.log('[Admin Submissions API] Submission IDs returned:', sortedSubmissions.map((s: any) => s.id));
+    }
+
+    const normalizedSubmissions = sortedSubmissions.map(submission => {
       const derivedStatus = deriveReviewStatus(submission);
       return {
         ...submission,

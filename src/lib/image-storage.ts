@@ -68,6 +68,15 @@ export async function downloadAndStoreImage(
         return { success: false, error: 'Supabase admin client not available' };
       }
 
+      console.log(`[Image Storage] Uploading to bucket "${STORAGE_BUCKET}" with path: "${filename}"`, {
+        imageType,
+        entityId,
+        hash,
+        ext,
+        bufferSize: buffer.length,
+        contentType
+      });
+
       // Upload to Supabase Storage
       const { data, error } = await supabaseAdmin.storage
         .from(STORAGE_BUCKET)
@@ -78,9 +87,19 @@ export async function downloadAndStoreImage(
         });
 
       if (error) {
-        console.error('Supabase upload error:', error);
+        console.error('[Image Storage] Supabase upload error:', {
+          bucket: STORAGE_BUCKET,
+          filename,
+          error: error.message,
+          errorDetails: error
+        });
         return { success: false, error: error.message };
       }
+
+      console.log(`[Image Storage] Successfully uploaded to "${STORAGE_BUCKET}/${filename}"`, {
+        path: data?.path,
+        id: data?.id
+      });
 
       // Get public URL
       const { data: publicUrlData } = supabaseAdmin.storage

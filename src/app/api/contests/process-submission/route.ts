@@ -71,21 +71,62 @@ export async function POST(request: NextRequest) {
     
     console.log('[Process Submission] Status updated to fetching_stats');
 
-    // Step 2: Trigger BrightData stats retrieval
-    // This will be handled by the webhook when data arrives
-    try {
-      const snapshotId = await triggerBrightDataCollection(
+    // Step 2: Check if BrightData was already triggered by submission route
+    // Find the most recent metadata record for this user and URL
+    const { data: metadataRecord, error: metadataFindError } = await supabaseAdmin
+      .from('submission_metadata')
+      .select('snapshot_id')
+      .eq('submitted_by', submission.user_id)
+      .contains('video_urls', [submission.original_video_url])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let snapshotId: string;
+
+    // Check if submission_metadata already has an actual snapshot_id (not a placeholder)
+    const hasActualSnapshotId = metadataRecord && 
+      !metadataRecord.snapshot_id.startsWith('pending_') && 
+      !metadataRecord.snapshot_id.startsWith('mock_');
+
+    if (hasActualSnapshotId && metadataRecord) {
+      // Reuse existing snapshot_id from main webhook trigger
+      snapshotId = metadataRecord.snapshot_id;
+      console.log('[Process Submission] Reusing existing snapshot_id from main webhook trigger:', {
+        submissionId,
+        snapshotId,
+      });
+    } else {
+      // Trigger BrightData stats retrieval for contest webhook
+      // This will be handled by the contest webhook when data arrives
+      console.log('[Process Submission] No existing snapshot_id found, triggering BrightData for contest webhook');
+      snapshotId = await triggerBrightDataCollection(
         submission.platform as Platform,
         submission.original_video_url
       );
 
-      // Store snapshot_id in submission for webhook matching
-      await supabaseAdmin
-        .from('contest_submissions')
-        .update({ snapshot_id: snapshotId })
-        .eq('id', submissionId);
+      // If we found a placeholder snapshot_id, update it with the actual one
+      if (metadataRecord && !metadataFindError && metadataRecord.snapshot_id.startsWith('pending_')) {
+        const { error: metadataUpdateError } = await supabaseAdmin
+          .from('submission_metadata')
+          .update({ snapshot_id: snapshotId })
+          .eq('snapshot_id', metadataRecord.snapshot_id);
 
-      console.log('[Process Submission] Snapshot ID stored:', { submissionId, snapshotId });
+        if (metadataUpdateError) {
+          console.warn('[Process Submission] Failed to update submission_metadata snapshot_id:', metadataUpdateError);
+        } else {
+          console.log('[Process Submission] Updated submission_metadata with snapshot_id:', snapshotId);
+        }
+      }
+    }
+
+    // Store snapshot_id in submission for webhook matching
+    await supabaseAdmin
+      .from('contest_submissions')
+      .update({ snapshot_id: snapshotId })
+      .eq('id', submissionId);
+
+    console.log('[Process Submission] Snapshot ID stored:', { submissionId, snapshotId });
 
       return NextResponse.json({
         success: true,

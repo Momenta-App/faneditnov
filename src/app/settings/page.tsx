@@ -12,8 +12,12 @@ import { Tabs, TabList, Tab, TabPanels, TabPanel } from '../components/Tabs';
 import { getRoleDisplayName, getRoleDescription } from '@/lib/role-utils';
 import { ContestVideoPlayer } from '../components/ContestVideoPlayer';
 import { MP4VideoModal } from '../components/MP4VideoModal';
+import { VideoModal } from '../components/VideoModal';
 import { getContestVideoUrl } from '@/lib/storage-utils';
 import { authFetch } from '@/lib/auth-fetch';
+import { detectPlatform } from '@/lib/url-utils';
+import type { Platform } from '@/lib/url-utils';
+import { Video } from '../types/data';
 
 // Helper function to format numbers with abbreviations
 const formatNumber = (num: number | null | undefined): string => {
@@ -836,10 +840,25 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
   const [submittingAppeal, setSubmittingAppeal] = useState(false);
   const [appealError, setAppealError] = useState<string | null>(null);
   const [appealSuccess, setAppealSuccess] = useState(false);
+  const [showEmbeddedVideoPopup, setShowEmbeddedVideoPopup] = useState(false);
 
   const allCategories = submission.contest_submission_categories || [];
   const primaryCategory = allCategories.find((c: any) => c.is_primary)?.contest_categories;
   const generalCategories = allCategories.filter((c: any) => !c.is_primary).map((c: any) => c.contest_categories);
+
+  // Get video data from videos_hot if available, otherwise use submission data
+  const videoHot = submission.videos_hot;
+  const coverImageUrl = videoHot?.cover_url || videoHot?.thumbnail_url || null;
+  const originalVideoUrl = videoHot?.video_url || videoHot?.url || '';
+  
+  // Get creator info from videos_hot
+  const creatorFromHot = videoHot?.creators_hot;
+  const creator = creatorFromHot ? {
+    id: creatorFromHot.creator_id || '',
+    username: creatorFromHot.username || creatorFromHot.display_name || 'Unknown',
+    avatar: creatorFromHot.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(creatorFromHot.username || 'U')}&background=120F23&color=fff`,
+    verified: creatorFromHot.verified || false,
+  } : null;
 
   const handleRefreshStats = async () => {
     setRefreshingStats(true);
@@ -987,7 +1006,7 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                 hasFailed={statsFetchFailed}
               />
               <span className="px-2 py-1 rounded text-xs font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)] uppercase">
-                {submission.platform}
+                {videoHot?.platform || 'unknown'}
               </span>
               {needsRetry && !statsFetchFailed && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-red-500/10 text-red-500 border-red-500/20">
@@ -1007,7 +1026,7 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
               )}
             </div>
             <a
-              href={submission.original_video_url}
+              href={originalVideoUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-[var(--color-primary)] hover:underline break-all"
@@ -1047,9 +1066,56 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
               {showVideoPopup && videoUrl && (
                 <MP4VideoModal
                   videoUrl={videoUrl}
+                  poster={coverImageUrl || undefined}
                   onClose={() => setShowVideoPopup(false)}
                 />
               )}
+              {showEmbeddedVideoPopup && originalVideoUrl && (() => {
+                const videoPlatform: Platform = (() => {
+                  if (videoHot?.platform && videoHot.platform !== 'unknown') {
+                    return videoHot.platform as Platform;
+                  }
+                  if (videoHot?.platform && videoHot.platform !== 'unknown') {
+                    return videoHot.platform as Platform;
+                  }
+                  if (originalVideoUrl) {
+                    return detectPlatform(originalVideoUrl);
+                  }
+                  return 'unknown';
+                })();
+
+                const videoForModal: Video = {
+                  id: videoHot?.video_id || submission.id.toString(),
+                  postId: videoHot?.post_id || videoHot?.video_id || submission.id.toString(),
+                  title: videoHot?.caption || videoHot?.description || 'Contest Submission',
+                  description: videoHot?.description || '',
+                  thumbnail: coverImageUrl || '',
+                  videoUrl: originalVideoUrl,
+                  platform: videoPlatform,
+                  creator: creator || {
+                    id: submission.user_id || '',
+                    username: 'Unknown',
+                    avatar: 'https://ui-avatars.com/api/?name=U&background=120F23&color=fff',
+                    verified: false,
+                  },
+                  views: videoHot?.views_count ?? 0,
+                  likes: videoHot?.likes_count ?? 0,
+                  comments: videoHot?.comments_count ?? submission.comments_count ?? 0,
+                  shares: videoHot?.shares_count ?? submission.shares_count ?? 0,
+                  saves: videoHot?.collect_count ?? submission.saves_count ?? 0,
+                  impact: Number(videoHot?.impact_score ?? 0),
+                  duration: 0,
+                  createdAt: submission.created_at || new Date().toISOString(),
+                  hashtags: [],
+                };
+
+                return (
+                  <VideoModal
+                    video={videoForModal}
+                    onClose={() => setShowEmbeddedVideoPopup(false)}
+                  />
+                );
+              })()}
               {showAppealModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                   <Card className="w-full max-w-md">
@@ -1133,48 +1199,187 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                 </div>
               )}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Video Player */}
-                {videoUrl && (
+                {/* Video Player or Cover Image - Square aspect ratio */}
+                {(videoUrl || coverImageUrl || originalVideoUrl) && (
                   <div className="lg:col-span-1">
-                    <div className="rounded-lg overflow-hidden bg-black cursor-pointer" onClick={() => setShowVideoPopup(true)}>
-                      <ContestVideoPlayer videoUrl={videoUrl} className="w-full" usePopup={true} onPlay={() => setShowVideoPopup(true)} />
-                    </div>
+                    {(() => {
+                      // Detect platform
+                      const videoPlatform: Platform = (() => {
+                        if (videoHot?.platform && videoHot.platform !== 'unknown') {
+                          return videoHot.platform as Platform;
+                        }
+                        if (submission.platform && submission.platform !== 'unknown') {
+                          return submission.platform as Platform;
+                        }
+                        if (originalVideoUrl) {
+                          return detectPlatform(originalVideoUrl);
+                        }
+                        return 'unknown';
+                      })();
+
+                      const platformMeta: Record<Platform, { label: string; bg: string; color: string; icon: React.ReactElement }> = {
+                        tiktok: {
+                          label: 'TikTok',
+                          bg: 'rgba(0,0,0,0.75)',
+                          color: '#fff',
+                          icon: (
+                            <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor" aria-hidden="true">
+                              <path d="M16 4.5c1 .9 2.2 1.5 3.5 1.5v3.4c-1.3.1-2.7-.3-3.9-1V16a5.5 5.5 0 11-5.5-5.5c.3 0 .6 0 .9.1v3.3a2.1 2.1 0 00-1-.2 2.2 2.2 0 102.2 2.2V4.5h3.2Z" />
+                            </svg>
+                          ),
+                        },
+                        instagram: {
+                          label: 'Instagram',
+                          bg: 'rgba(255,255,255,0.9)',
+                          color: '#000',
+                          icon: (
+                            <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                              <rect x="4" y="4" width="16" height="16" rx="4" />
+                              <circle cx="12" cy="12" r="3.5" />
+                              <circle cx="17" cy="7" r="1" fill="currentColor" stroke="none" />
+                            </svg>
+                          ),
+                        },
+                        youtube: {
+                          label: 'YouTube',
+                          bg: 'rgba(255,0,0,0.85)',
+                          color: '#fff',
+                          icon: (
+                            <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor" aria-hidden="true">
+                              <path d="M21.5 7.5a2.7 2.7 0 00-1.9-1.9C17.3 5 12 5 12 5s-5.3 0-7.6.6A2.7 2.7 0 002.5 7.4 28.8 28.8 0 002 12a28.8 28.8 0 00.5 4.6 2.7 2.7 0 001.9 1.9C6.7 19 12 19 12 19s5.3 0 7.6-.6a2.7 2.7 0 001.9-1.9 28.8 28.8 0 00.5-4.6 28.8 28.8 0 00-.5-4.4zM10 15.2V8.8l5 3.2-5 3.2z" />
+                            </svg>
+                          ),
+                        },
+                        unknown: {
+                          label: 'Unknown',
+                          bg: 'rgba(0,0,0,0.65)',
+                          color: '#fff',
+                          icon: (
+                            <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                              <path d="M9 9a3 3 0 116 0c0 2-3 2-3 4" />
+                              <circle cx="12" cy="17" r="1" />
+                            </svg>
+                          ),
+                        },
+                      };
+
+                      // Create Video object for VideoModal
+                      const videoForModal: Video = {
+                        id: videoHot?.video_id || submission.video_id || submission.id.toString(),
+                        postId: videoHot?.post_id || submission.video_id || submission.id.toString(),
+                        title: videoHot?.caption || videoHot?.description || 'Contest Submission',
+                        description: videoHot?.description || '',
+                        thumbnail: coverImageUrl || '',
+                        videoUrl: originalVideoUrl,
+                        platform: videoPlatform,
+                        creator: creator || {
+                          id: submission.user_id || '',
+                          username: 'Unknown',
+                          avatar: 'https://ui-avatars.com/api/?name=U&background=120F23&color=fff',
+                          verified: false,
+                        },
+                        views: videoHot?.views_count ?? submission.views_count ?? 0,
+                        likes: videoHot?.likes_count ?? submission.likes_count ?? 0,
+                        comments: videoHot?.comments_count ?? submission.comments_count ?? 0,
+                        shares: videoHot?.shares_count ?? submission.shares_count ?? 0,
+                        saves: videoHot?.collect_count ?? submission.saves_count ?? 0,
+                        impact: Number(videoHot?.impact_score ?? 0),
+                        duration: 0,
+                        createdAt: submission.created_at || new Date().toISOString(),
+                        hashtags: [],
+                      };
+
+                      return (
+                        <div 
+                          className="relative group cursor-pointer rounded-lg overflow-hidden bg-black"
+                          onClick={() => {
+                            if (videoUrl) {
+                              setShowVideoPopup(true);
+                            } else if (originalVideoUrl) {
+                              setShowEmbeddedVideoPopup(true);
+                            }
+                          }}
+                        >
+                          {coverImageUrl ? (
+                            <img 
+                              src={coverImageUrl} 
+                              alt="Video cover" 
+                              className="w-full aspect-square object-cover transition-transform duration-200 group-hover:scale-105"
+                            />
+                          ) : videoUrl ? (
+                            <video
+                              src={videoUrl}
+                              className="w-full aspect-square object-cover transition-transform duration-200 group-hover:scale-105"
+                              preload="metadata"
+                            />
+                          ) : (
+                            <div className="w-full aspect-square bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-light)] flex items-center justify-center">
+                              <p className="text-white text-sm">No video available</p>
+                            </div>
+                          )}
+                          
+                          {/* Platform badge */}
+                          {videoPlatform !== 'unknown' && (
+                            <div
+                              className="absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1 shadow-lg border backdrop-blur-sm z-10"
+                              style={{
+                                background: platformMeta[videoPlatform].bg,
+                                color: platformMeta[videoPlatform].color,
+                                borderColor: platformMeta[videoPlatform].color,
+                              }}
+                            >
+                              {platformMeta[videoPlatform].icon}
+                              <span>{platformMeta[videoPlatform].label}</span>
+                            </div>
+                          )}
+                          
+                          {/* Play button overlay */}
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity group-hover:bg-black/50 rounded-lg">
+                            <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                              <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               
               {/* Stats Grid */}
-              <div className={videoUrl ? "lg:col-span-2" : "lg:col-span-3"}>
+              <div className={(videoUrl || coverImageUrl || originalVideoUrl) ? "lg:col-span-2" : "lg:col-span-3"}>
                 <h4 className="text-sm font-semibold text-[var(--color-text-primary)] mb-3">
                   Video Statistics
                 </h4>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   <div className="p-3 rounded-lg bg-[var(--color-border)]/10 min-w-0">
                     <p className="text-xs text-[var(--color-text-muted)] mb-1 truncate">Views</p>
-                    <p className="text-lg font-semibold text-[var(--color-text-primary)] truncate" title={(submission.views_count || 0).toLocaleString()}>
-                      {formatNumber(submission.views_count)}
+                    <p className="text-lg font-semibold text-[var(--color-text-primary)] truncate" title={(videoHot?.views_count ?? 0).toLocaleString()}>
+                      {formatNumber(videoHot?.views_count ?? 0)}
                     </p>
                   </div>
                   <div className="p-3 rounded-lg bg-[var(--color-border)]/10 min-w-0">
                     <p className="text-xs text-[var(--color-text-muted)] mb-1 truncate">Likes</p>
-                    <p className="text-lg font-semibold text-[var(--color-text-primary)] truncate" title={(submission.likes_count || 0).toLocaleString()}>
-                      {formatNumber(submission.likes_count)}
+                    <p className="text-lg font-semibold text-[var(--color-text-primary)] truncate" title={(videoHot?.likes_count ?? 0).toLocaleString()}>
+                      {formatNumber(videoHot?.likes_count ?? 0)}
                     </p>
                   </div>
                   <div className="p-3 rounded-lg bg-[var(--color-border)]/10 min-w-0">
                     <p className="text-xs text-[var(--color-text-muted)] mb-1 truncate">Comments</p>
-                    <p className="text-lg font-semibold text-[var(--color-text-primary)] truncate" title={(submission.comments_count || 0).toLocaleString()}>
-                      {formatNumber(submission.comments_count)}
+                    <p className="text-lg font-semibold text-[var(--color-text-primary)] truncate" title={(videoHot?.comments_count ?? submission.comments_count ?? 0).toLocaleString()}>
+                      {formatNumber(videoHot?.comments_count ?? submission.comments_count)}
                     </p>
                   </div>
                 </div>
-                {submission.impact_score !== null && submission.impact_score !== undefined && (
+                {(videoHot?.impact_score !== null && videoHot?.impact_score !== undefined) || (submission.impact_score !== null && submission.impact_score !== undefined) ? (
                   <div className="mt-4 p-3 rounded-lg bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/20">
                     <p className="text-xs text-[var(--color-text-muted)] mb-1">Impact Score</p>
                     <p className="text-xl font-bold text-[var(--color-primary)]">
-                      {formatNumber(submission.impact_score)}
+                      {formatNumber(videoHot?.impact_score ?? submission.impact_score)}
                     </p>
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
             </>
@@ -1239,7 +1444,7 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                       />
                       {submission.processing_status === 'fetching_stats' && (
                         <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                          Fetching video statistics from {submission.platform}...
+                          Fetching video statistics from {videoHot?.platform || 'platform'}...
                         </p>
                       )}
                       {submission.processing_status === 'checking_hashtags' && (

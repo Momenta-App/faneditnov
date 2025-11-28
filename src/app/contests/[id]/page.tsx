@@ -81,6 +81,54 @@ interface Contest {
   }>;
 }
 
+/**
+ * Determine the submission status based on check order:
+ * Hashtag → Description → Ownership → Content Approval
+ */
+function getSubmissionStatus(submission: any): string {
+  // Order: Hashtag → Description → Ownership → Content Approval
+  
+  // 1. Check Hashtag
+  if (submission.hashtag_status === 'pending_review') {
+    return 'Hashtag Pending';
+  }
+  if (submission.hashtag_status === 'fail') {
+    return 'Hashtag Rejected';
+  }
+  
+  // 2. Check Description (only if hashtag passed)
+  if (submission.description_status === 'pending_review') {
+    return 'Description Pending';
+  }
+  if (submission.description_status === 'fail') {
+    return 'Description Rejected';
+  }
+  
+  // 3. Check Ownership (only if hashtag and description passed)
+  const ownershipStatus = submission.mp4_ownership_status || submission.verification_status || 'pending';
+  if (ownershipStatus === 'pending' || ownershipStatus === 'contested') {
+    return 'Ownership Pending';
+  }
+  if (ownershipStatus === 'failed') {
+    return 'Ownership Rejected';
+  }
+  
+  // 4. Check Content Approval (only if all previous passed)
+  if (submission.content_review_status === 'pending') {
+    return 'Content Approval Pending';
+  }
+  if (submission.content_review_status === 'rejected') {
+    return 'Content Approval Rejected';
+  }
+  
+  // All checks passed
+  if (submission.content_review_status === 'approved') {
+    return 'Approved';
+  }
+  
+  return 'Pending';
+}
+
 export default function ContestDetailPage({ params }: { params: { id: string } }) {
   const { user, profile, session } = useAuth();
   const isAdmin = isAdminRole(profile?.role);
@@ -91,9 +139,19 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
   const [userSubmissions, setUserSubmissions] = useState<any[]>([]);
   const [userSubmissionsLoading, setUserSubmissionsLoading] = useState(false);
   const [userSubmissionsError, setUserSubmissionsError] = useState<string | null>(null);
+  const [allSubmissionsLoading, setAllSubmissionsLoading] = useState(false);
+  const [allSubmissionsError, setAllSubmissionsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSubContest, setSelectedSubContest] = useState<string | null>(null);
+  const [userSubmissionsExpanded, setUserSubmissionsExpanded] = useState(true);
+  const [allSubmissionsExpanded, setAllSubmissionsExpanded] = useState(true);
+  const [userSubmissionsCategoryFilter, setUserSubmissionsCategoryFilter] = useState<string | null>(null);
+  const [allSubmissionsCategoryFilter, setAllSubmissionsCategoryFilter] = useState<string | null>(null);
+  const [submissionsOffset, setSubmissionsOffset] = useState(0);
+  const [submissionsTotal, setSubmissionsTotal] = useState(0);
+  const [submissionsHasMore, setSubmissionsHasMore] = useState(false);
+  const [submissionsLoadingMore, setSubmissionsLoadingMore] = useState(false);
 
   useEffect(() => {
     setContestId(params.id);
@@ -119,7 +177,26 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
         throw new Error('Failed to fetch your submissions');
       }
       const data = await response.json();
-      setUserSubmissions(data.data || []);
+      
+      // Safety filter: ensure all submissions belong to this contest
+      const filteredData = (data.data || []).filter((submission: any) => {
+        if (submission.contest_id && submission.contest_id !== contestId) {
+          console.warn('[ContestDetailPage] Filtering out user submission from wrong contest:', {
+            submissionId: submission.id,
+            submissionContestId: submission.contest_id,
+            currentContestId: contestId,
+          });
+          return false;
+        }
+        return true;
+      });
+      
+      console.log('[ContestDetailPage] User submissions fetched:', {
+        count: data.data?.length || 0,
+        afterContestFilter: filteredData.length,
+        contestId,
+      });
+      setUserSubmissions(filteredData);
     } catch (err) {
       setUserSubmissionsError(err instanceof Error ? err.message : 'Failed to load your submissions');
     } finally {
@@ -142,46 +219,182 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
     }
   }, [user, contestId, fetchUserSubmissions]);
 
-  const fetchSubmissions = async () => {
+  const fetchSubmissions = async (categoryId?: string | null, offset: number = 0, append: boolean = false) => {
     if (!contestId) return;
     try {
-      const response = await fetch(`/api/contests/${contestId}/submissions-public`);
-      if (response.ok) {
-        const data = await response.json();
-        setSubmissions(data.data || []);
+      if (append) {
+        setSubmissionsLoadingMore(true);
+      } else {
+        setAllSubmissionsLoading(true);
+        setSubmissionsOffset(0);
       }
+      setAllSubmissionsError(null);
+      
+      // Build URL - handle both UUID and slug
+      const apiPath = `/api/contests/${contestId}/submissions-public`;
+      const url = new URL(apiPath, window.location.origin);
+      if (categoryId) {
+        url.searchParams.set('category_id', categoryId);
+      }
+      url.searchParams.set('limit', '50');
+      url.searchParams.set('offset', offset.toString());
+      
+      console.log('[ContestDetailPage] Fetching submissions:', {
+        contestId,
+        categoryId: categoryId || 'all',
+        offset,
+        append,
+        url: url.toString(),
+      });
+      
+      const response = await fetch(url.toString(), {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || errorData.message || errorData.details || `HTTP ${response.status}: ${response.statusText}`;
+        const errorCode = errorData.code || '';
+        const errorHint = errorData.hint || '';
+        
+        console.error('[ContestDetailPage] API error:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorMessage,
+          code: errorCode,
+          hint: errorHint,
+          fullError: errorData,
+        });
+        
+        // Create a more detailed error message
+        let detailedError = errorMessage;
+        if (errorCode) {
+          detailedError += ` (Code: ${errorCode})`;
+        }
+        if (errorHint && process.env.NODE_ENV === 'development') {
+          detailedError += ` - ${errorHint}`;
+        }
+        
+        throw new Error(detailedError);
+      }
+      
+      const data = await response.json();
+      
+      // CRITICAL: Safety filter - ensure all submissions belong to this contest
+      const rawData = data.data || [];
+      const filteredData = rawData.filter((submission: any) => {
+        // If contest_id exists and doesn't match, filter it out
+        if (submission.contest_id) {
+          if (submission.contest_id !== contestId) {
+            console.warn('[ContestDetailPage] Filtering out submission from wrong contest:', {
+              submissionId: submission.id,
+              submissionContestId: submission.contest_id,
+              currentContestId: contestId,
+            });
+            return false;
+          }
+        } else {
+          // If contest_id is missing, log a warning but include it (might be a data issue)
+          console.warn('[ContestDetailPage] Submission missing contest_id:', {
+            submissionId: submission.id,
+            currentContestId: contestId,
+          });
+        }
+        return true;
+      });
+      
+      // Additional check: verify we're not showing submissions from other contests
+      const wrongContestCount = rawData.length - filteredData.length;
+      if (wrongContestCount > 0) {
+        console.error('[ContestDetailPage] WARNING: Filtered out', wrongContestCount, 'submissions from wrong contest');
+      }
+      
+      console.log('[ContestDetailPage] Submissions fetched:', {
+        rawCount: rawData.length,
+        afterContestFilter: filteredData.length,
+        contestId,
+        filteredOut: wrongContestCount,
+        total: data.total,
+        hasMore: data.hasMore,
+      });
+      
+      if (append) {
+        setSubmissions(prev => [...prev, ...filteredData]);
+      } else {
+        setSubmissions(filteredData);
+      }
+      setSubmissionsTotal(data.total || 0);
+      setSubmissionsHasMore(data.hasMore || false);
+      setSubmissionsOffset(offset);
     } catch (err) {
-      // Silently fail - submissions are optional
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load submissions';
+      setAllSubmissionsError(errorMessage);
+      if (!append) {
+        setSubmissions([]);
+      }
+      console.error('[ContestDetailPage] Error fetching submissions:', err);
+    } finally {
+      setAllSubmissionsLoading(false);
+      setSubmissionsLoadingMore(false);
+    }
+  };
+
+  const loadMoreSubmissions = () => {
+    if (!submissionsLoadingMore && submissionsHasMore) {
+      const nextOffset = submissionsOffset + 50;
+      fetchSubmissions(allSubmissionsCategoryFilter, nextOffset, true);
     }
   };
 
   // Map contest submission to Video format for VideoCard
   const mapSubmissionToVideo = (submission: any): Video => {
-    const creator = submission.profiles ? {
-      id: submission.profiles.id,
-      username: submission.profiles.display_name || submission.profiles.email || 'Unknown',
-      avatar: submission.profiles.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(submission.profiles.display_name || submission.profiles.email || 'U')}&background=120F23&color=fff`,
-      verified: submission.profiles.is_verified || false,
+    // Debug: Log submission structure to understand data format
+    if (!submission.profiles && submission.user_id) {
+      console.warn('[ContestDetailPage] Submission missing profiles data:', {
+        submissionId: submission.id,
+        userId: submission.user_id,
+        hasProfiles: !!submission.profiles,
+        submissionKeys: Object.keys(submission),
+      });
+    }
+    
+    // Handle profiles - could be an object or array
+    let profileData = null;
+    if (submission.profiles) {
+      profileData = Array.isArray(submission.profiles) ? submission.profiles[0] : submission.profiles;
+    }
+    
+    const creator = profileData ? {
+      id: profileData.id || submission.user_id || '',
+      username: profileData.display_name || profileData.email || profileData.username || 'Unknown',
+      avatar: profileData.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profileData.display_name || profileData.email || profileData.username || 'U')}&background=120F23&color=fff`,
+      verified: profileData.is_verified || false,
     } : {
-      id: '',
+      id: submission.user_id || '',
       username: 'Unknown',
       avatar: 'https://ui-avatars.com/api/?name=U&background=120F23&color=fff',
       verified: false,
     };
 
-    // Generate thumbnail URL based on platform and video URL
-    let thumbnail = '';
-    const videoUrl = submission.original_video_url || '';
-    if (videoUrl) {
+    // Get video data from videos_hot
+    const videoHot = submission.videos_hot;
+    const videoUrl = videoHot?.video_url || videoHot?.url || '';
+    
+    // Use cover_url or thumbnail_url from videos_hot
+    let thumbnail = videoHot?.cover_url || videoHot?.thumbnail_url || '';
+    
+    // Fallback: Generate thumbnail URL based on platform and video URL
+    if (!thumbnail && videoUrl) {
       if (videoUrl.includes('tiktok.com')) {
         // TikTok thumbnail - would need to be fetched or use a service
-        thumbnail = `https://www.tiktok.com/api/img/?itemId=${submission.video_id || ''}`;
+        thumbnail = `https://www.tiktok.com/api/img/?itemId=${videoHot?.video_id || videoHot?.post_id || ''}`;
       } else if (videoUrl.includes('instagram.com')) {
         // Instagram thumbnail
         thumbnail = '';
       } else if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
         // YouTube thumbnail
-        const videoId = submission.video_id || videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/)?.[1] || '';
+        const videoId = videoHot?.video_id || videoHot?.post_id || videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/)?.[1] || '';
         thumbnail = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
       }
     }
@@ -192,20 +405,20 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
     }
 
     return {
-      id: submission.id.toString(),
-      postId: submission.video_id || submission.id.toString(),
-      title: videoUrl || 'Contest Submission',
-      description: '',
+      id: videoHot?.video_id || submission.id.toString(),
+      postId: videoHot?.post_id || videoHot?.video_id || submission.id.toString(),
+      title: videoHot?.caption || videoHot?.description || videoUrl || 'Contest Submission',
+      description: videoHot?.description || '',
       thumbnail,
       videoUrl,
-      platform: (submission.platform as 'tiktok' | 'instagram' | 'youtube') || 'unknown',
+      platform: (videoHot?.platform as 'tiktok' | 'instagram' | 'youtube') || 'unknown',
       creator,
-      views: submission.views_count || 0,
-      likes: submission.likes_count || 0,
-      comments: submission.comments_count || 0,
-      shares: submission.shares_count || 0,
-      saves: submission.saves_count || 0,
-      impact: Number(submission.impact_score) || 0,
+      views: videoHot?.views_count || 0,
+      likes: videoHot?.likes_count || 0,
+      comments: videoHot?.comments_count || 0,
+      shares: videoHot?.shares_count || 0,
+      saves: videoHot?.collect_count || 0,
+      impact: Number(videoHot?.impact_score) || 0,
       duration: 0,
       createdAt: submission.created_at || new Date().toISOString(),
       hashtags: [],
@@ -272,6 +485,75 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  // Filter submissions by category and ensure they belong to current contest
+  const filterSubmissionsByCategory = (submissions: any[], categoryId: string | null) => {
+    // First, filter by contest_id to ensure we only show submissions for this contest
+    let filtered = submissions.filter((submission) => {
+      // Safety check: ensure submission belongs to current contest
+      if (submission.contest_id && submission.contest_id !== contestId) {
+        console.warn('[ContestDetailPage] Filtering out submission from wrong contest:', {
+          submissionId: submission.id,
+          submissionContestId: submission.contest_id,
+          currentContestId: contestId,
+        });
+        return false;
+      }
+      return true;
+    });
+    
+    // Then filter by category if specified
+    if (!categoryId) {
+      return filtered;
+    }
+    
+    console.log('[ContestDetailPage] Filtering by category:', {
+      categoryId,
+      totalSubmissions: filtered.length,
+    });
+    
+    const categoryFiltered = filtered.filter((submission) => {
+      const categories = submission.contest_submission_categories || [];
+      
+      // Debug logging for first submission
+      if (filtered.indexOf(submission) === 0) {
+        console.log('[ContestDetailPage] Sample submission categories:', {
+          submissionId: submission.id,
+          categories: categories.map((c: any) => ({
+            category_id: c.category_id,
+            is_primary: c.is_primary,
+            categoryName: c.contest_categories?.name,
+          })),
+          lookingFor: categoryId,
+        });
+      }
+      
+      // Check if submission has this category
+      const hasCategory = categories.some((csc: any) => {
+        // Handle both direct category_id and nested structure
+        const catId = csc.category_id || csc.contest_categories?.id;
+        return catId === categoryId || String(catId) === String(categoryId);
+      });
+      
+      if (!hasCategory && filtered.indexOf(submission) < 3) {
+        console.log('[ContestDetailPage] Submission does not have category:', {
+          submissionId: submission.id,
+          submissionCategories: categories.map((c: any) => c.category_id || c.contest_categories?.id),
+          lookingFor: categoryId,
+        });
+      }
+      
+      return hasCategory;
+    });
+    
+    console.log('[ContestDetailPage] Category filter result:', {
+      categoryId,
+      beforeFilter: filtered.length,
+      afterFilter: categoryFiltered.length,
+    });
+    
+    return categoryFiltered;
   };
 
   if (loading || !contest) {
@@ -1035,9 +1317,9 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
 
           {/* User Submissions - At the top, very visible */}
           {user && (userSubmissionsLoading || userSubmissions.length > 0 || userSubmissionsError) && (
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <div>
+            <Card className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex-1">
                   <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
                     Your Submissions
                   </h2>
@@ -1045,85 +1327,237 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                     View and manage your contest submissions
                   </p>
                 </div>
-                <Button size="sm" variant="secondary" onClick={fetchUserSubmissions} isLoading={userSubmissionsLoading}>
-                  Refresh
-                </Button>
+                <div className="flex items-center gap-3">
+                  <Button size="sm" variant="secondary" onClick={fetchUserSubmissions} isLoading={userSubmissionsLoading}>
+                    Refresh
+                  </Button>
+                  <button
+                    onClick={() => setUserSubmissionsExpanded(!userSubmissionsExpanded)}
+                    className="p-2 rounded-lg hover:bg-[var(--color-border)] transition-colors"
+                    aria-label={userSubmissionsExpanded ? 'Collapse' : 'Expand'}
+                  >
+                    <svg
+                      className={`w-5 h-5 transition-transform ${userSubmissionsExpanded ? '' : '-rotate-90'}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      style={{ color: 'var(--color-text-primary)' }}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
               </div>
               {userSubmissionsError && (
                 <div className="mb-4 p-3 rounded border border-red-500/20 bg-red-500/5 text-sm text-red-500">
                   {userSubmissionsError}
                 </div>
               )}
-              {userSubmissionsLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
-                  {[...Array(2)].map((_, idx) => (
-                    <div key={idx} className="h-64 rounded border border-[var(--color-border)] animate-pulse" />
-                  ))}
-                </div>
-              ) : userSubmissions.length === 0 ? (
-                <p className="text-sm text-[var(--color-text-muted)]">
-                  You have not submitted to this contest yet.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6 mb-12">
-                  {userSubmissions.map((submission) => (
-                    <ContestSubmissionCard
-                      key={submission.id}
-                      submission={submission}
-                      showStats={displayStats}
-                      showCreator={false}
-                      isUserSubmission={true}
-                    />
-                  ))}
-                </div>
+              {userSubmissionsExpanded && (
+                <>
+                  {/* Category Filter - Exclude general categories */}
+                  {contest.contest_categories && contest.contest_categories.filter((cat: any) => !cat.is_general).length > 0 && (
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                        Filter by Category
+                      </label>
+                      <select
+                        value={userSubmissionsCategoryFilter || ''}
+                        onChange={(e) => setUserSubmissionsCategoryFilter(e.target.value || null)}
+                        className="px-4 py-2 rounded-lg border"
+                        style={{
+                          background: 'var(--color-surface)',
+                          borderColor: 'var(--color-border)',
+                          color: 'var(--color-text-primary)',
+                        }}
+                      >
+                        <option value="">All Categories</option>
+                        {contest.contest_categories
+                          .filter((cat: any) => !cat.is_general)
+                          .map((category) => (
+                            <option key={category.id} value={category.id}>
+                              {category.name}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  )}
+                  {userSubmissionsLoading ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
+                      {[...Array(2)].map((_, idx) => (
+                        <div key={idx} className="h-64 rounded border border-[var(--color-border)] animate-pulse" />
+                      ))}
+                    </div>
+                  ) : (() => {
+                    const filteredSubmissions = filterSubmissionsByCategory(userSubmissions, userSubmissionsCategoryFilter);
+                    return filteredSubmissions.length === 0 ? (
+                      <p className="text-sm text-[var(--color-text-muted)]">
+                        {userSubmissionsCategoryFilter ? 'No submissions found for this category.' : 'You have not submitted to this contest yet.'}
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
+                        {filteredSubmissions.map((submission) => (
+                          <ContestSubmissionCard
+                            key={submission.id}
+                            submission={submission}
+                            showStats={false}
+                            showCreator={false}
+                            isUserSubmission={true}
+                            hideCreatorInfo={true}
+                            status={getSubmissionStatus(submission)}
+                          />
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </>
               )}
-            </div>
+            </Card>
           )}
 
           {/* All Submissions - Similar to Communities */}
-          {submissionVisibility !== 'private_judges_only' && submissions.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="space-y-6"
-            >
-              {/* Section Header */}
-              <div>
-                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                  Featured Submissions
-                </h2>
-                <p className="text-base sm:text-lg" style={{ color: 'var(--color-text-muted)' }}>
-                  {submissionVisibility === 'public_with_rankings' 
-                    ? 'Discover the top-performing submissions from this contest' 
-                    : 'View all contest submissions'}
-                </p>
-              </div>
-
-              {/* Video Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
-                {submissions.map((submission, index) => {
-                  const video = mapSubmissionToVideo(submission);
-                  const showStats = submissionVisibility === 'public_with_rankings' && displayStats;
-                  
-                  return (
-                    <motion.div
-                      key={submission.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.4, delay: index * 0.05 }}
+          {submissionVisibility !== 'private_judges_only' && (
+            <Card>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex-1">
+                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                    All Submissions
+                  </h2>
+                  <p className="text-base sm:text-lg" style={{ color: 'var(--color-text-muted)' }}>
+                    {submissionVisibility === 'public_with_rankings' 
+                      ? 'Discover the top-performing submissions from this contest' 
+                      : 'View all contest submissions'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button 
+                    size="sm" 
+                    variant="secondary" 
+                    onClick={() => fetchSubmissions(allSubmissionsCategoryFilter)} 
+                    isLoading={allSubmissionsLoading}
+                  >
+                    Refresh
+                  </Button>
+                  <button
+                    onClick={() => setAllSubmissionsExpanded(!allSubmissionsExpanded)}
+                    className="p-2 rounded-lg hover:bg-[var(--color-border)] transition-colors"
+                    aria-label={allSubmissionsExpanded ? 'Collapse' : 'Expand'}
+                  >
+                    <svg
+                      className={`w-5 h-5 transition-transform ${allSubmissionsExpanded ? '' : '-rotate-90'}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      style={{ color: 'var(--color-text-primary)' }}
                     >
-                      <VideoCard 
-                        video={video}
-                        rank={submissionVisibility === 'public_with_rankings' && displayStats ? index + 1 : undefined}
-                        ranked={submissionVisibility === 'public_with_rankings' && displayStats}
-                        hideLikes={!showStats}
-                      />
-                    </motion.div>
-                  );
-                })}
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
               </div>
-            </motion.div>
+              {allSubmissionsError && (
+                <div className="mb-4 p-3 rounded border border-red-500/20 bg-red-500/5 text-sm text-red-500">
+                  {allSubmissionsError}
+                </div>
+              )}
+              {allSubmissionsExpanded && (
+                <>
+                  {/* Category Filter - Exclude general categories */}
+                  {contest.contest_categories && contest.contest_categories.filter((cat: any) => !cat.is_general).length > 0 && (
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                        Filter by Category
+                      </label>
+                      <select
+                        value={allSubmissionsCategoryFilter || ''}
+                        onChange={(e) => {
+                          const newFilter = e.target.value || null;
+                          setAllSubmissionsCategoryFilter(newFilter);
+                          // Reset offset and fetch submissions for the new category
+                          fetchSubmissions(newFilter, 0, false);
+                        }}
+                        className="px-4 py-2 rounded-lg border"
+                        style={{
+                          background: 'var(--color-surface)',
+                          borderColor: 'var(--color-border)',
+                          color: 'var(--color-text-primary)',
+                        }}
+                      >
+                        <option value="">All Categories</option>
+                        {contest.contest_categories
+                          .filter((cat: any) => !cat.is_general)
+                          .map((category) => (
+                            <option key={category.id} value={category.id}>
+                              {category.name}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  )}
+                  {allSubmissionsLoading ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
+                      {[...Array(4)].map((_, idx) => (
+                        <div key={idx} className="h-64 rounded border border-[var(--color-border)] animate-pulse" />
+                      ))}
+                    </div>
+                  ) : (() => {
+                    // Category filtering is now done at database level, but keep submissions as-is
+                    // No need for client-side filtering since API handles it
+                    return submissions.length === 0 ? (
+                      <p className="text-sm text-[var(--color-text-muted)]">
+                        {allSubmissionsCategoryFilter ? 'No submissions found for this category.' : 'No submissions available.'}
+                      </p>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
+                          {submissions.map((submission, index) => {
+                            const hideCreatorInfo = submissionVisibility === 'public_hide_metrics';
+                            // Hide stats when visibility is 'public_hide_metrics' - never show stats for this visibility setting
+                            // Explicitly set showStats to false when hideCreatorInfo is true
+                            const showStats = hideCreatorInfo ? false : (submissionVisibility === 'public_with_rankings' && displayStats);
+                            
+                            return (
+                              <motion.div
+                                key={submission.id}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.4, delay: index * 0.05 }}
+                              >
+                                <ContestSubmissionCard 
+                                  submission={submission}
+                                  showStats={showStats}
+                                  showCreator={!hideCreatorInfo}
+                                  hideCreatorInfo={hideCreatorInfo}
+                                  isUserSubmission={false}
+                                  rank={submissionVisibility === 'public_with_rankings' && displayStats ? index + 1 : undefined}
+                                />
+                              </motion.div>
+                            );
+                          })}
+                        </div>
+                        {submissionsHasMore && (
+                          <div className="mt-6 flex justify-center">
+                            <Button
+                              onClick={loadMoreSubmissions}
+                              isLoading={submissionsLoadingMore}
+                              variant="secondary"
+                              size="lg"
+                            >
+                              {submissionsLoadingMore ? 'Loading...' : `Load More (${submissionsTotal - submissions.length} remaining)`}
+                            </Button>
+                          </div>
+                        )}
+                        {submissionsTotal > 0 && !submissionsHasMore && (
+                          <div className="mt-4 text-center text-sm text-[var(--color-text-muted)]">
+                            Showing all {submissionsTotal} submission{submissionsTotal !== 1 ? 's' : ''}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </>
+              )}
+            </Card>
           )}
 
         </div>

@@ -75,6 +75,76 @@ export async function GET(request: NextRequest) {
 
     const storageBucket = buckets?.find(b => b.id === 'brightdata-results');
 
+    // List files in the bucket to verify structure
+    let bucketFiles: any = null;
+    let bucketFolders: any = null;
+    let bucketErrorDetails: string | null = null;
+
+    if (storageBucket) {
+      try {
+        // List root level to see folders
+        const { data: rootFiles, error: rootError } = await supabaseAdmin!
+          .storage
+          .from('brightdata-results')
+          .list('', { limit: 100, sortBy: { column: 'name', order: 'asc' } });
+
+        if (rootError) {
+          bucketErrorDetails = rootError.message;
+        } else {
+          bucketFiles = rootFiles || [];
+          // Separate folders from files
+          bucketFolders = bucketFiles.filter((f: any) => !f.id); // Folders don't have id
+          bucketFiles = bucketFiles.filter((f: any) => f.id); // Files have id
+        }
+
+        // Check specific folders
+        const { data: videoCoverFiles } = await supabaseAdmin!
+          .storage
+          .from('brightdata-results')
+          .list('video-cover', { limit: 10 });
+
+        const { data: creatorAvatarFiles } = await supabaseAdmin!
+          .storage
+          .from('brightdata-results')
+          .list('creator-avatar', { limit: 10 });
+
+        return NextResponse.json({
+          success: true,
+          data: {
+            videos: videoAnalysis,
+            creators: creatorAnalysis,
+            storage: {
+              bucketExists: !!storageBucket,
+              bucketPublic: storageBucket?.public || false,
+              bucketName: storageBucket?.id || 'not found',
+              bucketError: bucketErrorDetails,
+              rootFiles: bucketFiles?.length || 0,
+              rootFolders: bucketFolders?.map((f: any) => f.name) || [],
+              videoCoverFiles: videoCoverFiles?.length || 0,
+              videoCoverSamples: videoCoverFiles?.slice(0, 5).map((f: any) => ({
+                name: f.name,
+                size: f.metadata?.size,
+                updated: f.updated_at
+              })) || [],
+              creatorAvatarFiles: creatorAvatarFiles?.length || 0,
+              creatorAvatarSamples: creatorAvatarFiles?.slice(0, 5).map((f: any) => ({
+                name: f.name,
+                size: f.metadata?.size,
+                updated: f.updated_at
+              })) || []
+            },
+            summary: {
+              videosUsingSupabase: `${videoAnalysis.supabaseUrls}/${videoAnalysis.total}`,
+              creatorsUsingSupabase: `${creatorAnalysis.supabaseUrls}/${creatorAnalysis.total}`,
+              needsMigration: videoAnalysis.externalUrls > 0 || creatorAnalysis.externalUrls > 0
+            }
+          }
+        });
+      } catch (listError) {
+        bucketErrorDetails = listError instanceof Error ? listError.message : 'Unknown error listing files';
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -83,7 +153,8 @@ export async function GET(request: NextRequest) {
         storage: {
           bucketExists: !!storageBucket,
           bucketPublic: storageBucket?.public || false,
-          bucketName: storageBucket?.id || 'not found'
+          bucketName: storageBucket?.id || 'not found',
+          bucketError: bucketErrorDetails || bucketError?.message || null
         },
         summary: {
           videosUsingSupabase: `${videoAnalysis.supabaseUrls}/${videoAnalysis.total}`,

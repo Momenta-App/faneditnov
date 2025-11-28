@@ -75,6 +75,7 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
   const [error, setError] = useState<string | null>(null);
   const [submissionsError, setSubmissionsError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
   // Filters
@@ -154,6 +155,66 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
       setError(err instanceof Error ? err.message : 'Failed to delete contest');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleRefreshSubmissions = async () => {
+    if (!contestId) {
+      setError('Contest ID is missing');
+      return;
+    }
+    
+    const confirmed = window.confirm(
+      `This will refresh data and stats for all ${submissions.length || 'submissions'} in this contest. This will trigger BrightData collection for each submission and may take several minutes. Continue?`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setIsRefreshing(true);
+      setError(null);
+      setSubmissionsError(null);
+      
+      console.log('[Admin Contest Page] Refreshing submissions for contest:', contestId);
+      
+      const response = await authFetch(`/api/admin/contests/${contestId}/refresh-submissions`, {
+        method: 'POST',
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || errorData.details || `HTTP ${response.status}: ${response.statusText}`;
+        console.error('[Admin Contest Page] Refresh failed:', {
+          status: response.status,
+          error: errorMessage,
+          contestId,
+        });
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      console.log('[Admin Contest Page] Refresh response:', data);
+      
+      const successMessage = `Successfully queued ${data.queued} submission${data.queued !== 1 ? 's' : ''} for refresh. ${data.failed > 0 ? `${data.failed} failed.` : 'Stats will update as BrightData processes each submission.'}`;
+      alert(successMessage);
+      
+      // Refresh submissions list after a short delay to show updated stats
+      setTimeout(() => {
+        console.log('[Admin Contest Page] Refreshing submissions list after refresh');
+        fetchSubmissions();
+      }, 2000);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to refresh submissions';
+      console.error('[Admin Contest Page] Error refreshing submissions:', {
+        error: errorMessage,
+        contestId,
+        err,
+      });
+      setError(errorMessage);
+      setSubmissionsError(errorMessage);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -300,6 +361,15 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                 Edit Contest
               </Button>
             </Link>
+            <Button
+              variant="secondary"
+              size="xs"
+              className="px-2 py-1 min-h-0 min-w-0 text-[10px]"
+              onClick={handleRefreshSubmissions}
+              isLoading={isRefreshing}
+            >
+              Refresh All Submissions
+            </Button>
             <Button
               variant="danger"
               size="xs"
@@ -637,9 +707,9 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                           </td>
                           <td className="py-1.5 px-2 text-[var(--color-text-muted)]">
                             <div className="space-y-0.5">
-                              <p>Views: {submission.views_count.toLocaleString()}</p>
-                              <p>Likes: {submission.likes_count.toLocaleString()}</p>
-                              <p>Comments: {submission.comments_count.toLocaleString()}</p>
+                              <p>Views: {(submission.videos_hot?.views_count || 0).toLocaleString()}</p>
+                              <p>Likes: {(submission.videos_hot?.likes_count || 0).toLocaleString()}</p>
+                              <p>Comments: {(submission.videos_hot?.comments_count || 0).toLocaleString()}</p>
                             </div>
                           </td>
                           <td className="py-1.5 px-2">

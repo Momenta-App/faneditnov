@@ -1,16 +1,18 @@
 /**
  * User API route for checking verification status
- * GET: Poll verification status
+ * GET: Poll verification status and check BrightData directly if webhook hasn't arrived
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, handleAuthError, AuthError } from '@/lib/auth-utils';
 import { supabaseAdmin } from '@/lib/supabase';
+import { extractBioFromProfileData, verifyCodeInBio } from '@/lib/social-account-helpers';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/settings/connected-accounts/verify/status
  * Get verification status for an account
+ * If webhook hasn't arrived, poll BrightData directly
  */
 export async function GET(request: NextRequest) {
   try {
@@ -41,6 +43,134 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // If webhook hasn't completed and we have a snapshot_id, check BrightData directly
+    if (account.webhook_status === 'PENDING' && account.snapshot_id && account.verification_status === 'PENDING') {
+      const apiKey = process.env.BRIGHT_DATA_API_KEY || process.env.BRIGHTDATA_API_KEY;
+      if (apiKey) {
+        try {
+          console.log('[Status Check] Polling BrightData snapshot:', account.snapshot_id);
+          
+          // Check snapshot status
+          const snapshotResponse = await fetch(
+            `https://api.brightdata.com/datasets/v3/snapshot/${account.snapshot_id}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+              },
+            }
+          );
+
+          if (snapshotResponse.ok) {
+            const snapshotData = await snapshotResponse.json();
+            const status = snapshotData.status?.toLowerCase() || snapshotData.state?.toLowerCase();
+
+            console.log('[Status Check] Snapshot status:', status);
+
+            // If snapshot is ready/completed, download the data
+            if (status === 'ready' || status === 'completed' || status === 'done' || status === 'success') {
+              console.log('[Status Check] Snapshot ready, downloading data...');
+              
+              const dataResponse = await fetch(
+                `https://api.brightdata.com/datasets/v3/snapshot/${account.snapshot_id}/data`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                  },
+                }
+              );
+
+              if (dataResponse.ok) {
+                const dataPayload = await dataResponse.json();
+                const profileData = Array.isArray(dataPayload) && dataPayload.length > 0 
+                  ? dataPayload[0] 
+                  : dataPayload;
+
+                if (profileData) {
+                  console.log('[Status Check] Profile data received, processing verification...');
+                  
+                  // Extract bio and verify code
+                  const bioText = extractBioFromProfileData(profileData, account.platform);
+                  const codeFound = verifyCodeInBio(bioText, account.verification_code);
+
+                  console.log('[Status Check] Bio text:', bioText);
+                  console.log('[Status Check] Verification code:', account.verification_code);
+                  console.log('[Status Check] Code found:', codeFound);
+
+                  // Update account with results
+                  const updateData: any = {
+                    profile_data: profileData,
+                    webhook_status: 'COMPLETED',
+                    last_verification_attempt_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                  };
+
+                  if (codeFound) {
+                    updateData.verification_status = 'VERIFIED';
+                    updateData.verification_attempts = 0;
+                  } else {
+                    updateData.verification_status = 'FAILED';
+                    updateData.verification_attempts = (account.verification_attempts || 0) + 1;
+                  }
+
+                  await supabaseAdmin
+                    .from('social_accounts')
+                    .update(updateData)
+                    .eq('id', account.id);
+
+                  console.log('[Status Check] Account updated:', {
+                    verification_status: updateData.verification_status,
+                    codeFound,
+                  });
+
+                  // Return updated status
+                  return NextResponse.json({
+                    data: {
+                      verification_status: updateData.verification_status,
+                      webhook_status: 'COMPLETED',
+                      verification_code: account.verification_code,
+                      last_verification_attempt_at: updateData.last_verification_attempt_at,
+                      snapshot_id: account.snapshot_id,
+                    },
+                  });
+                }
+              } else {
+                console.log('[Status Check] Data not ready yet, status:', dataResponse.status);
+              }
+            } else if (status === 'failed' || status === 'error') {
+              // Snapshot failed
+              await supabaseAdmin
+                .from('social_accounts')
+                .update({
+                  webhook_status: 'FAILED',
+                  verification_status: 'FAILED',
+                  verification_attempts: (account.verification_attempts || 0) + 1,
+                  last_verification_attempt_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', account.id);
+
+              return NextResponse.json({
+                data: {
+                  verification_status: 'FAILED',
+                  webhook_status: 'FAILED',
+                  verification_code: account.verification_code,
+                  last_verification_attempt_at: new Date().toISOString(),
+                  snapshot_id: account.snapshot_id,
+                },
+              });
+            } else {
+              // Still processing
+              console.log('[Status Check] Snapshot still processing, status:', status);
+            }
+          }
+        } catch (error) {
+          console.error('[Status Check] Error polling BrightData:', error);
+          // Continue to return current status if polling fails
+        }
+      }
+    }
+
+    // Return current status
     return NextResponse.json({
       data: {
         verification_status: account.verification_status,

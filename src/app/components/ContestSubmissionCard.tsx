@@ -32,6 +32,8 @@ interface Submission {
   processing_status?: string;
   content_review_status?: string;
   created_at?: string;
+  updated_at?: string;
+  invalid_stats_flag?: boolean;
   profiles?: {
     id: string;
     display_name?: string;

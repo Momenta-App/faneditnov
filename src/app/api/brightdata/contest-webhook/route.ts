@@ -540,6 +540,12 @@ export async function POST(request: NextRequest) {
 
     const contest = submission.contests as any;
 
+    // Get platform from submission metadata or infer from URL
+    const platform = submission.platform || 
+      (videoUrl.includes('tiktok') ? 'tiktok' : 
+       videoUrl.includes('instagram') ? 'instagram' : 
+       videoUrl.includes('youtube') ? 'youtube' : 'unknown');
+
     console.log('[Contest Webhook] Starting stats extraction and save process...', {
       submission_id: submission.id,
       platform: submission.platform,
@@ -845,12 +851,6 @@ export async function POST(request: NextRequest) {
     } else {
       console.log('[Contest Webhook] No image URLs to update (coverUrl:', !!coverUrl, ', avatarUrl:', !!avatarUrl, ')');
     }
-
-    // Get platform from submission metadata or infer from URL
-    const platform = submission.platform || 
-      (videoUrl.includes('tiktok') ? 'tiktok' : 
-       videoUrl.includes('instagram') ? 'instagram' : 
-       videoUrl.includes('youtube') ? 'youtube' : 'unknown');
 
     // Update processing status
     await supabaseAdmin

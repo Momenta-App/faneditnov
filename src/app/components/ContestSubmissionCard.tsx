@@ -389,7 +389,17 @@ export function ContestSubmissionCard({
               }
             }}
           >
-            {coverUrl ? (
+            {/* MP4 video thumbnail - show when available */}
+            {mp4VideoUrl ? (
+              <video
+                src={mp4VideoUrl}
+                poster={coverUrl || undefined}
+                className="w-full aspect-square object-cover transition-transform duration-200 group-hover:scale-105 rounded-t-[var(--radius-xl)]"
+                preload="metadata"
+                muted
+                playsInline
+              />
+            ) : coverUrl ? (
               <img
                 src={coverUrl}
                 alt={videoForModal.title}

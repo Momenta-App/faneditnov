@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
 import Link from 'next/link';
@@ -27,11 +27,11 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [loadingContest, setLoadingContest] = useState(true);
 
+  const sessionToken = useMemo(() => session?.access_token ?? null, [session?.access_token]);
+
   useEffect(() => {
     setContestId(params.id);
   }, [params]);
-
-  const sessionToken = session?.access_token ?? null;
 
   useEffect(() => {
     if (!isLoading && !user && contestId) {
@@ -39,19 +39,9 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
     }
   }, [user, isLoading, router, contestId]);
 
-  useEffect(() => {
-    if (user && contestId) {
-      fetchContest();
-    }
-  }, [user, contestId, searchParams]);
-
-  useEffect(() => {
-    if (user && contestId && sessionToken) {
-      fetchConnectedAccounts();
-    }
-  }, [user, contestId, sessionToken]);
-
-  const fetchContest = async () => {
+  const fetchContest = useCallback(async () => {
+    if (!contestId) return;
+    
     try {
       setLoadingContest(true);
       const headers: HeadersInit = sessionToken 
@@ -81,14 +71,15 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
     } finally {
       setLoadingContest(false);
     }
-  };
+  }, [contestId, sessionToken, searchParams]);
 
-  const fetchConnectedAccounts = async () => {
+  const fetchConnectedAccounts = useCallback(async () => {
+    if (!sessionToken || !contestId) {
+      return;
+    }
+    
     try {
       setCheckingAccounts(true);
-      if (!sessionToken) {
-        return;
-      }
       const headers: HeadersInit = { Authorization: `Bearer ${sessionToken}` };
       const response = await fetch('/api/settings/connected-accounts', {
         headers,
@@ -103,7 +94,19 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
     } finally {
       setCheckingAccounts(false);
     }
-  };
+  }, [sessionToken, contestId]);
+
+  useEffect(() => {
+    if (user && contestId) {
+      fetchContest();
+    }
+  }, [user, contestId, fetchContest]);
+
+  useEffect(() => {
+    if (user && contestId && sessionToken) {
+      fetchConnectedAccounts();
+    }
+  }, [user, contestId, sessionToken, fetchConnectedAccounts]);
 
   const specificCategories =
     contest?.contest_categories?.filter((cat: any) => cat.is_general === false) ?? [];
@@ -276,6 +279,47 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
                 <p className="text-sm text-[var(--color-text-muted)]">
                   Redirecting to your submissions...
                 </p>
+              </div>
+            </Card>
+          </div>
+        </PageSection>
+      </Page>
+    );
+  }
+
+  // Show loading state while contest data is being fetched
+  if (loadingContest || !contest) {
+    return (
+      <Page>
+        <PageSection variant="header">
+          <div className="max-w-2xl mx-auto">
+            <div className="flex items-center gap-4 mb-4">
+              <Link href={`/contests/${contestId}`}>
+                <Button variant="ghost" size="sm">
+                  ← Back to Contest
+                </Button>
+              </Link>
+            </div>
+            <h1 className="text-4xl font-bold text-[var(--color-text-primary)] mb-2">
+              Submit Your Edit
+            </h1>
+            <p className="text-[var(--color-text-muted)]">
+              Loading contest details...
+            </p>
+          </div>
+        </PageSection>
+        <PageSection variant="content">
+          <div className="max-w-2xl mx-auto">
+            <Card>
+              <div className="space-y-6">
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-pulse space-y-4 w-full">
+                    <div className="h-4 bg-[var(--color-surface)] rounded w-3/4"></div>
+                    <div className="h-4 bg-[var(--color-surface)] rounded w-1/2"></div>
+                    <div className="h-32 bg-[var(--color-surface)] rounded"></div>
+                    <div className="h-32 bg-[var(--color-surface)] rounded"></div>
+                  </div>
+                </div>
               </div>
             </Card>
           </div>

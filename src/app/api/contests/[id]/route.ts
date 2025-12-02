@@ -128,49 +128,71 @@ export async function GET(
     // Get the actual contest ID (in case we looked up by slug)
     const contestId = contest.id;
 
-    // Try to fetch asset links separately if table exists
-    let sortedAssetLinks: any[] = [];
-    try {
-      const { data: assetLinks } = await supabaseAdmin
-        .from('contest_asset_links')
-        .select('*')
+    // Parallelize independent queries for better performance
+    const [
+      assetLinksResult,
+      approvedSubmissionsResult,
+      subContestsResult,
+      totalPoolResult,
+    ] = await Promise.allSettled([
+      // Try to fetch asset links separately if table exists
+      (async () => {
+        try {
+          const { data } = await supabaseAdmin
+            .from('contest_asset_links')
+            .select('*')
+            .eq('contest_id', contestId)
+            .order('display_order', { ascending: true });
+          return { data: data || [] };
+        } catch (error) {
+          // Table doesn't exist yet, continue without asset links
+          return { data: [] };
+        }
+      })(),
+      
+      // Get approved submission count (content-approved, regardless of processing status)
+      supabaseAdmin
+        .from('contest_submissions')
+        .select('*', { count: 'exact', head: true })
         .eq('contest_id', contestId)
-        .order('display_order', { ascending: true });
+        .eq('content_review_status', 'approved'),
+      
+      // Check if there are multiple contests for the same movie
+      contest.movie_identifier
+        ? supabaseAdmin
+            .from('contests')
+            .select('id, title, status, slug')
+            .eq('movie_identifier', contest.movie_identifier)
+            .in('status', ['live', 'upcoming'])
+            .neq('id', contestId)
+        : Promise.resolve({ data: null }),
+      
+      // Calculate total prize pool
+      supabaseAdmin.rpc('get_contest_total_prize_pool', {
+        p_contest_id: contestId,
+      }),
+    ]);
 
-      if (assetLinks) {
-        sortedAssetLinks = assetLinks;
-      }
-    } catch (assetLinksError) {
-      // Table doesn't exist yet, continue without asset links
-      console.log('contest_asset_links table not found, continuing without asset links');
-    }
-
-    // Get approved submission count (content-approved, regardless of processing status)
-    const { count: approvedSubmissions } = await supabaseAdmin
-      .from('contest_submissions')
-      .select('*', { count: 'exact', head: true })
-      .eq('contest_id', contestId)
-      .eq('content_review_status', 'approved');
-
-    // Check if there are multiple contests for the same movie
-    let subContests = null;
-    if (contest.movie_identifier) {
-      const { data: movieContests } = await supabaseAdmin
-        .from('contests')
-        .select('id, title, status, slug')
-        .eq('movie_identifier', contest.movie_identifier)
-        .in('status', ['live', 'upcoming'])
-        .neq('id', contestId);
-
-      if (movieContests && movieContests.length > 0) {
-        subContests = movieContests;
-      }
-    }
-
-    // Calculate total prize pool
-    const { data: totalPool } = await supabaseAdmin.rpc('get_contest_total_prize_pool', {
-      p_contest_id: contestId,
-    });
+    // Extract results
+    const sortedAssetLinks = 
+      assetLinksResult.status === 'fulfilled' && assetLinksResult.value.data
+        ? assetLinksResult.value.data
+        : [];
+    
+    const approvedSubmissions = 
+      approvedSubmissionsResult.status === 'fulfilled' && approvedSubmissionsResult.value.count
+        ? approvedSubmissionsResult.value.count
+        : 0;
+    
+    const subContests = 
+      subContestsResult.status === 'fulfilled' && subContestsResult.value.data && subContestsResult.value.data.length > 0
+        ? subContestsResult.value.data
+        : null;
+    
+    const totalPool = 
+      totalPoolResult.status === 'fulfilled' && totalPoolResult.value.data
+        ? totalPoolResult.value.data
+        : 0;
 
     return NextResponse.json({
       data: {

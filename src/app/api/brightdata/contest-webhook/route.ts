@@ -557,6 +557,52 @@ export async function POST(request: NextRequest) {
     console.log('[Contest Webhook] Processing images before ingestion...');
     const processedData = await processImagesInPayload(data);
     
+    // Extract cover image and creator avatar URLs from processed data
+    // processImagesInPayload already downloads and stores images, updating the records with Supabase URLs
+    // We extract from processedData[0] to get the URLs that were just processed
+    const processedRecordForImages = processedData[0] || record;
+    
+    // Extract cover image URL - check all possible fields (same as normal ingestion)
+    const coverUrl = processedRecordForImages.preview_image 
+      || processedRecordForImages.cover_url 
+      || processedRecordForImages.thumbnail 
+      || processedRecordForImages.cover 
+      || processedRecordForImages.coverMedium
+      || processedRecordForImages.coverLarge
+      || processedRecordForImages.thumbnail_url
+      || processedRecordForImages.thumb_url
+      || processedRecordForImages.image_url
+      || processedRecordForImages.media?.cover
+      || processedRecordForImages.video?.cover;
+
+    // Extract creator avatar URL - check all possible fields (same as normal ingestion)
+    const avatarUrl = processedRecordForImages.profile_avatar 
+      || processedRecordForImages.profile?.avatar 
+      || processedRecordForImages.author?.avatarLarger 
+      || processedRecordForImages.author?.avatar?.url_list?.[0] 
+      || processedRecordForImages.author?.avatar_url 
+      || processedRecordForImages.author?.profile_pic_url 
+      || processedRecordForImages.profile?.profile_pic_url 
+      || processedRecordForImages.profile_pic_url
+      || processedRecordForImages.avatar
+      || processedRecordForImages.avatar_url
+      || processedRecordForImages.profile_picture
+      || processedRecordForImages.profile_picture_url
+      || processedRecordForImages.author?.avatarMedium
+      || processedRecordForImages.author?.avatarThumb
+      || processedRecordForImages.profile?.avatarMedium
+      || processedRecordForImages.profile?.avatarThumb;
+    
+    console.log('[Contest Webhook] Extracted image URLs from processed data:', {
+      submission_id: submission.id,
+      has_cover_url: !!coverUrl,
+      cover_url_preview: coverUrl ? coverUrl.substring(0, 100) : null,
+      is_cover_supabase: coverUrl ? isSupabaseUrl(coverUrl) : false,
+      has_avatar_url: !!avatarUrl,
+      avatar_url_preview: avatarUrl ? avatarUrl.substring(0, 100) : null,
+      is_avatar_supabase: avatarUrl ? isSupabaseUrl(avatarUrl) : false,
+    });
+    
     // Apply normalization (same as normal webhook) to get normalized_metrics
     const normalizedData = processedData.map(rec => attachNormalizedMetrics(rec));
     const processedRecord = normalizedData[0] || record;
@@ -567,37 +613,6 @@ export async function POST(request: NextRequest) {
       processed_record_keys: processedRecord ? Object.keys(processedRecord).slice(0, 30) : [],
       has_normalized_metrics: !!(processedRecord?.normalized_metrics)
     });
-
-    // Step 1.5: Store images with deduplication for contest_submissions
-    // Extract cover image and creator avatar URLs from BrightData payload
-    const coverUrl = processedRecord.preview_image 
-      || processedRecord.cover_url 
-      || processedRecord.thumbnail 
-      || processedRecord.cover 
-      || processedRecord.coverMedium
-      || processedRecord.coverLarge
-      || processedRecord.thumbnail_url
-      || processedRecord.thumb_url
-      || processedRecord.image_url
-      || processedRecord.media?.cover
-      || processedRecord.video?.cover;
-
-    const avatarUrl = processedRecord.profile_avatar 
-      || processedRecord.profile?.avatar 
-      || processedRecord.author?.avatarLarger 
-      || processedRecord.author?.avatar?.url_list?.[0] 
-      || processedRecord.author?.avatar_url 
-      || processedRecord.author?.profile_pic_url 
-      || processedRecord.profile?.profile_pic_url 
-      || processedRecord.profile_pic_url
-      || processedRecord.avatar
-      || processedRecord.avatar_url
-      || processedRecord.profile_picture
-      || processedRecord.profile_picture_url
-      || processedRecord.author?.avatarMedium
-      || processedRecord.author?.avatarThumb
-      || processedRecord.profile?.avatarMedium
-      || processedRecord.profile?.avatarThumb;
 
     // Extract video_id and creator_id
     const videoId = processedRecord.post_id 
@@ -724,102 +739,73 @@ export async function POST(request: NextRequest) {
     let coverImageUrl: string | null = null;
     let creatorAvatarUrl: string | null = null;
 
-    // Store cover image with deduplication
-    // Store images even if videoId is missing - use submission ID as fallback identifier
+    // Extract video_id and creator_id for image storage (from processed data, before normalization)
+    const videoId = processedRecordForImages.post_id 
+      || processedRecordForImages.id 
+      || processedRecordForImages.video_id
+      || processedRecordForImages.aweme_id
+      || processedRecordForImages.item_id
+      || processedRecordForImages.short_id
+      || processedRecordForImages.media_id
+      || submission.video_id;
+
+    const creatorId = processedRecordForImages.profile_id 
+      || processedRecordForImages.author?.id 
+      || processedRecordForImages.profile?.id
+      || processedRecordForImages.creator_id
+      || processedRecordForImages.user_id
+      || processedRecordForImages.uid
+      || processedRecordForImages.user?.id
+      || processedRecordForImages.author?.uid;
+
+    // Process cover image - use the URL from processedData (already processed by processImagesInPayload)
+    // If it's already a Supabase URL, use it directly. Otherwise, process it now.
     if (coverUrl) {
       if (isSupabaseUrl(coverUrl)) {
-        // Already a Supabase URL, use it directly
+        // Already processed and stored by processImagesInPayload, use it directly
         coverImageUrl = coverUrl;
-        console.log('[Contest Webhook] Cover image already in Supabase, using existing URL');
+        console.log('[Contest Webhook] Cover image already processed and stored, using Supabase URL');
       } else {
-        // Use videoId if available, otherwise use submission ID as fallback
+        // Not yet processed (shouldn't happen if processImagesInPayload worked, but handle it)
+        // Use videoId if available, otherwise use submission ID as fallback identifier
         const identifier = videoId || `submission-${submission.id}`;
-        console.log('[Contest Webhook] Storing cover image with deduplication for video:', identifier);
+        console.log('[Contest Webhook] Cover image not yet processed, storing now with identifier:', identifier);
         
-        // Check if this video already exists in contest_submissions or videos_hot
-        let existingCoverUrl: string | null = null;
-        
-        // Check current submission first (might already have cover_image_url)
-        if (submission.cover_image_url && isSupabaseUrl(submission.cover_image_url)) {
-          existingCoverUrl = submission.cover_image_url;
-        }
-        
-        // Check contest_submissions for same video_id and platform
-        if (!existingCoverUrl && videoId && submission.platform) {
-          const { data: existingSubmission } = await supabaseAdmin
-            .from('contest_submissions')
-            .select('cover_image_url, video_id')
-            .eq('video_id', videoId)
-            .eq('platform', submission.platform)
-            .neq('id', submission.id)
-            .not('cover_image_url', 'is', null)
-            .limit(1)
-            .maybeSingle();
-          
-          if (existingSubmission?.cover_image_url && isSupabaseUrl(existingSubmission.cover_image_url)) {
-            existingCoverUrl = existingSubmission.cover_image_url;
-          }
-        }
-        
-        // Check videos_hot for same video_url
-        if (!existingCoverUrl && videoUrl) {
-          const { data: existingVideo } = await supabaseAdmin
-            .from('videos_hot')
-            .select('cover_url, video_url')
-            .eq('video_url', videoUrl)
-            .not('cover_url', 'is', null)
-            .limit(1)
-            .maybeSingle();
-          
-          if (existingVideo?.cover_url && isSupabaseUrl(existingVideo.cover_url)) {
-            existingCoverUrl = existingVideo.cover_url;
-          }
-        }
-        
-        // Use deduplication logic to check if we should reuse or replace
         const result = await storeImageWithDeduplication(coverUrl, 'video-cover', identifier);
         if (result.success && result.supabaseUrl) {
           coverImageUrl = result.supabaseUrl;
-          console.log('[Contest Webhook] ✓ Stored/reused cover image:', coverImageUrl);
+          console.log('[Contest Webhook] ✓ Stored cover image:', coverImageUrl);
         } else {
           console.warn('[Contest Webhook] ✗ Failed to store cover image:', result.error);
         }
       }
+    } else {
+      console.log('[Contest Webhook] No cover URL found in processed data');
     }
 
-    // Store creator avatar with deduplication
-    // Store images even if creatorId is missing - use submission ID as fallback identifier
+    // Process creator avatar - use the URL from processedData (already processed by processImagesInPayload)
+    // If it's already a Supabase URL, use it directly. Otherwise, process it now.
     if (avatarUrl) {
       if (isSupabaseUrl(avatarUrl)) {
-        // Already a Supabase URL, use it directly
+        // Already processed and stored by processImagesInPayload, use it directly
         creatorAvatarUrl = avatarUrl;
-        console.log('[Contest Webhook] Creator avatar already in Supabase, using existing URL');
+        console.log('[Contest Webhook] Creator avatar already processed and stored, using Supabase URL');
       } else {
-        // Use creatorId if available, otherwise use submission ID as fallback
+        // Not yet processed (shouldn't happen if processImagesInPayload worked, but handle it)
+        // Use creatorId if available, otherwise use submission ID as fallback identifier
         const identifier = creatorId || `submission-${submission.id}`;
-        console.log('[Contest Webhook] Storing creator avatar with deduplication for creator:', identifier);
+        console.log('[Contest Webhook] Creator avatar not yet processed, storing now with identifier:', identifier);
         
-        // Check current submission first (might already have creator_avatar_url)
-        if (submission.creator_avatar_url && isSupabaseUrl(submission.creator_avatar_url)) {
-          // Current submission already has avatar, but check if source URL changed
-          const result = await storeImageWithDeduplication(avatarUrl, 'creator-avatar', identifier);
-          if (result.success && result.supabaseUrl) {
-            creatorAvatarUrl = result.supabaseUrl;
-            console.log('[Contest Webhook] ✓ Stored/reused creator avatar:', creatorAvatarUrl);
-          } else {
-            console.warn('[Contest Webhook] ✗ Failed to store creator avatar:', result.error);
-          }
+        const result = await storeImageWithDeduplication(avatarUrl, 'creator-avatar', identifier);
+        if (result.success && result.supabaseUrl) {
+          creatorAvatarUrl = result.supabaseUrl;
+          console.log('[Contest Webhook] ✓ Stored creator avatar:', creatorAvatarUrl);
         } else {
-          // Use deduplication logic (it will check storage for existing avatar)
-          const result = await storeImageWithDeduplication(avatarUrl, 'creator-avatar', identifier);
-          if (result.success && result.supabaseUrl) {
-            creatorAvatarUrl = result.supabaseUrl;
-            console.log('[Contest Webhook] ✓ Stored/reused creator avatar:', creatorAvatarUrl);
-          } else {
-            console.warn('[Contest Webhook] ✗ Failed to store creator avatar:', result.error);
-          }
+          console.warn('[Contest Webhook] ✗ Failed to store creator avatar:', result.error);
         }
       }
+    } else {
+      console.log('[Contest Webhook] No avatar URL found in processed data');
     }
 
     // Update contest_submissions with image URLs before ingestion
@@ -860,27 +846,84 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', submission.id);
 
-    // Extract description and hashtags from BrightData (use processed record)
-    const descriptionText = processedRecord.description || processedRecord.caption || processedRecord.text || '';
+    // Get the original raw BrightData record for fallback extraction
+    const originalBrightDataRecord = Array.isArray(data) && data.length > 0 ? data[0] : (record || processedRecord);
     
-    // Extract hashtags from multiple sources
+    // Extract description from BrightData - check both processed record and raw record
+    // For YouTube, also check 'title' field as it may contain the description
+    let descriptionText = '';
+    if (platform === 'youtube') {
+      // YouTube-specific: check title, description, caption, text
+      descriptionText = processedRecord.title 
+        || processedRecord.description 
+        || processedRecord.caption 
+        || processedRecord.text 
+        || originalBrightDataRecord?.title
+        || originalBrightDataRecord?.description
+        || originalBrightDataRecord?.caption
+        || originalBrightDataRecord?.text
+        || '';
+    } else {
+      // Instagram/TikTok: check description, caption, text
+      descriptionText = processedRecord.description 
+        || processedRecord.caption 
+        || processedRecord.text 
+        || originalBrightDataRecord?.description
+        || originalBrightDataRecord?.caption
+        || originalBrightDataRecord?.text
+        || '';
+    }
+    
+    // Log description extraction for debugging
+    console.log('[Contest Webhook] Description extraction:', {
+      submission_id: submission.id,
+      platform,
+      description_length: descriptionText.length,
+      has_processed_description: !!processedRecord.description,
+      has_processed_title: !!processedRecord.title,
+      has_raw_description: !!originalBrightDataRecord?.description,
+      has_raw_title: !!originalBrightDataRecord?.title,
+      description_preview: descriptionText.substring(0, 100)
+    });
+    
+    // Extract hashtags from multiple sources - check both processed and raw records
     const hashtags: string[] = [];
     
-    // 1. Check if BrightData provides a separate hashtags array
-    if (processedRecord.hashtags) {
-      if (Array.isArray(processedRecord.hashtags)) {
-        for (const item of processedRecord.hashtags) {
-          if (typeof item === 'string') {
-            hashtags.push(item);
-          } else if (item && typeof item === 'object') {
-            if (item.hashtag) {
-              hashtags.push(item.hashtag);
-            } else if (item.tag) {
-              hashtags.push(item.tag);
+    // Helper function to extract hashtags from a record
+    const extractHashtagsFromRecord = (rec: any) => {
+      if (!rec || typeof rec !== 'object') return;
+      
+      // 1. Check if BrightData provides a separate hashtags array
+      if (rec.hashtags) {
+        if (Array.isArray(rec.hashtags)) {
+          for (const item of rec.hashtags) {
+            if (typeof item === 'string') {
+              hashtags.push(item);
+            } else if (item && typeof item === 'object') {
+              // YouTube format: { hashtag: "#tag", link: "..." }
+              if (item.hashtag) {
+                hashtags.push(item.hashtag);
+              } else if (item.tag) {
+                hashtags.push(item.tag);
+              } else if (item.text) {
+                // Some formats might use 'text' field
+                hashtags.push(item.text);
+              }
             }
           }
+        } else if (typeof rec.hashtags === 'string') {
+          // Sometimes hashtags might be a single string
+          hashtags.push(rec.hashtags);
         }
       }
+    };
+    
+    // Extract from processed record first
+    extractHashtagsFromRecord(processedRecord);
+    
+    // Extract from raw record as fallback (in case processed record lost the data)
+    if (originalBrightDataRecord && originalBrightDataRecord !== processedRecord) {
+      extractHashtagsFromRecord(originalBrightDataRecord);
     }
     
     // 2. Extract hashtags from description/caption text
@@ -889,19 +932,33 @@ export async function POST(request: NextRequest) {
     
     // Remove duplicates and normalize
     const uniqueHashtags = [...new Set(hashtags.map(h => h.startsWith('#') ? h : `#${h}`))];
+    
+    // Log hashtag extraction for debugging
+    console.log('[Contest Webhook] Hashtag extraction:', {
+      submission_id: submission.id,
+      platform,
+      hashtags_found: uniqueHashtags.length,
+      hashtags_preview: uniqueHashtags.slice(0, 10),
+      has_processed_hashtags: !!processedRecord.hashtags,
+      has_raw_hashtags: !!originalBrightDataRecord?.hashtags,
+      processed_hashtags_type: Array.isArray(processedRecord.hashtags) ? 'array' : typeof processedRecord.hashtags,
+      raw_hashtags_type: Array.isArray(originalBrightDataRecord?.hashtags) ? 'array' : typeof originalBrightDataRecord?.hashtags
+    });
 
-    // Step 3: Perform hashtag check (use processed record)
+    // Step 3: Perform hashtag check (use processed record, with raw record as fallback)
     const hashtagStatus = checkHashtags(
       processedRecord,
       contest.required_hashtags || [],
-      platform
+      platform,
+      originalBrightDataRecord
     );
 
-    // Step 4: Perform description check (use processed record)
+    // Step 4: Perform description check (use processed record, with raw record as fallback)
     const descriptionStatus = checkDescription(
       processedRecord,
       contest.required_description_template,
-      platform
+      platform,
+      originalBrightDataRecord
     );
 
     // Step 1: Extract and save video stats directly from BrightData payload
@@ -1485,7 +1542,8 @@ function parseMetricValue(value: number | string | null | undefined): number {
 function checkHashtags(
   record: any,
   requiredHashtags: string[],
-  platform: string
+  platform: string,
+  rawRecord?: any
 ): 'pass' | 'fail' | 'pending_review' {
   if (requiredHashtags.length === 0) {
     return 'pass';
@@ -1494,27 +1552,60 @@ function checkHashtags(
   // Extract hashtags from multiple sources
   const hashtags: string[] = [];
 
-  // 1. Check if BrightData provides a separate hashtags array
-  if (record.hashtags) {
-    if (Array.isArray(record.hashtags)) {
-      // Handle different formats: array of strings or array of objects
-      for (const item of record.hashtags) {
-        if (typeof item === 'string') {
-          hashtags.push(item);
-        } else if (item && typeof item === 'object') {
-          // Format: { hashtag: "#tag", link: "..." }
-          if (item.hashtag) {
-            hashtags.push(item.hashtag);
-          } else if (item.tag) {
-            hashtags.push(item.tag);
+  // Helper function to extract hashtags from a record
+  const extractHashtagsFromRecord = (rec: any) => {
+    if (!rec || typeof rec !== 'object') return;
+    
+    // 1. Check if BrightData provides a separate hashtags array
+    if (rec.hashtags) {
+      if (Array.isArray(rec.hashtags)) {
+        // Handle different formats: array of strings or array of objects
+        for (const item of rec.hashtags) {
+          if (typeof item === 'string') {
+            hashtags.push(item);
+          } else if (item && typeof item === 'object') {
+            // YouTube format: { hashtag: "#tag", link: "..." }
+            if (item.hashtag) {
+              hashtags.push(item.hashtag);
+            } else if (item.tag) {
+              hashtags.push(item.tag);
+            } else if (item.text) {
+              // Some formats might use 'text' field
+              hashtags.push(item.text);
+            }
           }
         }
+      } else if (typeof rec.hashtags === 'string') {
+        // Sometimes hashtags might be a single string
+        hashtags.push(rec.hashtags);
       }
     }
+  };
+
+  // Extract from processed record first
+  extractHashtagsFromRecord(record);
+  
+  // Extract from raw record as fallback (in case processed record lost the data)
+  if (rawRecord && rawRecord !== record) {
+    extractHashtagsFromRecord(rawRecord);
   }
 
   // 2. Extract hashtags from description/caption text
-  const description = record.description || record.caption || record.text || '';
+  // For YouTube, also check title field
+  let description = '';
+  if (platform === 'youtube') {
+    description = record.title || record.description || record.caption || record.text || '';
+    // Also check raw record
+    if (!description && rawRecord) {
+      description = rawRecord.title || rawRecord.description || rawRecord.caption || rawRecord.text || '';
+    }
+  } else {
+    description = record.description || record.caption || record.text || '';
+    // Also check raw record
+    if (!description && rawRecord) {
+      description = rawRecord.description || rawRecord.caption || rawRecord.text || '';
+    }
+  }
   const textHashtags = extractHashtags(description);
   hashtags.push(...textHashtags);
 
@@ -1572,14 +1663,29 @@ function extractHashtags(text: string): string[] {
 function checkDescription(
   record: any,
   template: string | null,
-  platform: string
+  platform: string,
+  rawRecord?: any
 ): 'pass' | 'fail' | 'pending_review' {
   if (!template) {
     return 'pass'; // No template required
   }
 
   // Get description from multiple possible fields
-  const description = record.description || record.caption || record.text || record.title || '';
+  // For YouTube, prioritize title field
+  let description = '';
+  if (platform === 'youtube') {
+    description = record.title || record.description || record.caption || record.text || '';
+    // Also check raw record as fallback
+    if (!description && rawRecord) {
+      description = rawRecord.title || rawRecord.description || rawRecord.caption || rawRecord.text || '';
+    }
+  } else {
+    description = record.description || record.caption || record.text || record.title || '';
+    // Also check raw record as fallback
+    if (!description && rawRecord) {
+      description = rawRecord.description || rawRecord.caption || rawRecord.text || rawRecord.title || '';
+    }
+  }
   
   if (!description || description.trim().length === 0) {
     console.log('[Contest Webhook] No description found in record');

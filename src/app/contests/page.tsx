@@ -44,7 +44,9 @@ function ContestCardSkeleton() {
       <div className="relative px-[var(--spacing-6)] pb-[var(--spacing-6)]">
         {/* Profile Picture - Overlapping the cover */}
         <div className="flex items-end mb-[var(--spacing-4)]" style={{ marginTop: '-60px' }}>
-          <Skeleton className="w-20 rounded-2xl flex-shrink-0" style={{ aspectRatio: '2/3' }} />
+          <div className="w-20 flex-shrink-0" style={{ aspectRatio: '2/3' }}>
+            <Skeleton className="w-full h-full rounded-2xl" />
+          </div>
           <div className="ml-auto">
             <Skeleton className="h-7 w-20 rounded-full" />
           </div>

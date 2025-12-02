@@ -737,9 +737,9 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                           </td>
                           <td className="py-1.5 px-2 text-[var(--color-text-muted)]">
                             <div className="space-y-0.5">
-                              <p>Views: {(submission.videos_hot?.views_count || 0).toLocaleString()}</p>
-                              <p>Likes: {(submission.videos_hot?.likes_count || 0).toLocaleString()}</p>
-                              <p>Comments: {(submission.videos_hot?.comments_count || 0).toLocaleString()}</p>
+                              <p>Views: {(submission.views_count || 0).toLocaleString()}</p>
+                              <p>Likes: {(submission.likes_count || 0).toLocaleString()}</p>
+                              <p>Comments: {(submission.comments_count || 0).toLocaleString()}</p>
                             </div>
                           </td>
                           <td className="py-1.5 px-2">

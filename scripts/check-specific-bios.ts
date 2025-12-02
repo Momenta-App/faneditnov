@@ -38,7 +38,7 @@ async function main() {
       console.log('\nEmails found in bio:');
       const emailRegex = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}/g;
       const emails = data.bio.match(emailRegex) || [];
-      emails.forEach((email, idx) => {
+      emails.forEach((email: string, idx: number) => {
         console.log(`  ${idx + 1}. ${email}`);
       });
       console.log('---');

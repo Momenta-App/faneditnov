@@ -67,7 +67,6 @@ export interface ContestSubmitPayload extends ContestFormState, SubmissionRulesS
 export interface ContestWithRelations extends ContestFormState, SubmissionRulesState {
   id: string;
   status?: 'upcoming' | 'live' | 'ended' | 'draft';
-  visibility?: 'open' | 'private_link_only';
   required_hashtags: string[];
   contest_categories?: Array<{
     id: string;

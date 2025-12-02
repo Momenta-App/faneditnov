@@ -5,12 +5,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole, handleAuthError, AuthError } from '@/lib/auth-utils';
 import { supabaseAdmin } from '@/lib/supabase';
-import { detectPlatform } from '@/lib/url-utils';
+import { detectPlatform, type Platform } from '@/lib/url-utils';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes
-
-type Platform = 'tiktok' | 'instagram' | 'youtube';
 
 /**
  * POST /api/admin/contests/[id]/refresh-submissions
@@ -67,13 +65,15 @@ export async function POST(
 
     for (const submission of submissions) {
       try {
-        const platform = (submission.platform || detectPlatform(submission.original_video_url)) as Platform;
+        const detectedPlatform = submission.platform || detectPlatform(submission.original_video_url);
         
-        if (!platform || platform === 'unknown') {
+        if (!detectedPlatform || detectedPlatform === 'unknown') {
           results.failed++;
           results.errors.push(`Submission ${submission.id}: Unknown platform`);
           continue;
         }
+        
+        const platform = detectedPlatform as 'tiktok' | 'instagram' | 'youtube';
 
         // Trigger BrightData collection
         const snapshotId = await triggerBrightDataCollection(

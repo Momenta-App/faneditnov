@@ -670,11 +670,11 @@ export async function GET(
       offset,
       allSubmissionsHaveCorrectContest: wrongContestSubmissions.length === 0,
       submissionsWithProfiles: (sortedSubmissions || []).filter((s: any) => s.profiles).length,
-      sampleSubmissionCategories: filteredSubmissions.length > 0 ? (filteredSubmissions[0].contest_submission_categories || []).map((c: any) => ({
+      sampleSubmissionCategories: filteredSubmissions.length > 0 ? ((filteredSubmissions[0] as any).contest_submission_categories || []).map((c: any) => ({
         category_id: c.category_id,
         categoryName: c.contest_categories?.name,
       })) : [],
-      firstSubmissionId: filteredSubmissions.length > 0 ? filteredSubmissions[0].id : null,
+      firstSubmissionId: filteredSubmissions.length > 0 ? (filteredSubmissions[0] as any).id : null,
       filteredOutCount: (sortedSubmissions?.length || 0) - filteredSubmissions.length,
     });
     

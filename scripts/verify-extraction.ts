@@ -50,7 +50,7 @@ async function main() {
     if (data) {
       const emailRegex = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}/g;
       const emailsInBio = data.bio.match(emailRegex) || [];
-      const emailsLower = emailsInBio.map(e => e.toLowerCase());
+      const emailsLower = emailsInBio.map((e: string) => e.toLowerCase());
       
       if (!emailsLower.includes(item.email.toLowerCase())) {
         issues.push({

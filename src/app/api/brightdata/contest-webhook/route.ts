@@ -516,11 +516,8 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      submission = data;
-      submissionError = error;
-
       if (submission) {
-        console.log('[Contest Webhook] Found submission by URL (fallback):', videoUrl);
+        console.log('[Contest Webhook] Found submission:', videoUrl);
         // Update with snapshot_id if we have it
         if (snapshotId) {
           await supabaseAdmin

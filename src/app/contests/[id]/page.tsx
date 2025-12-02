@@ -50,6 +50,7 @@ interface Contest {
   profile_image_url?: string;
   cover_image_url?: string;
   display_stats?: boolean;
+  created_by?: string;
   contest_asset_links?: ContestAssetLink[];
   sub_contests?: Array<{ id: string; title: string; status: string; slug?: string }>;
   contest_categories?: Array<{

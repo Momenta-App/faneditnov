@@ -155,5 +155,10 @@ Bio: ${i.bio.substring(0, 200)}
   console.log(`\n✅ Full report written to: detailed_comparison_report.txt`);
 }
 
-main().catch(console.error);
+try {
+  main();
+} catch (error) {
+  console.error(error);
+  process.exit(1);
+}
 

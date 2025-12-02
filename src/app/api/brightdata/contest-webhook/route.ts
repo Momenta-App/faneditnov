@@ -614,25 +614,6 @@ export async function POST(request: NextRequest) {
       has_normalized_metrics: !!(processedRecord?.normalized_metrics)
     });
 
-    // Extract video_id and creator_id
-    const videoId = processedRecord.post_id 
-      || processedRecord.id 
-      || processedRecord.video_id
-      || processedRecord.aweme_id
-      || processedRecord.item_id
-      || processedRecord.short_id
-      || processedRecord.media_id
-      || submission.video_id;
-
-    const creatorId = processedRecord.profile_id 
-      || processedRecord.author?.id 
-      || processedRecord.profile?.id
-      || processedRecord.creator_id
-      || processedRecord.user_id
-      || processedRecord.uid
-      || processedRecord.user?.id
-      || processedRecord.author?.uid;
-
     // Extract creator username from scraped data (platform-specific)
     let creatorUsername: string | null = null;
     if (platform === 'tiktok') {
@@ -1094,9 +1075,7 @@ export async function POST(request: NextRequest) {
     };
     
     // Save the ORIGINAL BrightData response (not processed) for debugging
-    // Use the original record from BrightData payload
-    const originalBrightDataRecord = Array.isArray(data) && data.length > 0 ? data[0] : (record || processedRecord);
-    
+    // Use the original record from BrightData payload (already declared above)
     if (originalBrightDataRecord && typeof originalBrightDataRecord === 'object') {
       try {
         // Ensure it's serializable - save the original BrightData response

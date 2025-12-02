@@ -75,6 +75,9 @@ export async function checkVideoOwnership(
   }
 
   // Check if user has a verified social account that matches this video
+  // NOTE: For YouTube Shorts, we cannot verify ownership from URL alone since
+  // YouTube Shorts URLs don't contain usernames. Ownership must be verified
+  // after scraping when we know who created the video.
   const { data: userAccounts, error: accountsError } = await supabaseAdmin
     .from('social_accounts')
     .select('id, username, platform, verification_status, profile_url')
@@ -87,7 +90,8 @@ export async function checkVideoOwnership(
   }
 
   // If user has verified account, check if it matches the video URL
-  if (userAccounts && userAccounts.length > 0) {
+  // Skip URL-based verification for YouTube Shorts (no username in URL)
+  if (userAccounts && userAccounts.length > 0 && platform !== 'youtube') {
     const { username } = extractVideoIdentifiers(videoUrl, platform);
     const normalizedUsername = username?.toLowerCase().replace('@', '');
 

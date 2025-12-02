@@ -7,6 +7,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { normalizeBrightDataRecord } from '@/lib/brightdata-normalizer';
 import { attachNormalizedMetrics } from '@/lib/brightdata-normalizer';
 import { downloadAndStoreImage, isSupabaseUrl, storeImageWithDeduplication } from '@/lib/image-storage';
+import { resolveOwnershipConflicts } from '@/lib/contest-ownership';
 import type { Platform } from '@/lib/url-utils';
 
 export const dynamic = 'force-dynamic';
@@ -539,11 +540,27 @@ export async function POST(request: NextRequest) {
 
     const contest = submission.contests as any;
 
+    console.log('[Contest Webhook] Starting stats extraction and save process...', {
+      submission_id: submission.id,
+      platform: submission.platform,
+      video_url: submission.original_video_url
+    });
+
     // Step 1: Process images (download and store in Supabase Storage)
     // This must happen before ingestion so images are available
     console.log('[Contest Webhook] Processing images before ingestion...');
     const processedData = await processImagesInPayload(data);
-    const processedRecord = processedData[0] || record;
+    
+    // Apply normalization (same as normal webhook) to get normalized_metrics
+    const normalizedData = processedData.map(rec => attachNormalizedMetrics(rec));
+    const processedRecord = normalizedData[0] || record;
+    
+    console.log('[Contest Webhook] Processed record available:', {
+      submission_id: submission.id,
+      has_processed_record: !!processedRecord,
+      processed_record_keys: processedRecord ? Object.keys(processedRecord).slice(0, 30) : [],
+      has_normalized_metrics: !!(processedRecord?.normalized_metrics)
+    });
 
     // Step 1.5: Store images with deduplication for contest_submissions
     // Extract cover image and creator avatar URLs from BrightData payload
@@ -594,6 +611,109 @@ export async function POST(request: NextRequest) {
       || processedRecord.uid
       || processedRecord.user?.id
       || processedRecord.author?.uid;
+
+    // Extract creator username from scraped data (platform-specific)
+    let creatorUsername: string | null = null;
+    if (platform === 'tiktok') {
+      creatorUsername = processedRecord.author?.unique_id 
+        || processedRecord.profile?.unique_id
+        || processedRecord.author_username
+        || processedRecord.profile_username
+        || null;
+    } else if (platform === 'youtube') {
+      creatorUsername = processedRecord.youtuber 
+        || processedRecord.channel_name
+        || null;
+      // Remove @ prefix if present
+      if (creatorUsername) {
+        creatorUsername = creatorUsername.replace(/^@/, '');
+      }
+    } else if (platform === 'instagram') {
+      creatorUsername = processedRecord.user_posted
+        || processedRecord.author?.username
+        || processedRecord.profile?.username
+        || null;
+    }
+
+    // Verify ownership after scraping: match creator username with connected account
+    if (creatorUsername && submission.mp4_ownership_status === 'pending' && submission.user_id) {
+      console.log('[Contest Webhook] Verifying ownership after scraping:', {
+        submissionId: submission.id,
+        creatorUsername,
+        platform,
+        userId: submission.user_id,
+      });
+
+      // Find user's verified social accounts for this platform
+      const { data: userAccounts } = await supabaseAdmin
+        .from('social_accounts')
+        .select('id, username, user_id, verification_status')
+        .eq('user_id', submission.user_id)
+        .eq('platform', platform)
+        .eq('verification_status', 'VERIFIED');
+
+      if (userAccounts && userAccounts.length > 0) {
+        // Normalize usernames for comparison
+        const normalizedCreatorUsername = creatorUsername.toLowerCase().replace('@', '').trim();
+        
+        for (const account of userAccounts) {
+          const accountUsername = account.username?.toLowerCase().replace('@', '').trim();
+          
+          if (accountUsername && accountUsername === normalizedCreatorUsername) {
+            // Match found! Verify ownership
+            console.log('[Contest Webhook] ✓ Ownership verified:', {
+              submissionId: submission.id,
+              creatorUsername,
+              accountUsername: account.username,
+              accountId: account.id,
+            });
+
+            // Update submission ownership status
+            await supabaseAdmin
+              .from('contest_submissions')
+              .update({
+                mp4_ownership_status: 'verified',
+                mp4_owner_social_account_id: account.id,
+                mp4_ownership_reason: `Ownership verified: video creator @${creatorUsername} matches connected account @${account.username}`,
+                verification_status: 'verified',
+                ownership_resolved_at: new Date().toISOString(),
+              })
+              .eq('id', submission.id);
+
+            // Update raw_video_assets ownership status
+            if (submission.raw_video_asset_id) {
+              await supabaseAdmin
+                .from('raw_video_assets')
+                .update({
+                  ownership_status: 'verified',
+                  owner_social_account_id: account.id,
+                  ownership_verified_at: new Date().toISOString(),
+                  ownership_reason: `Ownership verified: video creator @${creatorUsername} matches connected account @${account.username}`,
+                })
+                .eq('id', submission.raw_video_asset_id);
+            }
+
+            // Resolve any ownership conflicts for this video
+            try {
+              await resolveOwnershipConflicts(
+                submission.original_video_url,
+                account.id,
+                submission.user_id
+              );
+            } catch (err) {
+              console.error('[Contest Webhook] Error resolving ownership conflicts:', err);
+            }
+
+            break; // Found match, no need to check other accounts
+          }
+        }
+      } else {
+        console.log('[Contest Webhook] No verified accounts found for user:', {
+          userId: submission.user_id,
+          platform,
+        });
+      }
+    }
 
     let coverImageUrl: string | null = null;
     let creatorAvatarUrl: string | null = null;
@@ -726,17 +846,13 @@ export async function POST(request: NextRequest) {
       console.log('[Contest Webhook] No image URLs to update (coverUrl:', !!coverUrl, ', avatarUrl:', !!avatarUrl, ')');
     }
 
-    // Extract metrics from BrightData response (use processed record)
-    // Note: Stats are now stored in videos_hot, not contest_submissions
-    // We'll link video_hot_id after ingestion completes
-    
     // Get platform from submission metadata or infer from URL
     const platform = submission.platform || 
       (videoUrl.includes('tiktok') ? 'tiktok' : 
        videoUrl.includes('instagram') ? 'instagram' : 
        videoUrl.includes('youtube') ? 'youtube' : 'unknown');
 
-    // Update processing status (stats will come from videos_hot after ingestion)
+    // Update processing status
     await supabaseAdmin
       .from('contest_submissions')
       .update({
@@ -788,235 +904,412 @@ export async function POST(request: NextRequest) {
       platform
     );
 
-    // Update statuses
+    // Step 1: Extract and save video stats directly from BrightData payload
+    // Use the EXACT same extraction logic as ingest_brightdata_snapshot_v2
+    // IMPORTANT: This MUST execute before hashtag/description updates to ensure stats are saved
+    
+    console.log('[Contest Webhook] ===== STARTING STATS EXTRACTION =====', {
+      submission_id: submission.id,
+      has_processed_record: !!processedRecord,
+      processed_record_type: typeof processedRecord,
+      platform
+    });
+    
+    if (!processedRecord) {
+      console.error('[Contest Webhook] CRITICAL: processedRecord is null/undefined - cannot extract stats!');
+      console.error('[Contest Webhook] Available data:', {
+        has_record: !!record,
+        has_processed_data: !!processedData,
+        processed_data_length: processedData?.length,
+        has_normalized_data: !!normalizedData,
+        normalized_data_length: normalizedData?.length
+      });
+      // Continue anyway - hashtags might still work, but stats will be 0
+    }
+    
+    // Get normalized_metrics if available (from attachNormalizedMetrics)
+    const normalizedMetrics = processedRecord?.normalized_metrics || null;
+    
+    let views = 0;
+    let likes = 0;
+    let comments = 0;
+    let shares = 0;
+    let saves = 0;
+
+    // Extract stats using platform-specific logic (copied from ingestion function)
+    if (!processedRecord) {
+      console.error('[Contest Webhook] CRITICAL: Cannot extract stats - processedRecord is null');
+      views = 0;
+      likes = 0;
+      comments = 0;
+      shares = 0;
+      saves = 0;
+    } else if (platform === 'tiktok') {
+      views = processedRecord.play_count || 0;
+      likes = processedRecord.digg_count || 0;
+      comments = processedRecord.comment_count || 0;
+      shares = processedRecord.share_count || 0;
+      saves = processedRecord.collect_count || 0;
+    } else if (platform === 'youtube') {
+      views = processedRecord.views || 0;
+      likes = processedRecord.likes || 0;
+      comments = processedRecord.num_comments || 0;
+      shares = 0; // YouTube doesn't have shares
+      saves = 0; // YouTube doesn't have saves
+    } else {
+      // Instagram (or fallback)
+      views = processedRecord.video_play_count || 
+              processedRecord.play_count || 
+              processedRecord.views || 0;
+      likes = processedRecord.likes || 
+              processedRecord.digg_count || 0;
+      comments = processedRecord.num_comments || 
+                 processedRecord.comment_count || 0;
+      shares = processedRecord.share_count || 0;
+      saves = processedRecord.save_count || 
+              processedRecord.collect_count || 0;
+    }
+    
+    // Use normalized_metrics if available (same as ingestion function)
+    if (normalizedMetrics) {
+      views = normalizedMetrics.total_views ?? views;
+      likes = normalizedMetrics.like_count ?? likes;
+      comments = normalizedMetrics.comment_count ?? comments;
+      shares = normalizedMetrics.share_count ?? shares;
+      saves = normalizedMetrics.save_count ?? saves;
+    }
+    
+    // Ensure all values are numbers
+    views = Number(views) || 0;
+    likes = Number(likes) || 0;
+    comments = Number(comments) || 0;
+    shares = Number(shares) || 0;
+    saves = Number(saves) || 0;
+
+    // Calculate impact score: 100 × comments + 0.001 × likes + views ÷ 100000
+    const impactScore = Math.round(
+      ((100.0 * comments) +
+       (0.001 * likes) +
+       (views / 100000.0)) * 100
+    ) / 100; // Round to 2 decimal places
+    
+    console.log('[Contest Webhook] Extracted stats from BrightData:', {
+      submission_id: submission.id,
+      platform,
+      views,
+      likes,
+      comments,
+      shares,
+      saves,
+      impact_score: impactScore,
+      has_normalized_metrics: !!normalizedMetrics,
+      normalized_metrics: normalizedMetrics ? {
+        total_views: normalizedMetrics.total_views,
+        like_count: normalizedMetrics.like_count,
+        comment_count: normalizedMetrics.comment_count,
+        share_count: normalizedMetrics.share_count,
+        save_count: normalizedMetrics.save_count,
+      } : null,
+      raw_fields: {
+        play_count: processedRecord.play_count,
+        video_play_count: processedRecord.video_play_count,
+        views: processedRecord.views,
+        digg_count: processedRecord.digg_count,
+        like_count: processedRecord.like_count,
+        comment_count: processedRecord.comment_count,
+        num_comments: processedRecord.num_comments,
+        share_count: processedRecord.share_count,
+        collect_count: processedRecord.collect_count,
+        save_count: processedRecord.save_count,
+      }
+    });
+
+    // Save stats directly to database - ensure this happens
+    // Also save the raw BrightData response for debugging
+    const statsUpdateData: any = {
+      views_count: views,
+      likes_count: likes,
+      comments_count: comments,
+      shares_count: shares,
+      saves_count: saves,
+      impact_score: impactScore,
+      stats_updated_at: new Date().toISOString(),
+    };
+    
+    // Save the ORIGINAL BrightData response (not processed) for debugging
+    // Use the original record from BrightData payload
+    const originalBrightDataRecord = Array.isArray(data) && data.length > 0 ? data[0] : (record || processedRecord);
+    
+    if (originalBrightDataRecord && typeof originalBrightDataRecord === 'object') {
+      try {
+        // Ensure it's serializable - save the original BrightData response
+        statsUpdateData.brightdata_response = JSON.parse(JSON.stringify(originalBrightDataRecord));
+        console.log('[Contest Webhook] ✓ Prepared brightdata_response for saving:', {
+          submission_id: submission.id,
+          has_brightdata_response: true,
+          response_keys: Object.keys(originalBrightDataRecord).slice(0, 20)
+        });
+      } catch (e) {
+        console.warn('[Contest Webhook] Failed to serialize brightdata_response:', e);
+        // Store a simplified version with error info
+        statsUpdateData.brightdata_response = {
+          error: 'Failed to serialize full response',
+          error_message: e instanceof Error ? e.message : 'Unknown error',
+          keys: Object.keys(originalBrightDataRecord).slice(0, 50),
+          sample_data: Object.fromEntries(
+            Object.entries(originalBrightDataRecord).slice(0, 10)
+          )
+        };
+      }
+    } else {
+      console.warn('[Contest Webhook] Original BrightData record is invalid:', {
+        submission_id: submission.id,
+        has_data_array: Array.isArray(data),
+        data_length: Array.isArray(data) ? data.length : 0,
+        has_record: !!record,
+        has_processed_record: !!processedRecord,
+        type: typeof originalBrightDataRecord,
+        is_null: originalBrightDataRecord === null,
+        is_undefined: originalBrightDataRecord === undefined
+      });
+    }
+
+    console.log('[Contest Webhook] Updating contest_submissions with stats:', {
+      submission_id: submission.id,
+      update_data_keys: Object.keys(statsUpdateData),
+      update_data: {
+        views_count: statsUpdateData.views_count,
+        likes_count: statsUpdateData.likes_count,
+        comments_count: statsUpdateData.comments_count,
+        shares_count: statsUpdateData.shares_count,
+        saves_count: statsUpdateData.saves_count,
+        impact_score: statsUpdateData.impact_score,
+        has_brightdata_response: !!statsUpdateData.brightdata_response
+      }
+    });
+
+    // Try update without brightdata_response first (in case column doesn't exist)
+    const statsUpdateDataWithoutResponse = {
+      views_count: views,
+      likes_count: likes,
+      comments_count: comments,
+      shares_count: shares,
+      saves_count: saves,
+      impact_score: impactScore,
+      stats_updated_at: new Date().toISOString(),
+    };
+
+    let statsError: any = null;
+    let updatedData: any = null;
+
+    // First try with brightdata_response
+    const updateResult = await supabaseAdmin
+      .from('contest_submissions')
+      .update(statsUpdateData)
+      .eq('id', submission.id)
+      .select('id, views_count, likes_count, comments_count, shares_count, saves_count, impact_score, stats_updated_at, brightdata_response');
+
+    if (updateResult.error) {
+      // If error, check if it's because brightdata_response column doesn't exist
+      const isColumnError = updateResult.error.message?.includes('column') && 
+                           updateResult.error.message?.includes('brightdata_response');
+      
+      if (isColumnError) {
+        console.warn('[Contest Webhook] brightdata_response column may not exist, trying without it:', updateResult.error.message);
+      } else {
+        console.error('[Contest Webhook] Update failed with error:', {
+          error: updateResult.error.message,
+          code: updateResult.error.code,
+          details: updateResult.error.details
+        });
+      }
+      
+      // Try without brightdata_response
+      const updateResult2 = await supabaseAdmin
+        .from('contest_submissions')
+        .update(statsUpdateDataWithoutResponse)
+        .eq('id', submission.id)
+        .select('id, views_count, likes_count, comments_count, shares_count, saves_count, impact_score, stats_updated_at, brightdata_response');
+      
+      statsError = updateResult2.error;
+      updatedData = updateResult2.data;
+      
+      if (!statsError && updateResult2.data) {
+        console.warn('[Contest Webhook] Stats saved but brightdata_response was not saved (column may not exist)');
+      }
+    } else {
+      statsError = updateResult.error;
+      updatedData = updateResult.data;
+      
+      // Verify brightdata_response was saved
+      if (updatedData && updatedData.length > 0 && updatedData[0].brightdata_response) {
+        console.log('[Contest Webhook] ✓ brightdata_response saved successfully');
+      } else if (statsUpdateData.brightdata_response) {
+        console.warn('[Contest Webhook] ⚠ brightdata_response was in update but not returned in select - may not have been saved');
+      }
+    }
+
+    if (statsError) {
+      console.error('[Contest Webhook] ✗ CRITICAL: Failed to save video stats:', {
+        submission_id: submission.id,
+        error: statsError.message,
+        code: statsError.code,
+        details: statsError.details,
+        hint: statsError.hint,
+        update_data: statsUpdateData
+      });
+      // Don't throw - continue with other processing
+    } else {
+      if (updatedData && updatedData.length > 0) {
+        const saved = updatedData[0];
+        console.log('[Contest Webhook] ✓ Video stats saved successfully:', {
+          submission_id: submission.id,
+          saved_stats: {
+            views_count: saved.views_count,
+            likes_count: saved.likes_count,
+            comments_count: saved.comments_count,
+            shares_count: saved.shares_count,
+            saves_count: saved.saves_count,
+            impact_score: saved.impact_score,
+            stats_updated_at: saved.stats_updated_at
+          }
+        });
+        
+        // Verify the stats were actually saved correctly
+        if (saved.views_count !== views || saved.likes_count !== likes || saved.comments_count !== comments) {
+          console.error('[Contest Webhook] ✗ CRITICAL: Stats mismatch after save!', {
+            submission_id: submission.id,
+            expected: { views, likes, comments, shares, saves },
+            actual: {
+              views: saved.views_count,
+              likes: saved.likes_count,
+              comments: saved.comments_count,
+              shares: saved.shares_count,
+              saves: saved.saves_count
+            }
+          });
+        }
+      } else {
+        console.error('[Contest Webhook] ✗ CRITICAL: Update returned no rows - submission may not exist:', {
+          submission_id: submission.id
+        });
+      }
+    }
+
+    // Step 2: Update hashtag and description statuses
+    // IMPORTANT: Also ensure stats are saved here as a fallback if Step 1 failed
     const finalStatus =
       hashtagStatus === 'pass' && descriptionStatus === 'pass'
         ? 'approved'
         : 'waiting_review';
 
-    await supabaseAdmin
-      .from('contest_submissions')
-      .update({
-        hashtag_status: hashtagStatus,
-        description_status: descriptionStatus,
-        processing_status: finalStatus,
-        description_text: descriptionText || null,
-        hashtags_array: uniqueHashtags.length > 0 ? uniqueHashtags : null,
-      })
-      .eq('id', submission.id);
+    const hashtagUpdateData: any = {
+      hashtag_status: hashtagStatus,
+      description_status: descriptionStatus,
+      processing_status: finalStatus,
+      description_text: descriptionText || null,
+      hashtags_array: uniqueHashtags.length > 0 ? uniqueHashtags : null,
+      // Ensure stats are saved here too as fallback
+      views_count: views,
+      likes_count: likes,
+      comments_count: comments,
+      shares_count: shares,
+      saves_count: saves,
+      impact_score: impactScore,
+      stats_updated_at: new Date().toISOString(),
+    };
 
-    // Step 2: Trigger full ingestion pipeline to populate main database tables
-    // This ensures contest submissions feed into communities, hashtag pages, etc.
-    console.log('[Contest Webhook] Triggering full ingestion pipeline...');
+    // Try to add brightdata_response to hashtag update as well (in case stats update didn't include it)
+    // Use the original BrightData response
+    const originalBrightDataRecord = Array.isArray(data) && data.length > 0 ? data[0] : (record || processedRecord);
     
-    // Track ingestion attempt
-    const finalSnapshotId = snapshotId || `contest_${submission.id}_${Date.now()}`;
-    let ingestionSucceeded = false;
-    let ingestionErrorDetails: any = null;
-    
-    try {
-      // Retrieve submission metadata to get skip_validation flag
-      let skipValidation = false;
-      if (snapshotId) {
-        const { data: metadata } = await supabaseAdmin
-          .from('submission_metadata')
-          .select('skip_validation')
-          .eq('snapshot_id', snapshotId)
-          .maybeSingle();
-        
-        if (metadata) {
-          skipValidation = metadata.skip_validation ?? false;
-        }
-      }
-
-      // Normalize the payload using the same logic as main webhook
-      const normalizedPayload = processedData.map(rec => attachNormalizedMetrics(rec));
-
-      console.log('[Contest Webhook] Calling ingest_brightdata_snapshot_v2 with:', {
-        snapshot_id: finalSnapshotId,
-        payload_count: normalizedPayload.length,
-        skip_validation: skipValidation
-      });
-
-      // Call the ingestion function to populate videos_hot, creators_hot, hashtags_hot, etc.
-      const { data: ingestionResult, error: ingestionError } = await supabaseAdmin.rpc(
-        'ingest_brightdata_snapshot_v2',
-        {
-          p_snapshot_id: finalSnapshotId,
-          p_dataset_id: '',
-          p_payload: normalizedPayload,
-          p_skip_validation: skipValidation,
-        }
-      );
-
-      if (ingestionError) {
-        ingestionErrorDetails = ingestionError;
-        console.error('[Contest Webhook] Full ingestion RPC failed:', {
-          error: ingestionError.message,
-          code: ingestionError.code,
-          details: ingestionError.details,
-          hint: ingestionError.hint
-        });
-        
-        // Log to bd_ingestions table
-        await supabaseAdmin
-          .from('bd_ingestions')
-          .upsert({
-            snapshot_id: finalSnapshotId,
-            dataset_id: '',
-            status: 'failed',
-            error: ingestionError.message,
-            raw_count: normalizedPayload.length,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'snapshot_id' });
-      } else {
-        console.log('[Contest Webhook] Full ingestion RPC completed:', ingestionResult);
-        
-        // Verify that video was actually created in videos_hot
-        const videoUrl = record.url || record.video_url || record.post_url;
-        if (videoUrl) {
-          // Wait a moment for database to commit
-          await sleep(500);
-          
-          const { data: videoCheck, error: videoCheckError } = await supabaseAdmin
-            .from('videos_hot')
-            .select('id, video_id, video_url')
-            .eq('video_url', videoUrl)
-            .maybeSingle();
-          
-          if (videoCheck) {
-            ingestionSucceeded = true;
-            console.log('[Contest Webhook] ✓ Verification: Video found in videos_hot:', {
-              video_id: videoCheck.video_id,
-              id: videoCheck.id
-            });
-            
-            // Video found in videos_hot - ingestion successful
-            // Note: Stats are now stored directly in contest_submissions, no linking needed
-            console.log('[Contest Webhook] ✓ Video found in videos_hot - ingestion successful:', {
-              submission_id: submission.id,
-              video_id: videoCheck.video_id
-            });
-          } else {
-            console.warn('[Contest Webhook] ⚠ Verification: Video NOT found in videos_hot after ingestion:', {
-              videoUrl,
-              error: videoCheckError?.message
-            });
-            
-            // Try to find by standardized URL
-            const standardizedUrl = videoUrl.split('?')[0].split('#')[0];
-            const { data: videoCheck2 } = await supabaseAdmin
-              .from('videos_hot')
-              .select('id, video_id, video_url')
-              .eq('video_url', standardizedUrl)
-              .maybeSingle();
-            
-            if (videoCheck2) {
-              ingestionSucceeded = true;
-              console.log('[Contest Webhook] ✓ Verification: Video found in videos_hot (by standardized URL):', {
-                video_id: videoCheck2.video_id,
-                id: videoCheck2.id
-              });
-              
-              // Video found in videos_hot - ingestion successful
-              console.log('[Contest Webhook] ✓ Video found in videos_hot (standardized URL) - ingestion successful:', {
-                submission_id: submission.id,
-                video_id: videoCheck2.video_id
-              });
-            } else {
-              console.error('[Contest Webhook] ✗ Verification FAILED: Video not in videos_hot after ingestion');
-              ingestionErrorDetails = { message: 'Video not found in videos_hot after ingestion', videoUrl };
-            }
-          }
-        } else {
-          console.warn('[Contest Webhook] ⚠ Cannot verify ingestion - no video URL in payload');
-        }
-        
-        // Log successful ingestion
-        await supabaseAdmin
-          .from('bd_ingestions')
-          .upsert({
-            snapshot_id: finalSnapshotId,
-            dataset_id: '',
-            status: ingestionSucceeded ? 'completed' : 'failed',
-            error: ingestionSucceeded ? null : 'Video not found in videos_hot after ingestion',
-            raw_count: normalizedPayload.length,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'snapshot_id' });
-      }
-    } catch (ingestionError) {
-      ingestionErrorDetails = ingestionError;
-      console.error('[Contest Webhook] Exception during full ingestion:', {
-        error: ingestionError instanceof Error ? ingestionError.message : 'Unknown error',
-        stack: ingestionError instanceof Error ? ingestionError.stack : undefined
-      });
-    }
-    
-    // Step 3: Fallback mechanism - if ingestion failed, trigger main webhook
-    if (!ingestionSucceeded && ingestionErrorDetails) {
-      console.log('[Contest Webhook] Ingestion failed, attempting fallback to main webhook...');
-      
+    if (originalBrightDataRecord && typeof originalBrightDataRecord === 'object') {
       try {
-        // Get the app URL for webhook
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
-          ? `https://${process.env.VERCEL_URL}` 
-          : 'https://www.sportsclips.io';
-        const mainWebhookUrl = `${appUrl.replace(/\/+$/, '')}/api/brightdata/webhook`;
-        
-        console.log('[Contest Webhook] Triggering main webhook as fallback:', mainWebhookUrl);
-        
-        // Send the processed data to main webhook
-        const fallbackResponse = await fetch(mainWebhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(processedData),
-        });
-        
-        if (fallbackResponse.ok) {
-          const fallbackResult = await fallbackResponse.json();
-          console.log('[Contest Webhook] ✓ Fallback to main webhook succeeded:', fallbackResult);
-          
-          // Verify again after fallback
-          await sleep(1000);
-          const videoUrl = record.url || record.video_url || record.post_url;
-          if (videoUrl) {
-            const { data: videoCheck } = await supabaseAdmin
-              .from('videos_hot')
-              .select('id, video_id')
-              .eq('video_url', videoUrl)
-              .maybeSingle();
-            
-            if (videoCheck) {
-              console.log('[Contest Webhook] ✓ Fallback verification: Video now in videos_hot');
-              ingestionSucceeded = true;
-              
-              // Video found in videos_hot - ingestion successful
-              console.log('[Contest Webhook] ✓ Video found in videos_hot (fallback) - ingestion successful:', {
-                submission_id: submission.id,
-                video_id: videoCheck.video_id
-              });
-            }
-          }
-        } else {
-          const fallbackError = await fallbackResponse.text();
-          console.error('[Contest Webhook] ✗ Fallback to main webhook failed:', {
-            status: fallbackResponse.status,
-            error: fallbackError
-          });
-        }
-      } catch (fallbackError) {
-        console.error('[Contest Webhook] ✗ Exception during fallback:', fallbackError);
+        hashtagUpdateData.brightdata_response = JSON.parse(JSON.stringify(originalBrightDataRecord));
+      } catch (e) {
+        console.warn('[Contest Webhook] Failed to serialize brightdata_response in hashtag update:', e);
       }
     }
+
+    console.log('[Contest Webhook] Updating hashtag/description statuses and ensuring stats are saved:', {
+      submission_id: submission.id,
+      final_status: finalStatus,
+      stats_included: {
+        views_count: hashtagUpdateData.views_count,
+        likes_count: hashtagUpdateData.likes_count,
+        comments_count: hashtagUpdateData.comments_count,
+      }
+    });
+
+    // Only include brightdata_response in hashtag update if it wasn't already saved in stats update
+    // Check if stats update succeeded and included brightdata_response
+    const statsUpdateSucceeded = !statsError && updatedData && updatedData.length > 0;
+    const brightdataResponseAlreadySaved = statsUpdateSucceeded && updatedData[0].brightdata_response;
     
-    // Log final status
-    if (ingestionSucceeded) {
-      console.log('[Contest Webhook] ✓ Full ingestion pipeline completed successfully');
-    } else {
-      console.error('[Contest Webhook] ✗ Full ingestion pipeline failed:', ingestionErrorDetails);
+    if (brightdataResponseAlreadySaved) {
+      // Don't include brightdata_response again - it's already saved
+      delete hashtagUpdateData.brightdata_response;
+      console.log('[Contest Webhook] Skipping brightdata_response in hashtag update (already saved in stats update)');
+    } else if (!hashtagUpdateData.brightdata_response) {
+      // Try to add it if it wasn't in the update data
+      const originalBrightDataRecord = Array.isArray(data) && data.length > 0 ? data[0] : (record || processedRecord);
+      if (originalBrightDataRecord && typeof originalBrightDataRecord === 'object') {
+        try {
+          hashtagUpdateData.brightdata_response = JSON.parse(JSON.stringify(originalBrightDataRecord));
+          console.log('[Contest Webhook] Adding brightdata_response to hashtag update (was not saved in stats update)');
+        } catch (e) {
+          console.warn('[Contest Webhook] Failed to serialize brightdata_response in hashtag update:', e);
+        }
+      }
     }
+
+    const { error: hashtagUpdateError } = await supabaseAdmin
+      .from('contest_submissions')
+      .update(hashtagUpdateData)
+      .eq('id', submission.id)
+      .select('id, brightdata_response');
+
+    if (hashtagUpdateError) {
+      console.error('[Contest Webhook] Failed to update hashtag/description/stats:', {
+        submission_id: submission.id,
+        error: hashtagUpdateError.message,
+        code: hashtagUpdateError.code
+      });
+      // Try without brightdata_response if it failed
+      if (hashtagUpdateData.brightdata_response) {
+        delete hashtagUpdateData.brightdata_response;
+        const { error: retryError } = await supabaseAdmin
+          .from('contest_submissions')
+          .update(hashtagUpdateData)
+          .eq('id', submission.id)
+          .select('id, brightdata_response');
+        
+        if (retryError) {
+          console.error('[Contest Webhook] Retry also failed:', retryError.message);
+        } else {
+          console.log('[Contest Webhook] Hashtag update succeeded without brightdata_response');
+        }
+      }
+    } else {
+      // Verify brightdata_response was saved in hashtag update
+      const hashtagUpdateResult = await supabaseAdmin
+        .from('contest_submissions')
+        .select('brightdata_response')
+        .eq('id', submission.id)
+        .single();
+      
+      if (hashtagUpdateResult.data?.brightdata_response) {
+        console.log('[Contest Webhook] ✓ brightdata_response confirmed saved in database');
+      } else if (hashtagUpdateData.brightdata_response) {
+        console.warn('[Contest Webhook] ⚠ brightdata_response was in hashtag update but not found in database');
+      }
+    }
+
+    // NOTE: Contest submissions now have their own independent flow
+    // The normal ingestion flow (videos_hot) is triggered separately via process-submission route
+    // This webhook ONLY handles contest_submissions and does NOT call ingestion
+    console.log('[Contest Webhook] Contest submission flow completed - stats saved directly to contest_submissions');
+    console.log('[Contest Webhook] Note: Normal ingestion (videos_hot) is handled by separate BrightData trigger');
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -1105,24 +1398,45 @@ function extractMetrics(record: any, platform: string): {
       ) || 0,
   };
 
+  // Use normalized metrics if available, otherwise fallback
+  // But don't use 0 from normalized if fallback has a value
   const result = {
-    views: normalized_metrics.total_views || fallback.views,
-    likes: normalized_metrics.like_count || fallback.likes,
-    comments: normalized_metrics.comment_count || fallback.comments,
-    shares: normalized_metrics.share_count || fallback.shares,
-    saves: normalized_metrics.save_count || fallback.saves,
+    views: normalized_metrics.total_views ?? fallback.views,
+    likes: normalized_metrics.like_count ?? fallback.likes,
+    comments: normalized_metrics.comment_count ?? fallback.comments,
+    shares: normalized_metrics.share_count ?? fallback.shares,
+    saves: normalized_metrics.save_count ?? fallback.saves,
   };
 
-  if (result.comments === 0) {
-    console.warn('[Contest Webhook] Missing comment metrics', {
+  // Log detailed extraction info for debugging
+  console.log('[Contest Webhook] Metrics extraction details:', {
+    platform,
+    normalized_metrics: {
+      total_views: normalized_metrics.total_views,
+      like_count: normalized_metrics.like_count,
+      comment_count: normalized_metrics.comment_count,
+      share_count: normalized_metrics.share_count,
+      save_count: normalized_metrics.save_count,
+    },
+    fallback_metrics: fallback,
+    final_result: result,
+  });
+
+  if (result.comments === 0 && result.views === 0 && result.likes === 0) {
+    console.warn('[Contest Webhook] ⚠ All metrics are zero - check BrightData payload:', {
       platform,
       url: record.url || record.video_url || record.post_url,
-      num_comments: record.num_comments,
-      comment_count: record.comment_count,
-      comments_count: record.comments_count,
-      comments_label: record.comments,
-      metrics_comment: normalized_metrics.comment_count,
-      fallback_comments: fallback.comments,
+      record_sample: {
+        play_count: record.play_count,
+        video_play_count: record.video_play_count,
+        views: record.views,
+        likes: record.likes,
+        digg_count: record.digg_count,
+        comment_count: record.comment_count,
+        num_comments: record.num_comments,
+      },
+      normalized_metrics,
+      fallback,
     });
   }
 
@@ -1137,18 +1451,22 @@ function coalesceMetric(...values: Array<number | string | null | undefined>): n
   return null;
 }
 
-function parseMetricValue(value: number | string | null | undefined): number | null {
-  if (value === null || value === undefined) return null;
-  if (typeof value === 'number' && !Number.isNaN(value)) return value;
+function parseMetricValue(value: number | string | null | undefined): number {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === 'number' && !Number.isNaN(value) && value >= 0) return value;
   if (typeof value === 'string') {
     const trimmed = value.trim().toLowerCase();
+    // Handle empty strings
+    if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') return 0;
+    
+    // Handle K/M/B suffixes (e.g., "1.5K", "2M", "1.2B")
     const match = trimmed.match(/([0-9][0-9.,]*)([kmb])?/);
     if (match) {
       const numericPortion = match[1].replace(/,/g, '');
       const base = Number(numericPortion);
-      if (!Number.isNaN(base)) {
+      if (!Number.isNaN(base) && base >= 0) {
         const suffix = match[2];
-        if (!suffix) return base;
+        if (!suffix) return Math.round(base);
         const multiplier =
           suffix === 'k' ? 1_000 :
           suffix === 'm' ? 1_000_000 :
@@ -1156,10 +1474,11 @@ function parseMetricValue(value: number | string | null | undefined): number | n
         return Math.round(base * multiplier);
       }
     }
+    // Try parsing as plain number
     const numeric = Number(trimmed.replace(/,/g, ''));
-    if (!Number.isNaN(numeric)) return numeric;
+    if (!Number.isNaN(numeric) && numeric >= 0) return Math.round(numeric);
   }
-  return null;
+  return 0;
 }
 
 /**

@@ -120,96 +120,55 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let snapshotId: string;
+    let contestSnapshotId: string;
+    let ingestionSnapshotId: string | null = null;
 
     try {
-      if (metadataRecord) {
-        // Found metadata entry - check if it's a placeholder or actual snapshot_id
-        const isPlaceholder = metadataRecord.snapshot_id.startsWith('pending_') || metadataRecord.snapshot_id.startsWith('mock_');
-        
-        if (isPlaceholder) {
-          // Placeholder found - submission creation route created metadata but didn't trigger BrightData
-          // We need to trigger BrightData and update the placeholder with the actual snapshot_id
-          console.log('[Process Submission] Found placeholder snapshot_id - triggering BrightData for contest webhook:', {
-            submissionId,
-            placeholderSnapshotId: metadataRecord.snapshot_id,
-          });
-          
-          snapshotId = await triggerBrightDataCollection(
-            submission.platform as Platform,
-            submission.original_video_url
-          );
+      // STEP 1: Trigger BrightData for contest-webhook (independent flow for contest_submissions)
+      console.log('[Process Submission] Triggering BrightData for contest-webhook (contest_submissions flow):', {
+        submissionId,
+      });
+      
+      contestSnapshotId = await triggerBrightDataCollectionForContest(
+        submission.platform as Platform,
+        submission.original_video_url
+      );
 
-          // Update the placeholder with actual snapshot_id
-          await supabaseAdmin
-            .from('submission_metadata')
-            .update({ 
-              snapshot_id: snapshotId,
-              contest_submission_id: submissionId,
-            })
-            .eq('snapshot_id', metadataRecord.snapshot_id);
-
-          // Also update raw_video_assets if it exists and links to the old placeholder
-          if (rawAsset && rawAsset.submission_metadata_id === metadataRecord.snapshot_id) {
-            await supabaseAdmin
-              .from('raw_video_assets')
-              .update({ submission_metadata_id: snapshotId })
-              .eq('id', rawAsset.id);
-          }
-        } else {
-          // Actual snapshot_id found - BrightData was already triggered (shouldn't happen for new submissions)
-          snapshotId = metadataRecord.snapshot_id;
-          console.log('[Process Submission] Found existing snapshot_id (unexpected for new submission):', {
-            submissionId,
-            snapshotId,
-            note: 'Reusing existing snapshot_id',
-          });
-          
-          // Update metadata to link to this submission if not already linked
-          await supabaseAdmin
-            .from('submission_metadata')
-            .update({ contest_submission_id: submissionId })
-            .eq('snapshot_id', snapshotId);
-        }
-      } else {
-        // No metadata found - trigger BrightData for contest webhook
-        console.log('[Process Submission] No existing metadata found - triggering BrightData for contest webhook:', {
-          submissionId,
-        });
-        
-        snapshotId = await triggerBrightDataCollection(
-          submission.platform as Platform,
-          submission.original_video_url
-        );
-
-        // Create submission_metadata entry for this trigger
-        await supabaseAdmin
-          .from('submission_metadata')
-          .upsert({
-            snapshot_id: snapshotId,
-            video_urls: [submission.original_video_url],
-            skip_validation: false,
-            submitted_by: submission.user_id,
-            contest_submission_id: submissionId,
-            created_at: new Date().toISOString(),
-          }, {
-            onConflict: 'snapshot_id',
-            ignoreDuplicates: false
-          });
-      }
-
-      // Store snapshot_id in submission for webhook matching
+      // Store contest snapshot_id in submission for webhook matching
       await supabaseAdmin
         .from('contest_submissions')
-        .update({ snapshot_id: snapshotId })
+        .update({ snapshot_id: contestSnapshotId })
         .eq('id', submissionId);
 
-      console.log('[Process Submission] Snapshot ID stored:', { submissionId, snapshotId });
+      console.log('[Process Submission] Contest snapshot ID stored:', { submissionId, contestSnapshotId });
+
+      // STEP 2: Trigger BrightData for normal ingestion (videos_hot flow)
+      // This is a separate, independent flow that populates videos_hot for communities/hashtags
+      console.log('[Process Submission] Triggering BrightData for normal ingestion (videos_hot flow):', {
+        submissionId,
+      });
+
+      try {
+        ingestionSnapshotId = await triggerBrightDataCollectionForIngestion(
+          submission.platform as Platform,
+          submission.original_video_url,
+          submission.user_id
+        );
+
+        console.log('[Process Submission] Ingestion snapshot ID:', { submissionId, ingestionSnapshotId });
+      } catch (ingestionError) {
+        // Don't fail the entire process if ingestion trigger fails - contest flow is independent
+        console.error('[Process Submission] Failed to trigger ingestion flow (non-critical):', {
+          submissionId,
+          error: ingestionError instanceof Error ? ingestionError.message : 'Unknown error',
+        });
+      }
 
       return NextResponse.json({
         success: true,
         message: 'Processing initiated',
-        snapshot_id: snapshotId,
+        contest_snapshot_id: contestSnapshotId,
+        ingestion_snapshot_id: ingestionSnapshotId,
       });
     } catch (brightDataError) {
       // If BrightData trigger fails, mark submission as needing manual review
@@ -255,9 +214,9 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Trigger BrightData collection for video stats
+ * Trigger BrightData collection for contest webhook (contest_submissions flow)
  */
-async function triggerBrightDataCollection(
+async function triggerBrightDataCollectionForContest(
   platform: Platform,
   url: string
 ): Promise<string> {
@@ -328,7 +287,7 @@ async function triggerBrightDataCollection(
   // Trigger BrightData collection - use endpoint and notify parameters like the upload flow
   const triggerUrl = `https://api.brightdata.com/datasets/v3/trigger?dataset_id=${datasetId}&endpoint=${webhookUrl}&notify=${webhookUrl}&format=json&uncompressed_webhook=true&include_errors=true`;
 
-  console.log('[Process Submission] BrightData trigger details:', {
+  console.log('[Process Submission] Contest BrightData trigger details:', {
     platform,
     datasetId,
     webhookUrl: `${appUrl}/api/brightdata/contest-webhook`,
@@ -374,7 +333,164 @@ async function triggerBrightDataCollection(
 
     return snapshotId || crypto.randomUUID();
   } catch (error) {
-    console.error('[Process Submission] Error triggering BrightData:', error);
+    console.error('[Process Submission] Error triggering BrightData for contest:', error);
+    throw error;
+  }
+}
+
+/**
+ * Trigger BrightData collection for normal ingestion (videos_hot flow)
+ * This is separate from contest flow and populates videos_hot for communities/hashtags
+ */
+async function triggerBrightDataCollectionForIngestion(
+  platform: Platform,
+  url: string,
+  userId: string
+): Promise<string> {
+  const apiKey = process.env.BRIGHT_DATA_API_KEY || process.env.BRIGHTDATA_API_KEY;
+
+  if (!apiKey) {
+    console.warn('[Process Submission] BRIGHT_DATA_API_KEY not configured for ingestion');
+    return crypto.randomUUID();
+  }
+
+  // Get dataset ID for platform
+  let datasetId: string | undefined;
+  switch (platform) {
+    case 'tiktok':
+      datasetId = process.env.BRIGHT_DATA_TIKTOK_POST_SCRAPER_ID;
+      break;
+    case 'instagram':
+      datasetId = process.env.BRIGHT_DATA_INSTAGRAM_POST_SCRAPER_ID;
+      break;
+    case 'youtube':
+      datasetId = process.env.BRIGHT_DATA_YOUTUBE_SHORTS_SCRAPER_ID;
+      break;
+  }
+
+  if (!datasetId) {
+    console.warn(`[Process Submission] Dataset ID not configured for ${platform} ingestion`);
+    return crypto.randomUUID();
+  }
+
+  // Get webhook URL for normal ingestion
+  let appUrl = process.env.NEXT_PUBLIC_APP_URL;
+
+  if (!appUrl) {
+    if (process.env.VERCEL_URL) {
+      appUrl = `https://${process.env.VERCEL_URL}`;
+    } else {
+      appUrl = 'http://localhost:3000';
+    }
+  }
+
+  // Ensure URL has protocol
+  if (appUrl && !appUrl.startsWith('http://') && !appUrl.startsWith('https://')) {
+    appUrl = `https://${appUrl}`;
+  }
+
+  // Legacy domain redirects
+  if (appUrl === 'https://sportsclips.io' || appUrl === 'https://sportsclips.io/') {
+    appUrl = 'https://www.sportsclips.io';
+  }
+
+  if (
+    appUrl === 'https://fanedit.com' ||
+    appUrl === 'https://fanedit.com/' ||
+    appUrl === 'https://www.fanedit.com' ||
+    appUrl === 'https://www.fanedit.com/'
+  ) {
+    appUrl = 'https://www.sportsclips.io';
+  }
+
+  // Remove trailing slashes
+  appUrl = appUrl.replace(/\/+$/, '');
+
+  const webhookUrl = encodeURIComponent(`${appUrl}/api/brightdata/webhook`);
+
+  // Trigger BrightData collection for normal ingestion
+  const triggerUrl = `https://api.brightdata.com/datasets/v3/trigger?dataset_id=${datasetId}&endpoint=${webhookUrl}&notify=${webhookUrl}&format=json&uncompressed_webhook=true&include_errors=true`;
+
+  console.log('[Process Submission] Ingestion BrightData trigger details:', {
+    platform,
+    datasetId,
+    webhookUrl: `${appUrl}/api/brightdata/webhook`,
+    triggerUrl: triggerUrl.substring(0, 200) + '...',
+  });
+
+  // Use same payload format as upload flow - just { url }, no country field
+  const requestBody = [{ url }];
+
+  try {
+    const response = await fetch(triggerUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error(`[Process Submission] Ingestion BrightData trigger failed: ${errorBody}`);
+      throw new Error(`BrightData ingestion trigger failed: ${errorBody}`);
+    }
+
+    const triggerData = await response.json();
+    console.log('[Process Submission] Ingestion BrightData trigger response:', JSON.stringify(triggerData, null, 2));
+
+    // Extract snapshot ID
+    let snapshotId: string | undefined;
+    if (Array.isArray(triggerData) && triggerData.length > 0) {
+      const firstItem = triggerData[0];
+      snapshotId = firstItem?.snapshot_id || firstItem?.id || firstItem?.collection_id;
+      console.log('[Process Submission] Extracted ingestion snapshot_id from array:', snapshotId);
+    } else if (triggerData && typeof triggerData === 'object') {
+      snapshotId = triggerData.snapshot_id || triggerData.id || triggerData.collection_id;
+      console.log('[Process Submission] Extracted ingestion snapshot_id from object:', snapshotId);
+    }
+
+    if (!snapshotId) {
+      console.warn('[Process Submission] No ingestion snapshot_id found in response, generating UUID');
+    }
+
+    const finalSnapshotId = snapshotId || crypto.randomUUID();
+
+    // Create/update submission_metadata entry for normal ingestion flow
+    // This allows the normal webhook to process the submission through full ingestion
+    // First try to find existing metadata (including placeholders)
+    const { data: existingMetadata } = await supabaseAdmin
+      .from('submission_metadata')
+      .select('snapshot_id')
+      .eq('submitted_by', userId)
+      .contains('video_urls', [url])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingMetadata) {
+      // Update existing metadata (whether placeholder or not) with actual snapshot_id
+      await supabaseAdmin
+        .from('submission_metadata')
+        .update({ snapshot_id: finalSnapshotId })
+        .eq('snapshot_id', existingMetadata.snapshot_id);
+    } else {
+      // Create new metadata entry
+      await supabaseAdmin
+        .from('submission_metadata')
+        .insert({
+          snapshot_id: finalSnapshotId,
+          video_urls: [url],
+          skip_validation: false,
+          submitted_by: userId,
+          created_at: new Date().toISOString(),
+        });
+    }
+
+    return finalSnapshotId;
+  } catch (error) {
+    console.error('[Process Submission] Error triggering BrightData for ingestion:', error);
     throw error;
   }
 }

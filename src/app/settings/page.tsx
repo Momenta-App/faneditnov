@@ -1260,6 +1260,32 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                   const likes = videoHot?.likes_count ?? submission.likes_count ?? 0;
                   const comments = videoHot?.comments_count ?? submission.comments_count ?? 0;
                   
+                  // Check if stats are currently being fetched (not stuck/failed)
+                  const statsAreLoading = (() => {
+                    if (submission.processing_status === 'fetching_stats') {
+                      // If invalid_stats_flag is set, it's failed, not loading
+                      if (submission.invalid_stats_flag === true) {
+                        return false;
+                      }
+                      // Check if it's stuck (> 30 minutes)
+                      const updatedAt = submission.updated_at || submission.created_at;
+                      if (updatedAt) {
+                        const updatedTime = new Date(updatedAt).getTime();
+                        const now = Date.now();
+                        const minutesSinceUpdate = (now - updatedTime) / (1000 * 60);
+                        // If it's been more than 30 minutes, consider it stuck/failed
+                        if (minutesSinceUpdate > 30) {
+                          return false;
+                        }
+                      }
+                      // If all stats are 0, they're likely still loading
+                      if (views === 0 && likes === 0 && comments === 0) {
+                        return true;
+                      }
+                    }
+                    return false;
+                  })();
+                  
                   // Calculate ratios and percentages
                   const viewsToLikesRatio = views > 0 && likes > 0 ? (views / likes).toFixed(1) : null;
                   const viewsToCommentsRatio = views > 0 && comments > 0 ? (views / comments).toFixed(1) : null;
@@ -1272,21 +1298,51 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                       <div className="grid grid-cols-3 gap-3">
                         <div className="p-4 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] min-w-0">
                           <p className="text-xs font-medium text-[var(--color-text-muted)] mb-2">Views</p>
-                          <p className="text-2xl font-bold text-[var(--color-text-primary)] truncate" title={views.toLocaleString()}>
-                            {formatNumber(views)}
-                          </p>
+                          {statsAreLoading && views === 0 ? (
+                            <div className="flex items-center gap-2">
+                              <svg className="w-5 h-5 animate-spin text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              <span className="text-sm text-[var(--color-text-muted)]">Loading...</span>
+                            </div>
+                          ) : (
+                            <p className="text-2xl font-bold text-[var(--color-text-primary)] truncate" title={views.toLocaleString()}>
+                              {formatNumber(views)}
+                            </p>
+                          )}
                         </div>
                         <div className="p-4 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] min-w-0">
                           <p className="text-xs font-medium text-[var(--color-text-muted)] mb-2">Likes</p>
-                          <p className="text-2xl font-bold text-[var(--color-text-primary)] truncate" title={likes.toLocaleString()}>
-                            {formatNumber(likes)}
-                          </p>
+                          {statsAreLoading && likes === 0 ? (
+                            <div className="flex items-center gap-2">
+                              <svg className="w-5 h-5 animate-spin text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              <span className="text-sm text-[var(--color-text-muted)]">Loading...</span>
+                            </div>
+                          ) : (
+                            <p className="text-2xl font-bold text-[var(--color-text-primary)] truncate" title={likes.toLocaleString()}>
+                              {formatNumber(likes)}
+                            </p>
+                          )}
                         </div>
                         <div className="p-4 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] min-w-0">
                           <p className="text-xs font-medium text-[var(--color-text-muted)] mb-2">Comments</p>
-                          <p className="text-2xl font-bold text-[var(--color-text-primary)] truncate" title={comments.toLocaleString()}>
-                            {formatNumber(comments)}
-                          </p>
+                          {statsAreLoading && comments === 0 ? (
+                            <div className="flex items-center gap-2">
+                              <svg className="w-5 h-5 animate-spin text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              <span className="text-sm text-[var(--color-text-muted)]">Loading...</span>
+                            </div>
+                          ) : (
+                            <p className="text-2xl font-bold text-[var(--color-text-primary)] truncate" title={comments.toLocaleString()}>
+                              {formatNumber(comments)}
+                            </p>
+                          )}
                         </div>
                       </div>
                       

@@ -452,11 +452,13 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
                             </div>
                           );
                         } else {
-                          const account = getVerifiedAccountForPlatform(platform);
                           return (
-                            <div className="mt-2 p-3 rounded-lg border border-green-500/20 bg-green-500/5">
-                              <p className="text-sm text-green-700">
-                                ✓ Verified {platform} account: {account?.username || account?.profile_url}
+                            <div className="mt-2 p-3 rounded-lg border border-blue-500/20 bg-blue-500/5">
+                              <p className="text-sm text-blue-700">
+                                ℹ️ You have a connected {platform} account
+                              </p>
+                              <p className="text-xs text-blue-600 mt-1">
+                                Please make sure you own the account of the video you are uploading. Ownership will be verified after submission by matching the video creator with your connected account.
                               </p>
                             </div>
                           );

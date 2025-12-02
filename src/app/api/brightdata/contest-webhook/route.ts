@@ -1220,9 +1220,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Try to add brightdata_response to hashtag update as well (in case stats update didn't include it)
-    // Use the original BrightData response
-    const originalBrightDataRecord = Array.isArray(data) && data.length > 0 ? data[0] : (record || processedRecord);
-    
+    // Use the original BrightData response (already defined above)
     if (originalBrightDataRecord && typeof originalBrightDataRecord === 'object') {
       try {
         hashtagUpdateData.brightdata_response = JSON.parse(JSON.stringify(originalBrightDataRecord));

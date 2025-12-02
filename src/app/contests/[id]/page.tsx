@@ -530,8 +530,13 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
     const videoHot = submission.videos_hot;
     const videoUrl = videoHot?.video_url || videoHot?.url || '';
     
-    // Use cover_url or thumbnail_url from videos_hot
-    let thumbnail = videoHot?.cover_url || videoHot?.thumbnail_url || '';
+    // Prioritize cover_image_url from contest_submissions (stored in local storage during submission)
+    // Then fall back to videos_hot cover images
+    let thumbnail = submission.cover_image_url 
+      || submission.cover_url 
+      || videoHot?.cover_url 
+      || videoHot?.thumbnail_url 
+      || '';
     
     // Fallback: Generate thumbnail URL based on platform and video URL
     if (!thumbnail && videoUrl) {

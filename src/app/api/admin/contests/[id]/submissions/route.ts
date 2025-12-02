@@ -186,15 +186,12 @@ export async function GET(
     
     const ascending = sortOrder === 'asc';
     
-    // Note: We can't order by nested videos_hot columns directly in Supabase
-    // So we'll fetch all matching records, sort in memory, then paginate
-    // For created_at (which is on contest_submissions), we can still use DB ordering
-    if (sortField === 'created_at') {
-      query = query.order('created_at', { ascending });
-      // Apply pagination before fetching
-      query = query.range(offset, offset + limit - 1);
-    }
-    // For stats fields, we'll sort in memory after fetching
+    // Apply sorting directly in the database query
+    // All stats fields (views_count, likes_count, etc.) are now available directly on contest_submissions
+    query = query.order(sortField, { ascending, nullsFirst: false });
+    
+    // Apply pagination
+    query = query.range(offset, offset + limit - 1);
 
     const { data: submissions, error } = await query;
 
@@ -259,53 +256,7 @@ export async function GET(
     });
     
     // Sort by videos_hot stats if needed (not created_at)
-    let sortedSubmissions = submissions || [];
-    if (sortField !== 'created_at' && submissions && submissions.length > 0) {
-      sortedSubmissions = [...submissions].sort((a: any, b: any) => {
-        const videoHotA = a.videos_hot;
-        const videoHotB = b.videos_hot;
-        
-        // Get values from videos_hot, fallback to 0 if missing
-        const getValue = (sub: any, field: string): number => {
-          const videoHot = sub.videos_hot;
-          if (!videoHot) return 0;
-          return videoHot[field] || 0;
-        };
-        
-        let valueA = 0;
-        let valueB = 0;
-        
-        if (sortField === 'views_count') {
-          valueA = getValue(a, 'views_count');
-          valueB = getValue(b, 'views_count');
-        } else if (sortField === 'likes_count') {
-          valueA = getValue(a, 'likes_count');
-          valueB = getValue(b, 'likes_count');
-        } else if (sortField === 'comments_count') {
-          valueA = getValue(a, 'comments_count');
-          valueB = getValue(b, 'comments_count');
-        } else if (sortField === 'shares_count') {
-          valueA = getValue(a, 'shares_count');
-          valueB = getValue(b, 'shares_count');
-        } else if (sortField === 'impact_score') {
-          valueA = getValue(a, 'impact_score');
-          valueB = getValue(b, 'impact_score');
-        }
-        
-        const comparison = valueA - valueB;
-        return ascending ? comparison : -comparison;
-      });
-      
-      // Apply pagination after sorting
-      sortedSubmissions = sortedSubmissions.slice(offset, offset + limit);
-    }
-
-    // Log submission IDs for debugging
-    if (sortedSubmissions && sortedSubmissions.length > 0) {
-      console.log('[Admin Submissions API] Submission IDs returned:', sortedSubmissions.map((s: any) => s.id));
-    }
-
-    const normalizedSubmissions = sortedSubmissions.map(submission => {
+    const normalizedSubmissions = (submissions || []).map(submission => {
       const derivedStatus = deriveReviewStatus(submission);
       return {
         ...submission,

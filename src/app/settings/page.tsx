@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { useCampaigns } from '../hooks/useData';
@@ -10,7 +10,7 @@ import { Button } from '../components/Button';
 import { Skeleton } from '../components/Skeleton';
 import { Tabs, TabList, Tab, TabPanels, TabPanel } from '../components/Tabs';
 import { Modal } from '../components/Modal';
-import { getRoleDisplayName, getRoleDescription } from '@/lib/role-utils';
+import { getRoleDisplayName, getRoleDescription, isAdmin } from '@/lib/role-utils';
 import { ContestVideoPlayer } from '../components/ContestVideoPlayer';
 import { MP4VideoModal } from '../components/MP4VideoModal';
 import { VideoModal } from '../components/VideoModal';
@@ -31,17 +31,54 @@ const formatNumber = (num: number | null | undefined): string => {
 };
 
 export default function SettingsPage() {
-  const { user, isLoading } = useAuth();
+  const { user, profile, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
   
-  // Determine initial tab from URL param: 0=Profile, 1=Search Results, 2=Contests, 3=Social Accounts
-  const getInitialTab = () => {
-    if (tabParam === 'social-accounts') return 3;
-    if (tabParam === 'contests') return 2;
-    if (tabParam === 'search-results') return 1;
+  const userIsAdmin = isAdmin(profile?.role);
+  
+  // Map tab names to indices based on whether user is admin
+  // If admin: 0=Profile, 1=Search Results, 2=Contests, 3=Social Accounts
+  // If not admin: 0=Profile, 1=Contests, 2=Social Accounts
+  const getTabIndex = (tabName: string | null): number => {
+    if (!tabName) return 0; // Profile is always 0
+    
+    if (tabName === 'social-accounts') {
+      return userIsAdmin ? 3 : 2;
+    }
+    if (tabName === 'contests') {
+      return userIsAdmin ? 2 : 1;
+    }
+    if (tabName === 'search-results') {
+      if (!userIsAdmin) {
+        // Non-admin trying to access search-results, redirect to profile
+        return 0;
+      }
+      return 1;
+    }
     return 0;
+  };
+  
+  // Map tab index to URL param
+  const getTabParam = (tabIndex: number): string | null => {
+    if (userIsAdmin) {
+      // Admin: 0=Profile, 1=Search Results, 2=Contests, 3=Social Accounts
+      if (tabIndex === 3) return 'social-accounts';
+      if (tabIndex === 2) return 'contests';
+      if (tabIndex === 1) return 'search-results';
+      return null; // Profile
+    } else {
+      // Non-admin: 0=Profile, 1=Contests, 2=Social Accounts
+      if (tabIndex === 2) return 'social-accounts';
+      if (tabIndex === 1) return 'contests';
+      return null; // Profile
+    }
+  };
+  
+  // Determine initial tab from URL param
+  const getInitialTab = () => {
+    return getTabIndex(tabParam);
   };
   
   const [activeTab, setActiveTab] = useState(getInitialTab());
@@ -55,26 +92,20 @@ export default function SettingsPage() {
 
   // Sync with URL param
   useEffect(() => {
-    if (tabParam === 'social-accounts') {
-      setActiveTab(3);
-    } else if (tabParam === 'contests') {
-      setActiveTab(2);
-    } else if (tabParam === 'search-results') {
-      setActiveTab(1);
-    } else {
-      setActiveTab(0);
+    const tabIndex = getTabIndex(tabParam);
+    setActiveTab(tabIndex);
+    
+    // If non-admin tries to access search-results, redirect to profile
+    if (tabParam === 'search-results' && !userIsAdmin) {
+      router.replace('/settings', { scroll: false });
     }
-  }, [tabParam]);
+  }, [tabParam, userIsAdmin, router]);
 
   const handleTabChange = (tabIndex: number) => {
     setActiveTab(tabIndex);
-    // Update URL without causing a full page reload
-    if (tabIndex === 3) {
-      router.replace('/settings?tab=social-accounts', { scroll: false });
-    } else if (tabIndex === 2) {
-      router.replace('/settings?tab=contests', { scroll: false });
-    } else if (tabIndex === 1) {
-      router.replace('/settings?tab=search-results', { scroll: false });
+    const tabParamValue = getTabParam(tabIndex);
+    if (tabParamValue) {
+      router.replace(`/settings?tab=${tabParamValue}`, { scroll: false });
     } else {
       router.replace('/settings', { scroll: false });
     }
@@ -105,13 +136,15 @@ export default function SettingsPage() {
               <Tab isActive={activeTab === 0} onClick={() => handleTabChange(0)}>
                 Profile
               </Tab>
-              <Tab isActive={activeTab === 1} onClick={() => handleTabChange(1)}>
-                Search Results
-              </Tab>
-              <Tab isActive={activeTab === 2} onClick={() => handleTabChange(2)}>
+              {userIsAdmin && (
+                <Tab isActive={activeTab === 1} onClick={() => handleTabChange(1)}>
+                  Search Results
+                </Tab>
+              )}
+              <Tab isActive={activeTab === (userIsAdmin ? 2 : 1)} onClick={() => handleTabChange(userIsAdmin ? 2 : 1)}>
                 Contests
               </Tab>
-              <Tab isActive={activeTab === 3} onClick={() => handleTabChange(3)}>
+              <Tab isActive={activeTab === (userIsAdmin ? 3 : 2)} onClick={() => handleTabChange(userIsAdmin ? 3 : 2)}>
                 Social Accounts
               </Tab>
             </TabList>
@@ -119,18 +152,21 @@ export default function SettingsPage() {
               <TabPanel className={activeTab === 0 ? 'block' : 'hidden'}>
                 <ProfileSection />
               </TabPanel>
-              <TabPanel className={activeTab === 1 ? 'block' : 'hidden'}>
-                <SavedCampaignsSection />
-              </TabPanel>
-              <TabPanel className={activeTab === 2 ? 'block' : 'hidden'}>
+              {userIsAdmin && (
+                <TabPanel className={activeTab === 1 ? 'block' : 'hidden'}>
+                  <SavedCampaignsSection />
+                </TabPanel>
+              )}
+              <TabPanel className={activeTab === (userIsAdmin ? 2 : 1) ? 'block' : 'hidden'}>
                 <ContestsSection 
                   onNavigateToOwnership={() => {
-                    setActiveTab(3);
+                    const socialAccountsTab = userIsAdmin ? 3 : 2;
+                    setActiveTab(socialAccountsTab);
                     router.replace('/settings?tab=social-accounts', { scroll: false });
                   }}
                 />
               </TabPanel>
-              <TabPanel className={activeTab === 3 ? 'block' : 'hidden'}>
+              <TabPanel className={activeTab === (userIsAdmin ? 3 : 2) ? 'block' : 'hidden'}>
                 <ConnectedAccountsSection />
               </TabPanel>
             </TabPanels>
@@ -224,6 +260,8 @@ function SavedCampaignsSection() {
 function ProfileSection() {
   const { user, profile, refreshSession } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showCreatorInfo, setShowCreatorInfo] = useState(false);
+  const [showBrandInfo, setShowBrandInfo] = useState(false);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -283,7 +321,7 @@ function ProfileSection() {
         </div>
       </Card>
 
-      {/* Account Role - Simplified for simple auth */}
+      {/* Account Role */}
       <Card>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
@@ -291,9 +329,9 @@ function ProfileSection() {
               <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-1">
                 Account Role
               </h2>
-            <p className="text-sm text-[var(--color-text-muted)]">
-              Your current role: {getRoleDisplayName(profile.role)}
-            </p>
+              <p className="text-sm text-[var(--color-text-muted)]">
+                Your current role and available roles
+              </p>
             </div>
             <Button
               variant="secondary"
@@ -304,25 +342,199 @@ function ProfileSection() {
               {isRefreshing ? 'Refreshing...' : 'Refresh Role'}
             </Button>
           </div>
-          <div className={`p-5 rounded-[var(--radius-lg)] border-2 bg-[var(--color-primary)]/5 border-[var(--color-primary)] shadow-[var(--shadow-sm)]`}>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-[var(--color-primary)]/20 text-[var(--color-primary)]">
-                {getRoleDisplayName(profile.role).charAt(0)}
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-base font-semibold text-[var(--color-primary)]">
-                    {getRoleDisplayName(profile.role)}
-                  </span>
-                  <span className="px-2 py-0.5 bg-[var(--color-primary)] text-white text-xs font-bold rounded-full">
-                    Current
-                  </span>
+
+          <div className="space-y-3">
+            {/* Standard Role */}
+            <div className={`relative p-5 rounded-[var(--radius-lg)] border-2 transition-all ${
+              profile.role === 'standard'
+                ? 'bg-[var(--color-primary)]/5 border-[var(--color-primary)] shadow-[var(--shadow-sm)]'
+                : 'bg-[var(--color-surface)] border-[var(--color-border)]'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
+                    profile.role === 'standard'
+                      ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'
+                      : 'bg-[var(--color-surface)] text-[var(--color-text-muted)]'
+                  }`}>
+                    S
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-base font-semibold ${
+                        profile.role === 'standard'
+                          ? 'text-[var(--color-primary)]'
+                          : 'text-[var(--color-text-primary)]'
+                      }`}>
+                        Standard
+                      </span>
+                      {profile.role === 'standard' && (
+                        <span className="px-2 py-0.5 bg-[var(--color-primary)] text-white text-xs font-bold rounded-full">
+                          Current
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                      Standard account with basic features
+                    </p>
+                  </div>
                 </div>
-                <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                  {getRoleDescription(profile.role)}
-                </p>
               </div>
             </div>
+
+            {/* Creator Role */}
+            <div className="relative">
+              <div className={`relative p-5 rounded-[var(--radius-lg)] border-2 transition-all ${
+                profile.role === 'creator'
+                  ? 'bg-[var(--color-primary)]/5 border-[var(--color-primary)] shadow-[var(--shadow-sm)]'
+                  : 'bg-[var(--color-surface)] border-[var(--color-border)]'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
+                      profile.role === 'creator'
+                        ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'
+                        : 'bg-[var(--color-surface)] text-[var(--color-text-muted)]'
+                    }`}>
+                      C
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-base font-semibold ${
+                          profile.role === 'creator'
+                            ? 'text-[var(--color-primary)]'
+                            : 'text-[var(--color-text-primary)]'
+                        }`}>
+                          Creator
+                        </span>
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onMouseEnter={() => setShowCreatorInfo(true)}
+                            onMouseLeave={() => setShowCreatorInfo(false)}
+                            className="p-1 rounded-full hover:bg-[var(--color-surface)] transition-colors focus-ring"
+                            aria-label="Creator role information"
+                          >
+                            <svg className="w-4 h-4 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.829V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                          {showCreatorInfo && (
+                            <div 
+                              onMouseEnter={() => setShowCreatorInfo(true)}
+                              onMouseLeave={() => setShowCreatorInfo(false)}
+                              className="absolute right-0 bottom-full mb-2 z-20 w-80 p-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-lg)] shadow-[var(--shadow-xl)]"
+                            >
+                              <p className="text-sm text-[var(--color-text-primary)] leading-relaxed">
+                                Want to become a Creator? Reach out to us to upgrade your account.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        {profile.role === 'creator' && (
+                          <span className="px-2 py-0.5 bg-[var(--color-primary)] text-white text-xs font-bold rounded-full">
+                            Current
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                        Enhanced features for content creators
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Brand Role */}
+            <div className="relative">
+              <div className={`relative p-5 rounded-[var(--radius-lg)] border-2 transition-all ${
+                profile.role === 'brand'
+                  ? 'bg-[var(--color-primary)]/5 border-[var(--color-primary)] shadow-[var(--shadow-sm)]'
+                  : 'bg-[var(--color-surface)] border-[var(--color-border)]'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
+                      profile.role === 'brand'
+                        ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'
+                        : 'bg-[var(--color-surface)] text-[var(--color-text-muted)]'
+                    }`}>
+                      B
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-base font-semibold ${
+                          profile.role === 'brand'
+                            ? 'text-[var(--color-primary)]'
+                            : 'text-[var(--color-text-primary)]'
+                        }`}>
+                          Brand
+                        </span>
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onMouseEnter={() => setShowBrandInfo(true)}
+                            onMouseLeave={() => setShowBrandInfo(false)}
+                            className="p-1 rounded-full hover:bg-[var(--color-surface)] transition-colors focus-ring"
+                            aria-label="Brand role information"
+                          >
+                            <svg className="w-4 h-4 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.829V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                          {showBrandInfo && (
+                            <div 
+                              onMouseEnter={() => setShowBrandInfo(true)}
+                              onMouseLeave={() => setShowBrandInfo(false)}
+                              className="absolute right-0 bottom-full mb-2 z-20 w-80 p-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-lg)] shadow-[var(--shadow-xl)]"
+                            >
+                              <p className="text-sm text-[var(--color-text-primary)] leading-relaxed">
+                                Want to become a Brand? Reach out to us to upgrade your account.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        {profile.role === 'brand' && (
+                          <span className="px-2 py-0.5 bg-[var(--color-primary)] text-white text-xs font-bold rounded-full">
+                            Current
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                        Tools and features for brands
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Admin Role - Only visible to admin users */}
+            {profile.role === 'admin' && (
+              <div className={`relative p-5 rounded-[var(--radius-lg)] border-2 bg-[var(--color-primary)]/5 border-[var(--color-primary)] shadow-[var(--shadow-sm)]`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-[var(--color-primary)]/20 text-[var(--color-primary)]">
+                      A
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-base font-semibold text-[var(--color-primary)]">
+                          Admin
+                        </span>
+                        <span className="px-2 py-0.5 bg-[var(--color-primary)] text-white text-xs font-bold rounded-full">
+                          Current
+                        </span>
+                      </div>
+                      <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                        Full system access and administration
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </Card>
@@ -670,8 +882,13 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
   const generalCategories = allCategories.filter((c: any) => !c.is_primary).map((c: any) => c.contest_categories);
 
   // Get video data from videos_hot if available, otherwise use submission data
+  // Prioritize cover_image_url from contest_submissions (stored in local storage during submission)
   const videoHot = submission.videos_hot;
-  const coverImageUrl = videoHot?.cover_url || videoHot?.thumbnail_url || null;
+  const coverImageUrl = submission.cover_image_url 
+    || submission.cover_url 
+    || videoHot?.cover_url 
+    || videoHot?.thumbnail_url 
+    || null;
   // Use submission.original_video_url as primary source (this is the actual social platform URL)
   const originalVideoUrl = submission.original_video_url || videoHot?.video_url || videoHot?.url || '';
   
@@ -870,14 +1087,20 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                   }
                 />
                 <StatusBadge 
-                  status={submission.mp4_ownership_status || submission.verification_status || 'pending'} 
+                  status={
+                    submission.mp4_ownership_status === 'verified' || submission.verification_status === 'verified'
+                      ? 'verified'
+                      : (submission.mp4_ownership_status === 'failed' || submission.verification_status === 'failed' || 
+                         submission.mp4_ownership_status === 'pending' || submission.verification_status === 'pending' ||
+                         !submission.mp4_ownership_status && !submission.verification_status)
+                        ? 'failed'
+                        : submission.mp4_ownership_status || submission.verification_status || 'pending'
+                  } 
                   type="ownership"
                   label={
                     submission.mp4_ownership_status === 'verified' || submission.verification_status === 'verified'
                       ? 'Ownership ✓'
-                      : submission.mp4_ownership_status === 'failed' || submission.verification_status === 'failed'
-                        ? 'Ownership ✗'
-                        : 'Ownership ⏳'
+                      : 'Ownership ✗'
                   }
                 />
                 <StatusBadge 
@@ -918,6 +1141,105 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                       </svg>
                       Stuck - Try Retry
                     </span>
+                  )}
+                </div>
+              )}
+
+              {/* Hashtag Failure Message */}
+              {submission.hashtag_status === 'fail' && submission.contests?.required_hashtags && (
+                <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                  <p className="text-xs font-medium text-red-500 mb-1.5">Hashtag Check Failed</p>
+                  <p className="text-xs text-[var(--color-text-muted)] mb-2">
+                    We found these hashtags in your video, but these are the required hashtags for this contest. Due to this, we cannot accept your video.
+                  </p>
+                  <div className="space-y-1.5">
+                    <div>
+                      <p className="text-xs font-medium text-[var(--color-text-primary)] mb-1">Hashtags found in your video:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {submission.hashtags_array && submission.hashtags_array.length > 0 ? (
+                          submission.hashtags_array.map((tag: string, idx: number) => (
+                            <span
+                              key={idx}
+                              className="px-1.5 py-0.5 rounded text-xs bg-[var(--color-border)]/20 text-[var(--color-text-muted)] border border-[var(--color-border)]"
+                            >
+                              #{tag}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-[var(--color-text-muted)] italic">No hashtags found</span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-[var(--color-text-primary)] mb-1">Required hashtags for this contest:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {submission.contests.required_hashtags.map((tag: string, idx: number) => (
+                          <span
+                            key={idx}
+                            className="px-1.5 py-0.5 rounded text-xs bg-red-500/20 text-red-500 border border-red-500/30 font-medium"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Description Failure Message */}
+              {submission.description_status === 'fail' && (
+                <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                  <p className="text-xs font-medium text-red-500 mb-1.5">Description Check Failed</p>
+                  <p className="text-xs text-[var(--color-text-muted)] mb-2">
+                    Your video description does not meet the contest requirements. Due to this, we cannot accept your video.
+                  </p>
+                  {submission.contests?.required_description_template && (
+                    <div className="space-y-1.5">
+                      <div>
+                        <p className="text-xs font-medium text-[var(--color-text-primary)] mb-1">Your description:</p>
+                        <div className="p-1.5 rounded bg-[var(--color-border)]/10 text-xs text-[var(--color-text-muted)] whitespace-pre-wrap max-h-20 overflow-y-auto">
+                          {submission.description_text || 'No description found'}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-[var(--color-text-primary)] mb-1">Required description template:</p>
+                        <div className="p-1.5 rounded bg-red-500/10 border border-red-500/20 text-xs text-red-500 whitespace-pre-wrap max-h-20 overflow-y-auto">
+                          {submission.contests.required_description_template}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Ownership Failure Message */}
+              {(submission.mp4_ownership_status === 'failed' || submission.verification_status === 'failed' ||
+                submission.mp4_ownership_status === 'pending' || submission.verification_status === 'pending' ||
+                (!submission.mp4_ownership_status && !submission.verification_status)) && (
+                <div className="mt-3 p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+                  <p className="text-xs font-medium text-red-500 mb-2">Ownership Verification Required</p>
+                  <p className="text-xs text-[var(--color-text-muted)] mb-3">
+                    Ownership verification is required for your submission to be approved. Only the verified social account owner can compete for prizes. Please connect and verify your {submission.platform === 'tiktok' ? 'TikTok' : submission.platform === 'instagram' ? 'Instagram' : submission.platform === 'youtube' ? 'YouTube' : 'social'} account to verify ownership.
+                  </p>
+                  <div className="space-y-2 mb-3">
+                    <p className="text-xs font-medium text-[var(--color-text-primary)]">Steps to connect your account:</p>
+                    <ol className="text-xs text-[var(--color-text-muted)] space-y-1 ml-4 list-decimal">
+                      <li>Click the button below to go to Social Accounts settings</li>
+                      <li>Connect your {submission.platform === 'tiktok' ? 'TikTok' : submission.platform === 'instagram' ? 'Instagram' : submission.platform === 'youtube' ? 'YouTube' : 'social'} account</li>
+                      <li>Follow the verification steps to verify ownership</li>
+                      <li>Once verified, your submission will automatically be re-checked</li>
+                    </ol>
+                  </div>
+                  {onNavigateToOwnership && (
+                    <Button
+                      variant="primary"
+                      size="xs"
+                      onClick={onNavigateToOwnership}
+                      className="mt-1"
+                    >
+                      Go to Social Accounts Settings →
+                    </Button>
                   )}
                 </div>
               )}
@@ -1208,6 +1530,13 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                               src={coverImageUrl} 
                               alt="Video cover" 
                               className="w-full aspect-square object-cover transition-transform duration-200 group-hover:scale-105"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                if (!target.src.includes('ui-avatars.com')) {
+                                  // Try videoUrl as last resort if it's a poster image failure, but better to show placeholder
+                                  target.src = `https://ui-avatars.com/api/?name=Video&background=6366f1&color=fff&size=400`;
+                                }
+                              }}
                             />
                           ) : videoUrl ? (
                             <video
@@ -1510,7 +1839,15 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                           <span className="text-xs font-medium text-[var(--color-text-primary)]">Ownership Verification</span>
                         </div>
                         <StatusBadge 
-                          status={submission.mp4_ownership_status || submission.verification_status || 'pending'} 
+                          status={
+                            submission.mp4_ownership_status === 'verified' || submission.verification_status === 'verified'
+                              ? 'verified'
+                              : (submission.mp4_ownership_status === 'failed' || submission.verification_status === 'failed' ||
+                                 submission.mp4_ownership_status === 'pending' || submission.verification_status === 'pending' ||
+                                 !submission.mp4_ownership_status && !submission.verification_status)
+                                ? 'failed'
+                                : submission.mp4_ownership_status || submission.verification_status || 'pending'
+                          } 
                           type="ownership"
                         />
                       </div>
@@ -1618,6 +1955,8 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                 <div className={`p-3 rounded-lg border ${
                   submission.mp4_ownership_status === 'verified' || submission.verification_status === 'verified'
                     ? 'bg-green-500/10 border-green-500/20'
+                    : submission.mp4_ownership_status === 'failed' || submission.verification_status === 'failed'
+                    ? 'bg-red-500/10 border-red-500/20'
                     : 'bg-[var(--color-border)]/10 border-[var(--color-border)]'
                 }`}>
                   <div className="flex items-center justify-between mb-1">
@@ -1628,6 +1967,13 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                         </svg>
                         Verified
+                      </span>
+                    ) : (submission.mp4_ownership_status === 'failed' || submission.verification_status === 'failed') ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/20 text-red-600">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                        Failed
                       </span>
                     ) : (
                       <div className="flex items-center gap-2">
@@ -1706,18 +2052,61 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-[var(--color-text-muted)]">Ownership</span>
                     <StatusBadge 
-                      status={submission.mp4_ownership_status || submission.verification_status || 'pending'} 
+                      status={
+                        submission.mp4_ownership_status === 'verified' || submission.verification_status === 'verified'
+                          ? 'verified'
+                          : (submission.mp4_ownership_status === 'failed' || submission.verification_status === 'failed' ||
+                             submission.mp4_ownership_status === 'pending' || submission.verification_status === 'pending' ||
+                             !submission.mp4_ownership_status && !submission.verification_status)
+                            ? 'failed'
+                            : submission.mp4_ownership_status || submission.verification_status || 'pending'
+                      } 
                       type="ownership"
                       label={submission.mp4_ownership_status ? 'Ownership' : 'Verification'}
                     />
                   </div>
                   <p className="text-xs text-[var(--color-text-muted)]">
-                    {getStatusConfig(submission.mp4_ownership_status || submission.verification_status || 'pending', 'ownership').description}
+                    {getStatusConfig(
+                      submission.mp4_ownership_status === 'verified' || submission.verification_status === 'verified'
+                        ? 'verified'
+                        : (submission.mp4_ownership_status === 'failed' || submission.verification_status === 'failed' ||
+                           submission.mp4_ownership_status === 'pending' || submission.verification_status === 'pending' ||
+                           !submission.mp4_ownership_status && !submission.verification_status)
+                          ? 'failed'
+                          : submission.mp4_ownership_status || submission.verification_status || 'pending',
+                      'ownership'
+                    ).description}
                   </p>
-                  {submission.mp4_ownership_status === 'failed' && (
-                    <p className="text-xs text-red-500 mt-2">
-                      Only the verified social account owner can compete for prizes.
-                    </p>
+                  {(submission.mp4_ownership_status === 'failed' || submission.verification_status === 'failed' ||
+                    submission.mp4_ownership_status === 'pending' || submission.verification_status === 'pending' ||
+                    (!submission.mp4_ownership_status && !submission.verification_status)) && (
+                    <div className="mt-2 space-y-2">
+                      <p className="text-xs text-red-500 font-medium">
+                        Ownership verification required. Only the verified social account owner can compete for prizes.
+                      </p>
+                      <p className="text-xs text-[var(--color-text-muted)]">
+                        Please connect and verify your {submission.platform === 'tiktok' ? 'TikTok' : submission.platform === 'instagram' ? 'Instagram' : submission.platform === 'youtube' ? 'YouTube' : 'social'} account to your profile to verify ownership.
+                      </p>
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-[var(--color-text-primary)]">Steps to connect your account:</p>
+                        <ol className="text-xs text-[var(--color-text-muted)] space-y-1 ml-4 list-decimal">
+                          <li>Click the button below to go to Social Accounts settings</li>
+                          <li>Connect your {submission.platform === 'tiktok' ? 'TikTok' : submission.platform === 'instagram' ? 'Instagram' : submission.platform === 'youtube' ? 'YouTube' : 'social'} account</li>
+                          <li>Follow the verification steps to verify ownership</li>
+                          <li>Once verified, your submission will automatically be re-checked</li>
+                        </ol>
+                      </div>
+                      {onNavigateToOwnership && (
+                        <Button
+                          variant="primary"
+                          size="xs"
+                          onClick={onNavigateToOwnership}
+                          className="mt-1"
+                        >
+                          Go to Social Accounts Settings →
+                        </Button>
+                      )}
+                    </div>
                   )}
                   {submission.mp4_ownership_status === 'contested' && (
                     <p className="text-xs text-orange-500 mt-2">
@@ -1739,6 +2128,48 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                   <p className="text-xs text-[var(--color-text-muted)]">
                     {getStatusConfig(submission.hashtag_status || 'pending_review', 'review').description}
                   </p>
+                  {submission.hashtag_status === 'fail' && submission.contests?.required_hashtags && (
+                    <div className="mt-2 space-y-2">
+                      <div className="p-2 rounded bg-red-500/10 border border-red-500/20">
+                        <p className="text-xs font-medium text-red-500 mb-1">Hashtag Check Failed</p>
+                        <p className="text-xs text-[var(--color-text-muted)] mb-2">
+                          We found these hashtags in your video, but these are the required hashtags for this contest. Due to this, we cannot accept your video.
+                        </p>
+                        <div className="space-y-1.5">
+                          <div>
+                            <p className="text-xs font-medium text-[var(--color-text-primary)] mb-1">Hashtags found in your video:</p>
+                            <div className="flex flex-wrap gap-1">
+                              {submission.hashtags_array && submission.hashtags_array.length > 0 ? (
+                                submission.hashtags_array.map((tag: string, idx: number) => (
+                                  <span
+                                    key={idx}
+                                    className="px-1.5 py-0.5 rounded text-xs bg-[var(--color-border)]/20 text-[var(--color-text-muted)] border border-[var(--color-border)]"
+                                  >
+                                    #{tag}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-xs text-[var(--color-text-muted)] italic">No hashtags found</span>
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-[var(--color-text-primary)] mb-1">Required hashtags for this contest:</p>
+                            <div className="flex flex-wrap gap-1">
+                              {submission.contests.required_hashtags.map((tag: string, idx: number) => (
+                                <span
+                                  key={idx}
+                                  className="px-1.5 py-0.5 rounded text-xs bg-red-500/20 text-red-500 border border-red-500/30 font-medium"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
@@ -1749,6 +2180,40 @@ function SubmissionCard({ submission, onRefreshStats, onRetryProcessing, onReque
                   <p className="text-xs text-[var(--color-text-muted)]">
                     {getStatusConfig(submission.description_status || 'pending_review', 'review').description}
                   </p>
+                  {submission.description_status === 'fail' && submission.contests?.required_description_template && (
+                    <div className="mt-2">
+                      <div className="p-2 rounded bg-red-500/10 border border-red-500/20">
+                        <p className="text-xs font-medium text-red-500 mb-1">Description Check Failed</p>
+                        <p className="text-xs text-[var(--color-text-muted)] mb-2">
+                          Your video description does not meet the contest requirements. Due to this, we cannot accept your video.
+                        </p>
+                        <div className="space-y-1.5">
+                          <div>
+                            <p className="text-xs font-medium text-[var(--color-text-primary)] mb-1">Your description:</p>
+                            <div className="p-1.5 rounded bg-[var(--color-border)]/10 text-xs text-[var(--color-text-muted)] whitespace-pre-wrap max-h-24 overflow-y-auto">
+                              {submission.description_text || 'No description found'}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-[var(--color-text-primary)] mb-1">Required description template:</p>
+                            <div className="p-1.5 rounded bg-red-500/10 border border-red-500/20 text-xs text-red-500 whitespace-pre-wrap">
+                              {submission.contests.required_description_template}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {submission.description_status === 'fail' && !submission.contests?.required_description_template && (
+                    <div className="mt-2">
+                      <div className="p-2 rounded bg-red-500/10 border border-red-500/20">
+                        <p className="text-xs font-medium text-red-500 mb-1">Description Check Failed</p>
+                        <p className="text-xs text-[var(--color-text-muted)]">
+                          Your video description does not meet the contest requirements. Due to this, we cannot accept your video.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
@@ -2027,6 +2492,7 @@ function ContestsSection({ onNavigateToOwnership }: { onNavigateToOwnership?: ()
   const [polling, setPolling] = useState(false);
   const [expandedContests, setExpandedContests] = useState<Set<string>>(new Set());
   const [actionErrors, setActionErrors] = useState<Record<number, string>>({});
+  const hasInitializedExpansion = useRef(false);
 
   // Group submissions by contest - memoized to prevent unnecessary recalculations
   const groupedByContest = useMemo(() => {
@@ -2166,13 +2632,16 @@ function ContestsSection({ onNavigateToOwnership }: { onNavigateToOwnership?: ()
     return () => clearInterval(interval);
   }, [submissions, fetchSubmissions, isActivelyProcessing]);
 
-  // Expand all contests by default on first load
+  // Expand all contests by default on first load only
   useEffect(() => {
-    const contestKeys = Object.keys(groupedByContest);
-    if (contestKeys.length > 0 && expandedContests.size === 0) {
-      setExpandedContests(new Set(contestKeys));
+    if (!hasInitializedExpansion.current) {
+      const contestKeys = Object.keys(groupedByContest);
+      if (contestKeys.length > 0) {
+        setExpandedContests(new Set(contestKeys));
+        hasInitializedExpansion.current = true;
+      }
     }
-  }, [groupedByContest, expandedContests.size]);
+  }, [groupedByContest]);
 
   const clearActionError = (submissionId: number) => {
     setActionErrors(prev => {

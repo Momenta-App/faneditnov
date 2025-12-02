@@ -34,6 +34,8 @@ interface Submission {
   created_at?: string;
   updated_at?: string;
   invalid_stats_flag?: boolean;
+  cover_image_url?: string;
+  cover_url?: string;
   profiles?: {
     id: string;
     display_name?: string;
@@ -160,41 +162,49 @@ export function ContestSubmissionCard({
     return url.includes(supabaseUrl) && url.includes('/storage/v1/object/public/');
   };
   
+  // Get cover URLs - prioritize cover_image_url from contest_submissions (stored in local storage)
+  // This is the cover image we saved during the contest submission flow
+  // Check both direct property access and nested access
+  const coverImageUrlFromSubmission = submission.cover_image_url || (submission as any).cover_image_url || '';
+  const coverUrlFromSubmission = submission.cover_url || (submission as any).cover_url || '';
+  
   // Get cover URLs from videos_hot - prioritize bucket-stored images
   // DO NOT use MP4 video as cover image - only use actual image URLs
   const coverUrlFromHot = videoHot?.cover_url || '';
   const thumbnailUrlFromHot = videoHot?.thumbnail_url || '';
   
-  // Debug logging (only in development)
-  if (process.env.NODE_ENV === 'development' && submission.id) {
-    console.log('[ContestSubmissionCard] Cover image selection:', {
-      submissionId: submission.id,
-      videoHotId: videoHot?.video_id,
-      coverUrlFromHot: coverUrlFromHot ? coverUrlFromHot.substring(0, 100) : 'empty',
-      thumbnailUrlFromHot: thumbnailUrlFromHot ? thumbnailUrlFromHot.substring(0, 100) : 'empty',
-      isCoverUrlBucket: isSupabaseStorageUrl(coverUrlFromHot),
-      isThumbnailUrlBucket: isSupabaseStorageUrl(thumbnailUrlFromHot),
-    });
-  }
-  
-  // Prioritize bucket-stored cover images (Supabase storage URLs)
-  // The cover_url in videos_hot should be the bucket URL if properly migrated
+  // Prioritize cover images from contest_submissions (stored during submission flow)
+  // Then fall back to videos_hot cover images
   let coverUrl = '';
   
-  // First priority: cover_url if it's a Supabase storage bucket URL (video-cover folder)
-  if (isSupabaseStorageUrl(coverUrlFromHot)) {
+  // First priority: cover_image_url from contest_submissions (stored in local storage during submission)
+  // Use it directly - it's specifically for cover images, not videos
+  if (coverImageUrlFromSubmission) {
+    // Only check for video file extensions - do NOT check .includes('video') as Supabase paths contain 'video-cover'
+    const isVideoFile = coverImageUrlFromSubmission.match(/\.(mp4|webm|mov|avi)$/i);
+    if (!isVideoFile) {
+      coverUrl = coverImageUrlFromSubmission;
+    }
+  }
+  // Second priority: cover_url from contest_submissions if it's a valid image URL
+  else if (coverUrlFromSubmission && 
+           !coverUrlFromSubmission.match(/\.(mp4|webm|mov|avi)$/i)) {
+    coverUrl = coverUrlFromSubmission;
+  }
+  // Third priority: cover_url from videos_hot if it's a Supabase storage bucket URL (video-cover folder)
+  else if (isSupabaseStorageUrl(coverUrlFromHot)) {
     coverUrl = coverUrlFromHot;
   } 
-  // Second priority: thumbnail_url if it's a Supabase storage bucket URL
+  // Fourth priority: thumbnail_url from videos_hot if it's a Supabase storage bucket URL
   else if (isSupabaseStorageUrl(thumbnailUrlFromHot)) {
     coverUrl = thumbnailUrlFromHot;
-  } 
-  // Third priority: cover_url even if external (might be valid external image URL)
+  }
+  // Fifth priority: cover_url from videos_hot even if external (might be valid external image URL)
   // Only use if it's an image URL, not a video URL
   else if (coverUrlFromHot && !coverUrlFromHot.match(/\.(mp4|webm|mov|avi)$/i) && !coverUrlFromHot.includes('video')) {
     coverUrl = coverUrlFromHot;
   } 
-  // Last resort: thumbnail_url (only if it's an image, not video)
+  // Last resort: thumbnail_url from videos_hot (only if it's an image, not video)
   else if (thumbnailUrlFromHot && !thumbnailUrlFromHot.match(/\.(mp4|webm|mov|avi)$/i) && !thumbnailUrlFromHot.includes('video')) {
     coverUrl = thumbnailUrlFromHot;
   }
@@ -389,21 +399,14 @@ export function ContestSubmissionCard({
               }
             }}
           >
-            {/* MP4 video thumbnail - show when available */}
-            {mp4VideoUrl ? (
-              <video
-                src={mp4VideoUrl}
-                poster={coverUrl || undefined}
-                className="w-full aspect-square object-cover transition-transform duration-200 group-hover:scale-105 rounded-t-[var(--radius-xl)]"
-                preload="metadata"
-                muted
-                playsInline
-              />
-            ) : coverUrl ? (
+            {/* Cover image thumbnail - prioritize cover_image_url from contest_submissions */}
+            {/* DO NOT use MP4 video as thumbnail - use cover image instead */}
+            {coverUrl ? (
               <img
                 src={coverUrl}
                 alt={videoForModal.title}
                 className="w-full aspect-square object-cover transition-transform duration-200 group-hover:scale-105 rounded-t-[var(--radius-xl)]"
+                loading="lazy"
                 onError={(e) => {
                   // Fallback to placeholder if image fails to load
                   const target = e.target as HTMLImageElement;
@@ -413,9 +416,10 @@ export function ContestSubmissionCard({
                 }}
               />
             ) : (
-              // DO NOT use MP4 video as cover - only show placeholder if no cover image available
+              // Show placeholder if no cover image available
               <div className="w-full aspect-square bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-light)] flex items-center justify-center rounded-t-[var(--radius-xl)]">
                 <p className="text-white text-sm">No cover image available</p>
+                <p className="text-white text-xs mt-2 opacity-75">Submission ID: {submission.id}</p>
               </div>
             )}
             

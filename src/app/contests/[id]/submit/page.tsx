@@ -288,7 +288,10 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
   }
 
   // Show loading state while contest data is being fetched
-  if (loadingContest || !contest) {
+  // Wait until contest AND categories are fully loaded
+  // contest_categories should be an array (even if empty) when loaded
+  const categoriesLoaded = contest && 'contest_categories' in contest;
+  if (loadingContest || !contest || !categoriesLoaded) {
     return (
       <Page>
         <PageSection variant="header">
@@ -497,11 +500,11 @@ export default function SubmitContestPage({ params }: { params: { id: string } }
                           );
                         } else {
                           return (
-                            <div className="mt-2 p-3 rounded-lg border border-blue-500/20 bg-blue-500/5">
-                              <p className="text-sm text-blue-700">
+                            <div className="mt-2 p-4 rounded-lg border-2 border-amber-500/40 bg-amber-500/10 shadow-sm">
+                              <p className="text-base font-semibold text-amber-800 dark:text-amber-200">
                                 ℹ️ You have a connected {platform} account
                               </p>
-                              <p className="text-xs text-blue-600 mt-1">
+                              <p className="text-sm text-amber-700 dark:text-amber-300 mt-2 font-medium">
                                 Please make sure you own the account of the video you are uploading. Ownership will be verified after submission by matching the video creator with your connected account.
                               </p>
                             </div>

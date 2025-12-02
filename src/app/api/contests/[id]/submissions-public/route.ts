@@ -239,6 +239,7 @@ export async function GET(
       saves_count,
       impact_score,
       cover_url,
+      cover_image_url,
       created_at,
       hashtag_status,
       description_status,

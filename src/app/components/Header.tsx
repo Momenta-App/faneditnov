@@ -49,9 +49,7 @@ export function Header() {
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2 focus-ring rounded-lg p-2 -ml-2 transition-all hover:scale-105">
-              <span className="text-xl font-bold text-[var(--color-text-primary)]">
-                Fan Activation
-              </span>
+              <span className="text-xl font-bold text-[var(--color-text-primary)]">Fanedit.com</span>
             </Link>
           </div>
 

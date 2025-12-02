@@ -136,7 +136,7 @@ export async function GET(
       // Force a fresh query by not using cached results
       const { data: submissionData, error: submissionError } = await supabaseAdmin
         .from('contest_submissions')
-        .select('id, contest_id, user_id, original_video_url, mp4_bucket, mp4_path, platform, mp4_ownership_status, mp4_ownership_reason, mp4_owner_social_account_id, hashtag_status, description_status, content_review_status, views_count, likes_count, comments_count, shares_count, saves_count, impact_score, description_text, hashtags_array, created_at, updated_at, processing_status, verification_status, is_disqualified, invalid_stats_flag, stats_updated_at, last_stats_refresh_at, social_account_id, video_id, user_removed')
+        .select('id, contest_id, user_id, original_video_url, mp4_bucket, mp4_path, platform, mp4_ownership_status, mp4_ownership_reason, mp4_owner_social_account_id, hashtag_status, description_status, content_review_status, views_count, likes_count, comments_count, shares_count, saves_count, impact_score, description_text, hashtags_array, created_at, updated_at, processing_status, verification_status, is_disqualified, invalid_stats_flag, stats_updated_at, last_stats_refresh_at, social_account_id, video_id, user_removed, cover_image_url, cover_url')
         .in('id', submissionIds)
         .order('created_at', { ascending: false });
       

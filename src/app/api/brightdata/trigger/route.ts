@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { detectPlatform, isValidUrl, standardizeUrl } from '@/lib/url-utils';
 import { resolveAccountOwnership } from '@/lib/video-ownership';
 import { storeRawVideoAsset, upsertOwnershipClaim } from '@/lib/raw-video-assets';
+import { isAdmin } from '@/lib/role-utils';
 
 type Platform = 'tiktok' | 'instagram' | 'youtube';
 
@@ -88,6 +89,15 @@ async function handleMultipartSubmission(request: NextRequest, user: any): Promi
   }
 
   const skipValidation = formData.get('skip_validation') === 'true';
+  
+  // Admin-only: Validate skip_validation permission
+  if (skipValidation && !isAdmin(user.role)) {
+    return buildErrorResponse(
+      { error: 'Only admins can bypass validation', code: 'FORBIDDEN' },
+      403
+    );
+  }
+  
   const mp4File = formData.get('mp4_file');
   const mp4Attachment =
     mp4File instanceof File && mp4File.size > 0
@@ -113,6 +123,22 @@ async function processSubmission(options: ProcessSubmissionOptions): Promise<Nex
   let verifiedMp4AccountId: string | null = null;
 
   try {
+    // Admin-only: Additional security check for skipValidation
+    if (skipValidation && !isAdmin(user.role)) {
+      return buildErrorResponse(
+        { error: 'Only admins can bypass validation', code: 'FORBIDDEN' },
+        403
+      );
+    }
+
+    // Admin-only: Bulk uploads require admin access
+    if (urls.length > 1 && !isAdmin(user.role)) {
+      return buildErrorResponse(
+        { error: 'Only admins can perform bulk uploads', code: 'FORBIDDEN' },
+        403
+      );
+    }
+
     const quotaStatus = await checkVideoSubmissionQuota(user.id, user.role);
 
     if (!quotaStatus.allowed) {
@@ -378,6 +404,22 @@ export async function POST(request: NextRequest) {
       return buildErrorResponse(
         { error: 'URLs array is required and cannot be empty', code: 'VALIDATION_ERROR' },
         400
+      );
+    }
+
+    // Admin-only: Bulk uploads (multiple URLs) require admin access
+    if (urls.length > 1 && !isAdmin(user.role)) {
+      return buildErrorResponse(
+        { error: 'Only admins can perform bulk uploads', code: 'FORBIDDEN' },
+        403
+      );
+    }
+
+    // Admin-only: Validate skip_validation permission
+    if (skip_validation && !isAdmin(user.role)) {
+      return buildErrorResponse(
+        { error: 'Only admins can bypass validation', code: 'FORBIDDEN' },
+        403
       );
     }
 

@@ -35,6 +35,8 @@ interface Submission {
   hashtags_array?: string[] | null;
   created_at: string;
   processing_status: string;
+  cover_image_url?: string | null;
+  cover_url?: string | null;
   profiles: {
     email: string;
     display_name?: string;
@@ -300,6 +302,11 @@ export default function ContestReviewPage() {
       return getContestVideoUrl(submission.mp4_bucket, submission.mp4_path);
     }
     return null;
+  };
+
+  const getCoverImageUrl = (submission: Submission) => {
+    // Prioritize cover_image_url from contest_submissions (stored in local storage during submission)
+    return submission.cover_image_url || submission.cover_url || null;
   };
 
   const formatDate = (dateString: string) => {
@@ -621,7 +628,11 @@ export default function ContestReviewPage() {
                             <div className="lg:col-span-1">
                               {videoUrl ? (
                                 <div className="rounded-lg overflow-hidden bg-black">
-                                  <ContestVideoPlayer videoUrl={videoUrl} className="w-full" />
+                                  <ContestVideoPlayer 
+                                    videoUrl={videoUrl} 
+                                    className="w-full"
+                                    poster={getCoverImageUrl(submission) || undefined}
+                                  />
                                 </div>
                               ) : (
                                 <div className="rounded-lg bg-[var(--color-border)]/20 aspect-video flex items-center justify-center">
@@ -845,7 +856,11 @@ export default function ContestReviewPage() {
                         <div className="lg:col-span-1">
                           {videoUrl ? (
                             <div className="rounded-lg overflow-hidden bg-black">
-                              <ContestVideoPlayer videoUrl={videoUrl} className="w-full" />
+                              <ContestVideoPlayer 
+                                videoUrl={videoUrl} 
+                                className="w-full"
+                                poster={getCoverImageUrl(submission) || undefined}
+                              />
                             </div>
                           ) : (
                             <div className="rounded-lg bg-[var(--color-border)]/20 aspect-video flex items-center justify-center">

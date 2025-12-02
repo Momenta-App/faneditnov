@@ -10,6 +10,7 @@ import { BulkUploadPanel } from '../components/BulkUploadPanel';
 import { standardizeUrl, detectPlatform } from '@/lib/url-utils';
 import { supabaseClient } from '@/lib/supabase-client';
 import { CampaignTabs } from '../components/CampaignTabs';
+import { isAdmin } from '@/lib/role-utils';
 
 export default function UploadPage() {
   const router = useRouter();
@@ -50,6 +51,8 @@ export default function UploadPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
+
+  const userIsAdmin = isAdmin(profile?.role);
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-background)' }}>
@@ -113,11 +116,13 @@ export default function UploadPage() {
           <div className="text-center">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2" 
               style={{ color: 'var(--color-text-primary)', letterSpacing: '-0.02em' }}>
-              Upload Center
+              {userIsAdmin ? 'Upload Center' : 'Submit Your Video'}
             </h1>
             <p className="text-base md:text-lg" 
               style={{ color: 'var(--color-text-muted)' }}>
-              Upload videos with advanced options including validation bypass and bulk upload
+              {userIsAdmin 
+                ? 'Upload videos with advanced options including validation bypass and bulk upload'
+                : 'Share your video edit with the community'}
             </p>
           </div>
         </div>
@@ -169,46 +174,51 @@ export default function UploadPage() {
           </div>
         )}
 
-        {/* Tabbed Interface - Available to all logged-in users */}
+        {/* Admin: Full tabbed interface with all features */}
+        {/* Standard users: Simple single upload form */}
         {user ? (
-          <Tabs className="space-y-6">
-            <TabList>
-              <Tab isActive={activeTab === 0} onClick={() => setActiveTab(0)}>
-                Single (Validated)
-              </Tab>
-              <Tab isActive={activeTab === 1} onClick={() => setActiveTab(1)}>
-                Single (Bypass) ⚡
-              </Tab>
-              <Tab isActive={activeTab === 2} onClick={() => setActiveTab(2)}>
-                Bulk (Validated)
-              </Tab>
-              <Tab isActive={activeTab === 3} onClick={() => setActiveTab(3)}>
-                Bulk (Bypass) ⚡
-              </Tab>
-            </TabList>
+          userIsAdmin ? (
+            <Tabs className="space-y-6">
+              <TabList>
+                <Tab isActive={activeTab === 0} onClick={() => setActiveTab(0)}>
+                  Single (Validated)
+                </Tab>
+                <Tab isActive={activeTab === 1} onClick={() => setActiveTab(1)}>
+                  Single (Bypass) ⚡
+                </Tab>
+                <Tab isActive={activeTab === 2} onClick={() => setActiveTab(2)}>
+                  Bulk (Validated)
+                </Tab>
+                <Tab isActive={activeTab === 3} onClick={() => setActiveTab(3)}>
+                  Bulk (Bypass) ⚡
+                </Tab>
+              </TabList>
 
-            <TabPanels>
-              {/* Tab 0: Single Upload (Validated) */}
-              <TabPanel className={activeTab === 0 ? 'block' : 'hidden'}>
-                <SingleUploadForm skipValidation={false} />
-              </TabPanel>
+              <TabPanels>
+                {/* Tab 0: Single Upload (Validated) */}
+                <TabPanel className={activeTab === 0 ? 'block' : 'hidden'}>
+                  <SingleUploadForm skipValidation={false} />
+                </TabPanel>
 
-              {/* Tab 1: Single Upload (Bypass) */}
-              <TabPanel className={activeTab === 1 ? 'block' : 'hidden'}>
-                <SingleUploadForm skipValidation={true} />
-              </TabPanel>
+                {/* Tab 1: Single Upload (Bypass) */}
+                <TabPanel className={activeTab === 1 ? 'block' : 'hidden'}>
+                  <SingleUploadForm skipValidation={true} />
+                </TabPanel>
 
-              {/* Tab 2: Bulk Upload (Validated) */}
-              <TabPanel className={activeTab === 2 ? 'block' : 'hidden'}>
-                <BulkUploadPanel skipValidation={false} />
-              </TabPanel>
+                {/* Tab 2: Bulk Upload (Validated) */}
+                <TabPanel className={activeTab === 2 ? 'block' : 'hidden'}>
+                  <BulkUploadPanel skipValidation={false} />
+                </TabPanel>
 
-              {/* Tab 3: Bulk Upload (Bypass) */}
-              <TabPanel className={activeTab === 3 ? 'block' : 'hidden'}>
-                <BulkUploadPanel skipValidation={true} />
-              </TabPanel>
-            </TabPanels>
-          </Tabs>
+                {/* Tab 3: Bulk Upload (Bypass) */}
+                <TabPanel className={activeTab === 3 ? 'block' : 'hidden'}>
+                  <BulkUploadPanel skipValidation={true} />
+                </TabPanel>
+              </TabPanels>
+            </Tabs>
+          ) : (
+            <StandardUserUploadForm />
+          )
         ) : (
           <SingleUploadForm skipValidation={false} />
         )}
@@ -632,6 +642,289 @@ function SingleUploadForm({ skipValidation }: { skipValidation: boolean }) {
           </div>
         </Card>
       </div>
+    </div>
+  );
+}
+
+// Standard User Upload Form - Simplified, cleaner design
+function StandardUserUploadForm() {
+  const router = useRouter();
+  const { profile, user } = useAuth();
+  const [url, setUrl] = useState('');
+  const [status, setStatus] = useState<'idle' | 'pending' | 'completed' | 'failed'>('idle');
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [mp4File, setMp4File] = useState<File | null>(null);
+  const [mp4Error, setMp4Error] = useState<string | null>(null);
+  const mp4InputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    
+    // Auto-standardize URLs for supported platforms
+    const platform = detectPlatform(value);
+    if (platform !== 'unknown') {
+      const standardized = standardizeUrl(value);
+      setUrl(standardized);
+    } else {
+      setUrl(value);
+    }
+  };
+
+  const handleMp4Change = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setMp4File(null);
+      setMp4Error(null);
+      return;
+    }
+
+    if (file.type && file.type !== 'video/mp4') {
+      setMp4Error('Only MP4 files are supported right now.');
+      e.target.value = '';
+      setMp4File(null);
+      return;
+    }
+
+    setMp4Error(null);
+    setMp4File(file);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!user || !profile) {
+      router.push('/auth/login');
+      return;
+    }
+
+    setStatus('pending');
+    setError(null);
+    setMp4Error(null);
+    setResult(null);
+
+    try {
+      const standardizedUrl = standardizeUrl(url.trim());
+      
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      const headers: Record<string, string> = {};
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+
+      const formPayload = new FormData();
+      formPayload.append('video_url', standardizedUrl);
+      formPayload.append('skip_validation', 'false'); // Always validated for standard users
+      if (mp4File) {
+        formPayload.append('mp4_file', mp4File);
+      }
+      
+      const response = await fetch('/api/brightdata/trigger', {
+        method: 'POST',
+        headers,
+        body: formPayload,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push('/auth/login');
+          setError('Please log in to submit videos');
+        } else if (response.status === 429) {
+          setError(
+            `Daily limit reached. You can upload ${data.details?.limit || 'N/A'} videos per day. Resets at midnight UTC.`
+          );
+        } else {
+          const errorMessage = data.errors && data.errors.length > 0 
+            ? data.errors[0] 
+            : data.details || data.error || 'Failed to submit video. Please try again.';
+          setError(errorMessage);
+        }
+        setStatus('failed');
+        return;
+      }
+
+      setResult(data);
+      setStatus('completed');
+      setUrl('');
+      setMp4File(null);
+      if (mp4InputRef.current) {
+        mp4InputRef.current.value = '';
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      setStatus('failed');
+    }
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto">
+      <Card padding="lg" className="animate-fadeIn">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+            Share Your Video Edit
+          </h2>
+          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+            Submit your video to be featured on the platform
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label htmlFor="standard-url" className="block text-sm font-semibold mb-2" 
+              style={{ color: 'var(--color-text-primary)' }}>
+              Video URL
+            </label>
+            <input
+              id="standard-url"
+              type="url"
+              value={url}
+              onChange={handleUrlChange}
+              placeholder="Paste your TikTok, Instagram, or YouTube Shorts URL here"
+              className="w-full px-4 py-3 border-2 rounded-xl focus-ring text-sm"
+              style={{ 
+                background: 'var(--color-background)', 
+                borderColor: 'var(--color-border)', 
+                color: 'var(--color-text-primary)',
+                transition: 'all 0.2s ease'
+              }}
+              required
+              disabled={status === 'pending' || !user}
+            />
+            <p className="mt-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              Supported: TikTok videos, Instagram posts/reels, and YouTube Shorts
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="standard-mp4-upload" className="block text-sm font-semibold mb-2"
+              style={{ color: 'var(--color-text-primary)' }}>
+              Attach Raw MP4 (optional)
+            </label>
+            <input
+              id="standard-mp4-upload"
+              type="file"
+              ref={mp4InputRef}
+              accept="video/mp4"
+              onChange={handleMp4Change}
+              disabled={status === 'pending' || !user}
+              className="w-full px-4 py-2 border-2 rounded-xl focus-ring text-sm"
+              style={{
+                background: 'var(--color-background)',
+                borderColor: 'var(--color-border)',
+                color: 'var(--color-text-primary)',
+                transition: 'all 0.2s ease'
+              }}
+            />
+            <p className="mt-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              Uploading the raw file helps us feature your edit. You must own and verify the social account for this video.
+            </p>
+            {mp4Error && (
+              <p className="mt-2 text-xs" style={{ color: 'var(--color-danger)' }}>
+                {mp4Error}
+              </p>
+            )}
+          </div>
+
+          {/* Requirements Info Box */}
+          <div className="p-4 rounded-xl border" 
+            style={{ 
+              background: 'rgba(0, 122, 255, 0.05)',
+              borderColor: 'rgba(0, 122, 255, 0.2)'
+            }}>
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" 
+                style={{ background: 'rgba(0, 122, 255, 0.1)' }}>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="var(--color-primary)" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                  Requirements
+                </h3>
+                <ul className="space-y-1.5 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-500 mt-0.5">✓</span>
+                    <span>Your video must include <strong>#edit</strong> (or similar hashtag like #edits, #movieedit, etc.)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-500 mt-0.5">✓</span>
+                    <span>The word "edit" must be in a hashtag, not just in the description</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-500 mt-0.5">✓</span>
+                    <span>Video will be reviewed before appearing on the platform</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <Button 
+            type="submit" 
+            isLoading={status === 'pending'} 
+            className="w-full"
+            size="lg"
+            disabled={!user}
+          >
+            {!user ? 'Please Log In First' : status === 'pending' ? 'Submitting...' : 'Submit Video'}
+          </Button>
+
+          {/* Success Message */}
+          {status === 'completed' && result && (
+            <div className="p-4 rounded-xl border-2" 
+              style={{ 
+                background: 'rgba(52, 199, 89, 0.1)',
+                borderColor: 'var(--color-success)',
+              }}>
+              <div className="flex items-start gap-3">
+                <div className="shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="var(--color-success)" className="w-6 h-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-bold mb-1" style={{ color: 'var(--color-success)' }}>
+                    Video Submitted Successfully!
+                  </h4>
+                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                    Your video is being processed. If it contains a valid #edit hashtag, it will appear on the site shortly.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {status === 'failed' && error && (
+            <div className="p-4 rounded-xl border-2" 
+              style={{ 
+                background: 'rgba(255, 59, 48, 0.1)', 
+                borderColor: 'var(--color-danger)'
+              }}>
+              <div className="flex items-start gap-3">
+                <div className="shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="var(--color-danger)" className="w-6 h-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-bold mb-1" style={{ color: 'var(--color-danger)' }}>
+                    Submission Failed
+                  </h4>
+                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                    {error}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </form>
+      </Card>
     </div>
   );
 }

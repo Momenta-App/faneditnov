@@ -79,6 +79,8 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'views_count' | 'created_at'>('views_count');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
   // Filters
   const [hashtagFilter, setHashtagFilter] = useState<string>('');
@@ -246,12 +248,13 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
       if (descriptionFilter) queryParams.append('description_status', descriptionFilter);
       if (contentReviewFilter) queryParams.append('content_review_status', contentReviewFilter);
       if (categoryFilter) queryParams.append('category_id', categoryFilter);
-      queryParams.append('sort_by', 'views_count');
-      queryParams.append('sort_order', 'desc');
+      queryParams.append('sort_by', sortBy);
+      queryParams.append('sort_order', sortOrder);
 
       console.log('[Admin Contest Page] Fetching submissions:', {
         contestId,
         filters: { hashtagFilter, descriptionFilter, contentReviewFilter, categoryFilter },
+        sort: { sortBy, sortOrder },
       });
 
       const response = await authFetch(
@@ -310,7 +313,7 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
     if (contestId) {
       fetchSubmissions();
     }
-  }, [hashtagFilter, descriptionFilter, contentReviewFilter, contestId, categoryFilter]);
+  }, [hashtagFilter, descriptionFilter, contentReviewFilter, contestId, categoryFilter, sortBy, sortOrder]);
 
   if (isLoading || !user || profile?.role !== 'admin' || !contest) {
     return null;
@@ -617,7 +620,7 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
               )}
 
               {/* Filters */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
                 {combinedCategories.length > 0 && (
                   <div>
                     <label className="block text-[10px] font-medium text-[var(--color-text-primary)] mb-1 uppercase">
@@ -686,6 +689,28 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                     <option value="rejected">Rejected</option>
                   </select>
                 </div>
+                <div>
+                  <label className="block text-[10px] font-medium text-[var(--color-text-primary)] mb-1 uppercase">
+                    Sort By
+                  </label>
+                  <select
+                    value={`${sortBy}-${sortOrder}`}
+                    onChange={(e) => {
+                      const [newSortBy, newSortOrder] = e.target.value.split('-') as [
+                        'views_count' | 'created_at',
+                        'desc' | 'asc'
+                      ];
+                      setSortBy(newSortBy);
+                      setSortOrder(newSortOrder);
+                    }}
+                    className="w-full px-2 py-1.5 rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)] text-xs"
+                  >
+                    <option value="views_count-desc">Most Views</option>
+                    <option value="views_count-asc">Fewest Views</option>
+                    <option value="created_at-desc">Newest First</option>
+                    <option value="created_at-asc">Oldest First</option>
+                  </select>
+                </div>
               </div>
 
               {/* Submissions Table */}
@@ -708,7 +733,10 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                           Rank
                         </th>
                         <th className="text-left py-1.5 px-2 font-medium text-[var(--color-text-muted)]">
-                          User
+                          User / Platform
+                        </th>
+                        <th className="text-left py-1.5 px-2 font-medium text-[var(--color-text-muted)]">
+                          Submitted
                         </th>
                         <th className="text-left py-1.5 px-2 font-medium text-[var(--color-text-muted)]">
                           Stats
@@ -731,9 +759,17 @@ export default function ContestDetailPage({ params }: { params: { id: string } }
                             #{index + 1}
                           </td>
                           <td className="py-1.5 px-2">
-                            <p className="text-[var(--color-text-primary)]">
-                              {submission.profiles?.display_name || submission.profiles?.email}
-                            </p>
+                            <div className="flex flex-col">
+                              <p className="text-[var(--color-text-primary)]">
+                                {submission.profiles?.display_name || submission.profiles?.email}
+                              </p>
+                              <span className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wide">
+                                {submission.platform}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-1.5 px-2 text-[var(--color-text-muted)]">
+                            {formatDate(submission.created_at)}
                           </td>
                           <td className="py-1.5 px-2 text-[var(--color-text-muted)]">
                             <div className="space-y-0.5">

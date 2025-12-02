@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, handleAuthError, AuthError } from '@/lib/auth-utils';
 import { supabaseAdmin } from '@/lib/supabase';
 import { associateAccountWithPendingAssets } from '@/lib/raw-video-assets';
+import { generateVerificationCode } from '@/lib/social-account-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate verification code (6 alphanumeric characters)
-    const verificationCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const verificationCode = generateVerificationCode();
 
     // Check for duplicate
     const { data: existing } = await supabaseAdmin

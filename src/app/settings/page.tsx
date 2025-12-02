@@ -19,6 +19,7 @@ import { authFetch } from '@/lib/auth-fetch';
 import { detectPlatform } from '@/lib/url-utils';
 import type { Platform } from '@/lib/url-utils';
 import { Video } from '../types/data';
+import { VerifyAccountDialog } from '../components/VerifyAccountDialog';
 
 // Helper function to format numbers with abbreviations
 const formatNumber = (num: number | null | undefined): string => {
@@ -34,7 +35,15 @@ export default function SettingsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const [activeTab, setActiveTab] = useState(tabParam === 'contests' ? 1 : 0);
+  
+  // Determine initial tab from URL param: 0=Profile, 1=Search Results, 2=Contests
+  const getInitialTab = () => {
+    if (tabParam === 'contests') return 2;
+    if (tabParam === 'search-results') return 1;
+    return 0;
+  };
+  
+  const [activeTab, setActiveTab] = useState(getInitialTab());
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -46,6 +55,8 @@ export default function SettingsPage() {
   // Sync with URL param
   useEffect(() => {
     if (tabParam === 'contests') {
+      setActiveTab(2);
+    } else if (tabParam === 'search-results') {
       setActiveTab(1);
     } else {
       setActiveTab(0);
@@ -55,8 +66,10 @@ export default function SettingsPage() {
   const handleTabChange = (tabIndex: number) => {
     setActiveTab(tabIndex);
     // Update URL without causing a full page reload
-    if (tabIndex === 1) {
+    if (tabIndex === 2) {
       router.replace('/settings?tab=contests', { scroll: false });
+    } else if (tabIndex === 1) {
+      router.replace('/settings?tab=search-results', { scroll: false });
     } else {
       router.replace('/settings', { scroll: false });
     }
@@ -88,6 +101,9 @@ export default function SettingsPage() {
                 Profile
               </Tab>
               <Tab isActive={activeTab === 1} onClick={() => handleTabChange(1)}>
+                Search Results
+              </Tab>
+              <Tab isActive={activeTab === 2} onClick={() => handleTabChange(2)}>
                 Contests
               </Tab>
             </TabList>
@@ -97,9 +113,11 @@ export default function SettingsPage() {
                 <div id="connected-accounts-section">
                   <ConnectedAccountsSection />
                 </div>
-                <SavedCampaignsSection />
               </TabPanel>
               <TabPanel className={activeTab === 1 ? 'block' : 'hidden'}>
+                <SavedCampaignsSection />
+              </TabPanel>
+              <TabPanel className={activeTab === 2 ? 'block' : 'hidden'}>
                 <ContestsSection 
                   onNavigateToOwnership={() => {
                     setActiveTab(0);
@@ -311,33 +329,33 @@ function ProfileSection() {
 }
 
 function ConnectedAccountsSection() {
+  const { session } = useAuth();
   const [accounts, setAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addingAccount, setAddingAccount] = useState(false);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<any | null>(null);
   const [newAccountPlatform, setNewAccountPlatform] = useState<'tiktok' | 'instagram' | 'youtube' | null>(null);
   const [newAccountUrl, setNewAccountUrl] = useState('');
   const [newAccountUsername, setNewAccountUsername] = useState('');
 
-  useEffect(() => {
-    fetchAccounts();
-    // Poll verification status for pending accounts
-    const interval = setInterval(() => {
-      const hasPending = accounts.some(
-        (acc) => acc.verification_status === 'PENDING' && acc.webhook_status === 'PENDING'
-      );
-      if (hasPending) {
-        fetchAccounts();
-      }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [accounts.length]);
-
-  const fetchAccounts = async () => {
+  const fetchAccounts = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
-      const response = await fetch('/api/settings/connected-accounts');
+      if (!silent) {
+        setLoading(true);
+      }
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      const response = await fetch('/api/settings/connected-accounts', {
+        headers,
+        credentials: 'include',
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch accounts');
       }
@@ -346,9 +364,34 @@ function ConnectedAccountsSection() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load accounts');
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
-  };
+  }, [session?.access_token]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchAccounts();
+  }, [fetchAccounts]);
+
+  // Poll verification status for pending accounts
+  useEffect(() => {
+    const hasPending = accounts.some(
+      (acc) => acc.verification_status === 'PENDING' && acc.webhook_status === 'PENDING'
+    );
+    
+    if (!hasPending) {
+      return;
+    }
+
+    // BrightData can take 5+ minutes, so poll every 15 seconds
+    const interval = setInterval(() => {
+      fetchAccounts(true); // Silent refresh to avoid scroll jumps
+    }, 15000);
+    
+    return () => clearInterval(interval);
+  }, [accounts, fetchAccounts]);
 
   const handleAddAccount = async () => {
     if (!newAccountPlatform || !newAccountUrl) {
@@ -359,9 +402,16 @@ function ConnectedAccountsSection() {
     try {
       setAddingAccount(true);
       setError(null);
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
       const response = await fetch('/api/settings/connected-accounts', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
+        credentials: 'include',
         body: JSON.stringify({
           platform: newAccountPlatform,
           profile_url: newAccountUrl,
@@ -386,36 +436,14 @@ function ConnectedAccountsSection() {
     }
   };
 
-  const handleVerify = async (accountId: string) => {
-    try {
-      setVerifyingId(accountId);
-      setError(null);
-      const response = await fetch('/api/settings/connected-accounts/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account_id: accountId }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to start verification');
-      }
-
-      const data = await response.json();
-      // Update account with verification code
-      setAccounts(
-        accounts.map((acc) =>
-          acc.id === accountId
-            ? { ...acc, verification_code: data.verification_code, webhook_status: 'PENDING' }
-            : acc
-        )
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to verify account');
-    } finally {
-      setVerifyingId(null);
-    }
+  const handleVerifyClick = (account: any) => {
+    setSelectedAccount(account);
+    setVerifyDialogOpen(true);
   };
+
+  const handleAccountVerified = useCallback(() => {
+    fetchAccounts(true); // Silent refresh to avoid scroll jumps
+  }, [fetchAccounts]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -443,13 +471,24 @@ function ConnectedAccountsSection() {
     }
   };
 
+  // Always render the card structure to prevent layout shifts
   if (loading) {
     return (
       <Card>
-        <div className="space-y-4">
-          {[...Array(2)].map((_, i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-1">
+              Connected Social Accounts
+            </h2>
+            <p className="text-sm text-[var(--color-text-muted)]">
+              Connect and verify your social media accounts to submit to contests
+            </p>
+          </div>
+          <div className="space-y-4">
+            {[...Array(2)].map((_, i) => (
+              <Skeleton key={i} className="h-24" />
+            ))}
+          </div>
         </div>
       </Card>
     );
@@ -600,10 +639,9 @@ function ConnectedAccountsSection() {
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => handleVerify(account.id)}
-                      disabled={verifyingId === account.id}
+                      onClick={() => handleVerifyClick(account)}
                     >
-                      {verifyingId === account.id ? 'Verifying...' : 'Verify Account'}
+                      Verify Account
                     </Button>
                   )}
                   {account.verification_status === 'VERIFIED' && (
@@ -617,6 +655,16 @@ function ConnectedAccountsSection() {
           </div>
         )}
       </div>
+
+      {/* Verify Account Dialog */}
+      {selectedAccount && (
+        <VerifyAccountDialog
+          open={verifyDialogOpen}
+          onOpenChange={setVerifyDialogOpen}
+          account={selectedAccount}
+          onAccountVerified={handleAccountVerified}
+        />
+      )}
     </Card>
   );
 }
@@ -2665,22 +2713,33 @@ function ContestsSection({ onNavigateToOwnership }: { onNavigateToOwnership?: ()
                 </button>
                 {isExpanded && (
                   <div className="px-4 pb-4 space-y-4 border-t border-[var(--color-border)] pt-4">
-                    {contestSubmissions.map((submission, index) => (
-                      <SubmissionCard
-                        key={submission.id}
-                        submission={submission}
-                        onRefreshStats={handleRefreshStats}
-                        onRetryProcessing={handleRetryProcessing}
-                        onRequestReview={handleRequestReview}
-                        onDelete={handleDelete}
-                        canRefreshStats={canRefreshStats}
-                        sessionToken={sessionToken}
-                        actionError={actionErrors[submission.id]}
-                        onNavigateToOwnership={onNavigateToOwnership}
-                        contestStatus={contestStatus}
-                        submissionNumber={index + 1}
-                      />
-                    ))}
+                    {[...contestSubmissions]
+                      .sort((a, b) => {
+                        const dateA = new Date(a.created_at || 0).getTime();
+                        const dateB = new Date(b.created_at || 0).getTime();
+                        return dateB - dateA; // Sort newest first
+                      })
+                      .map((submission, index) => {
+                        const totalCount = contestSubmissions.length;
+                        // Oldest submission is 1, newest is totalCount
+                        const submissionNumber = totalCount - index;
+                        return (
+                          <SubmissionCard
+                            key={submission.id}
+                            submission={submission}
+                            onRefreshStats={handleRefreshStats}
+                            onRetryProcessing={handleRetryProcessing}
+                            onRequestReview={handleRequestReview}
+                            onDelete={handleDelete}
+                            canRefreshStats={canRefreshStats}
+                            sessionToken={sessionToken}
+                            actionError={actionErrors[submission.id]}
+                            onNavigateToOwnership={onNavigateToOwnership}
+                            contestStatus={contestStatus}
+                            submissionNumber={submissionNumber}
+                          />
+                        );
+                      })}
                   </div>
                 )}
               </Card>
@@ -2733,22 +2792,33 @@ function ContestsSection({ onNavigateToOwnership }: { onNavigateToOwnership?: ()
                 </button>
                 {isExpanded && (
                   <div className="px-4 pb-4 space-y-4 border-t border-[var(--color-border)] pt-4">
-                    {contestSubmissions.map((submission, index) => (
-                      <SubmissionCard
-                        key={submission.id}
-                        submission={submission}
-                        onRefreshStats={handleRefreshStats}
-                        onRetryProcessing={handleRetryProcessing}
-                        onRequestReview={handleRequestReview}
-                        onDelete={handleDelete}
-                        canRefreshStats={canRefreshStats}
-                        sessionToken={sessionToken}
-                        actionError={actionErrors[submission.id]}
-                        onNavigateToOwnership={onNavigateToOwnership}
-                        contestStatus={contestStatus}
-                        submissionNumber={index + 1}
-                      />
-                    ))}
+                    {[...contestSubmissions]
+                      .sort((a, b) => {
+                        const dateA = new Date(a.created_at || 0).getTime();
+                        const dateB = new Date(b.created_at || 0).getTime();
+                        return dateB - dateA; // Sort newest first
+                      })
+                      .map((submission, index) => {
+                        const totalCount = contestSubmissions.length;
+                        // Oldest submission is 1, newest is totalCount
+                        const submissionNumber = totalCount - index;
+                        return (
+                          <SubmissionCard
+                            key={submission.id}
+                            submission={submission}
+                            onRefreshStats={handleRefreshStats}
+                            onRetryProcessing={handleRetryProcessing}
+                            onRequestReview={handleRequestReview}
+                            onDelete={handleDelete}
+                            canRefreshStats={canRefreshStats}
+                            sessionToken={sessionToken}
+                            actionError={actionErrors[submission.id]}
+                            onNavigateToOwnership={onNavigateToOwnership}
+                            contestStatus={contestStatus}
+                            submissionNumber={submissionNumber}
+                          />
+                        );
+                      })}
                   </div>
                 )}
               </Card>

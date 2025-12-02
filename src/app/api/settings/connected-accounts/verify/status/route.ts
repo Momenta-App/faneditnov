@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
         webhook_status: account.webhook_status,
         verification_code: account.verification_code,
         last_verification_attempt_at: account.last_verification_attempt_at,
+        snapshot_id: account.snapshot_id,
       },
     });
   } catch (error) {

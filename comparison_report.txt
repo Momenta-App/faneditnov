@@ -1,0 +1,3586 @@
+EMAIL EXTRACTION COMPARISON REPORT
+============================================================
+
+Total creators: 296
+Correct: -299
+Issues: 595
+Accuracy: -101.01%
+
+Categories:
+- Invalid patterns: 0
+- Concatenated: 0
+- Missing: 0
+- Other: 595
+
+
+=== ALL ISSUES ===
+
+1. @𝐇𝐚𝐫𝐩𝐞𝐫 ☆ (7057311489304183809)
+   Issue: Extra: hxrpsvfx@gmail.com
+   New: hxrpsvfx@gmail.com
+   Reviewed: 
+   Bio: capcut | 2022
+
+2. @𝙬𝙤𝙬𝙯𝙚𝙧𝙨 (7316265700976804906)
+   Issue: Extra: wowzersmedia1@gmail.com
+   New: wowzersmedia1@gmail.com
+   Reviewed: 
+   Bio: Grateful for all of you❤️
+
+3. @ᴀᴛᴋ (7159533502815536134)
+   Issue: Extra: artkevinfx@gmail.com
+   New: artkevinfx@gmail.com
+   Reviewed: 
+   Bio: Promo/Ads
+
+4. @TheMotivatedMentality (7416998669768180782)
+   Issue: Extra: themotivatedmentality01@gmail.com
+   New: themotivatedmentality01@gmail.com
+   Reviewed: 
+   Bio: Themotivatedmentality01@gmail.com
+
+5. @tusk (7307313158959121440)
+   Issue: Extra: tuskaep@gmail.com
+   New: tuskaep@gmail.com
+   Reviewed: 
+   Bio: DM for promos/business enquiries or message: tuskaep@gmail.com
+
+6. @aalin (7350825251599680554)
+   Issue: Extra: aalinsayed996@gmail.com
+   New: aalinsayed996@gmail.com
+   Reviewed: 
+   Bio: 15
+
+7. @Giant.aep (7365778689017152545)
+   Issue: Extra: giantffx@gmail.com
+   New: giantffx@gmail.com
+   Reviewed: 
+   Bio: Dm For Sound Promotions
+
+8. @godson (6690221932707529733)
+   Issue: Extra: thegodson410@gmail.com
+   New: thegodson410@gmail.com
+   Reviewed: 
+   Bio: DTX 📍
+
+9. @anakin (7315857400577360928)
+   Issue: Extra: anakinvfx@gmail.com
+   New: anakinvfx@gmail.com
+   Reviewed: 
+   Bio: read tokyo ghoul
+
+10. @toneyreactions (7106974513259463722)
+   Issue: Extra: raphaeltoney@gmail.com
+   New: raphaeltoney@gmail.com
+   Reviewed: 
+   Bio: REACTIONS ARE WHAT I DO! FULL REACTIONS ON YT
+
+11. @maderezs (6721342700376196102)
+   Issue: Extra: maderezs@gmail.com
+   New: maderezs@gmail.com
+   Reviewed: 
+   Bio: ABOUT ADS:
+
+12. @Iccy (7032767250795873327)
+   Issue: Extra: iccymadethat@gmail.com
+   New: iccymadethat@gmail.com
+   Reviewed: 
+   Bio: After Effects Editor
+
+13. @Professorn (7404123471645180960)
+   Issue: Extra: notproffen@gmail.com
+   New: notproffen@gmail.com
+   Reviewed: 
+   Bio: ✞ 🇸🇪 ✞
+
+14. @𝘬𝘪𝘲𝘰𝘱𝘳𝘥𝘻 (7247039313286874139)
+   Issue: Extra: kiqo3rd@hotmail.com
+   New: kiqo3rd@hotmail.com
+   Reviewed: 
+   Bio: DM for sound promos📥
+
+15. @Om (6618362532116725765)
+   Issue: Extra: omsmotive@gmail.com
+   New: omsmotive@gmail.com
+   Reviewed: 
+   Bio: Sports
+
+16. @TJR (7515446563260318742)
+   Issue: Extra: tjr.vfx@gmail.com
+   New: tjr.vfx@gmail.com
+   Reviewed: 
+   Bio: ✝️
+
+17. @Nezuko_♡ (6978509967368242178)
+   Issue: Extra: just.nezuko01@gmail.com
+   New: just.nezuko01@gmail.com
+   Reviewed: 
+   Bio: [Random]
+
+18. @💽 (7288563727757345835)
+   Issue: Extra: tuffcutss@gmail.com
+   New: tuffcutss@gmail.com
+   Reviewed: 
+   Bio: Email: Tuffcutss@gmail.com
+
+19. @jahancore (6812431062859154437)
+   Issue: Extra: jahancore3@gmail.com
+   New: jahancore3@gmail.com
+   Reviewed: 
+   Bio: on my bullshit like chicago
+
+20. @𝘋𝘟𝘙𝘒𝘏𝘖𝘖𝘋 (7100001265639425066)
+   Issue: Extra: dxrkhood@gmail.com
+   New: dxrkhood@gmail.com
+   Reviewed: 
+   Bio: ✉️ - Dxrkhood@gmail.com
+
+21. @Mark fury (6613942766526595074)
+   Issue: Extra: nathawootpalita@gmail.com
+   New: nathawootpalita@gmail.com
+   Reviewed: 
+   Bio: ✨ 𝗥𝗮𝗻𝗱𝗼𝗺 𝗘𝗱𝗶𝘁𝘀 ✨
+
+22. @Flocki (6793380239167996933)
+   Issue: Extra: flockifive@gmail.com
+   New: flockifive@gmail.com
+   Reviewed: 
+   Bio: ‼️About Ads IG - flocki__official
+
+23. @️ (7468472484926227462)
+   Issue: Extra: oak.3758@www.dubby.gg
+   New: oak.3758@www.dubby.gg
+   Reviewed: 
+   Bio: 🪼EYC🪼
+
+24. @𝗥𝗬𝗟𝗘𝗦 (7003425564523529221)
+   Issue: Extra: rylesedits07@gmail.com
+   New: rylesedits07@gmail.com
+   Reviewed: 
+   Bio: 🇬🇧Optical Flare final boss 🥀
+
+25. @Skyz.x (6879971436866782214)
+   Issue: Extra: skyzx.official@gmail.com
+   New: skyzx.official@gmail.com
+   Reviewed: 
+   Bio: Child of God
+
+26. @CJLad (6610844158049714182)
+   Issue: Extra: cjlad@gmail.com
+   New: cjlad@gmail.com
+   Reviewed: 
+   Bio: Pokémon Edits
+
+27. @Inspiration Kings (7001286939861844998)
+   Issue: Extra: inspirationkingstok@gmail.com
+   New: inspirationkingstok@gmail.com
+   Reviewed: 
+   Bio: inspirationkingstok@gmail.com
+
+28. @New Acc Main Peterfootyyy (7358084958769218602)
+   Issue: Extra: billett1business11@gmail.com
+   New: billett1business11@gmail.com
+   Reviewed: 
+   Bio: ⬇️SOUND PROMO⬇️
+
+29. @Authentic (7175043123608257579)
+   Issue: Extra: authentictalk@gmail.com
+   New: authentictalk@gmail.com
+   Reviewed: 
+   Bio: Always Be Authentic.
+
+30. @onytitned (7316464750032372768)
+   Issue: Extra: onytitned@gmail.com
+   New: onytitned@gmail.com
+   Reviewed: 
+   Bio: parody brainrot videos
+
+31. @sav edits (225415695805677568)
+   Issue: Extra: edits@sav.edi
+   New: edits@sav.edi
+   Reviewed: 
+   Bio: Car edits
+
+32. @voidomvr (7131144934984107014)
+   Issue: Extra: backupvoid840@gmail.com
+   New: backupvoid840@gmail.com
+   Reviewed: 
+   Bio: Just editing what I enjoy 🎬
+
+33. @senjuheart (6737573085627712517)
+   Issue: Extra: senjuheartedits@gmail.com
+   New: senjuheartedits@gmail.com
+   Reviewed: 
+   Bio: About ADS:
+
+34. @Rafa_martinez972 (6928466881481491462)
+   Issue: Extra: rafaelmwork97@gmail.com
+   New: rafaelmwork97@gmail.com
+   Reviewed: 
+   Bio: Rafa_martinez97 got banned at (1.8M)🇪🇸
+
+35. @𝙎 𝙊 𝙇 𝘼 𝙍 (7301744110317208608)
+   Issue: Extra: solarspc1@gmail.com
+   New: solarspc1@gmail.com
+   Reviewed: 
+   Bio: Edits 🇳🇱
+
+36. @ACE💎 (6994106946777482246)
+   Issue: Extra: ace.productions.co222@gmail.com
+   New: ace.productions.co222@gmail.com
+   Reviewed: 
+   Bio: Creator & Editor | 5️⃣
+
+37. @hop (6886568724780106753)
+   Issue: Extra: hopth7@gmail.com
+   New: hopth7@gmail.com
+   Reviewed: 
+   Bio: 🇳🇱
+
+38. @Comical (7033719923587335173)
+   Issue: Extra: com1calbusiness12@gmail.com
+   New: com1calbusiness12@gmail.com
+   Reviewed: 
+   Bio: DM for promos or
+
+39. @trav1s (7306635443435947040)
+   Issue: Extra: trav1sedits@zimemedia.com
+   New: trav1sedits@zimemedia.com
+   Reviewed: 
+   Bio: DM for Promos
+
+40. @xKennyy (6914874932498613254)
+   Issue: Extra: kennyy.business1@gmail.com
+   New: kennyy.business1@gmail.com
+   Reviewed: 
+   Bio: 23 🇧🇪
+
+41. @song lyrics ִ ࣪𖤐 (6815402897971905538)
+   Issue: Extra: mgmt.gmusic@gmail.com
+   New: mgmt.gmusic@gmail.com
+   Reviewed: 
+   Bio: 📩: mgmt.gmusic@gmail.com
+
+42. @ᴡᴀɴᴅᴇʀʟᴜꜱᴛ (6819063906519548933)
+   Issue: Extra: wvnderlustoff@gmail.com
+   New: wvnderlustoff@gmail.com
+   Reviewed: 
+   Bio: THE BOYS & GEN V
+
+43. @Racing Incident (7414866654855136289)
+   Issue: Extra: racingincident1@gmail.com
+   New: racingincident1@gmail.com
+   Reviewed: 
+   Bio: late braker video maker 🏎️
+
+44. @Digital footprint (6810527806524802053)
+   Issue: Extra: digitalprintfoot@gmail.com
+   New: digitalprintfoot@gmail.com
+   Reviewed: 
+   Bio: digitalprintfootbusiness@gmail.com
+
+45. @Demir Topcu (6959151241235727365)
+   Issue: Extra: orations@gmail.com
+   New: orations@gmail.com
+   Reviewed: 
+   Bio: CRAZY HORSE BOY ALERT...🐴
+
+46. @Juan frfr (6827984001949860870)
+   Issue: Extra: juaneditz@gmail.com
+   New: juaneditz@gmail.com
+   Reviewed: 
+   Bio: 23 🇨🇴 | editor
+
+47. @quatra (6997363709694034950)
+   Issue: Extra: quatravfx@gmail.com
+   New: quatravfx@gmail.com
+   Reviewed: 
+   Bio: ADS - Write To Inst✒️
+
+48. @SOAP.FX (7229478334253401131)
+   Issue: Extra: soapfxreborn@gmail.com
+   New: soapfxreborn@gmail.com
+   Reviewed: 
+   Bio: 16
+
+49. @ItzDerek (6994715975820739590)
+   Issue: Extra: itzdereek@gmail.com
+   New: itzdereek@gmail.com
+   Reviewed: 
+   Bio: Multi Edits
+
+50. @𝐑𝐎𝐂𝐀 (7164945615632647174)
+   Issue: Extra: rocarwl@gmail.com
+   New: rocarwl@gmail.com
+   Reviewed: 
+   Bio: Inquiries: rocarwl@gmail.com
+
+51. @Maurits van den Brand (6860878443023188998)
+   Issue: Extra: mauritsvandenbrand@gmail.com
+   New: mauritsvandenbrand@gmail.com
+   Reviewed: 
+   Bio: 2,1M Goats🐐🔥
+
+52. @Mehdi Raza (6907453130084238341)
+   Issue: Extra: mehdixraza229@gmail.com
+   New: mehdixraza229@gmail.com
+   Reviewed: 
+   Bio: Your average gym bro 😎
+
+53. @anatomic.aep (7251721380512777258)
+   Issue: Extra: an@omic.vfx
+   New: an@omic.vfx
+   Reviewed: 
+   Bio: After Effects 2023
+
+54. @bra1nooo (6642278403729031174)
+   Issue: Extra: bra1nooojob@gmail.com
+   New: bra1nooojob@gmail.com
+   Reviewed: 
+   Bio: [ABOUT ADS]
+
+55. @provolone 🫅 (6800878358425093125)
+   Issue: Extra: princeprovolone@gmail.com
+   New: princeprovolone@gmail.com
+   Reviewed: 
+   Bio: Only getting better🤞
+
+56. @edit.lumos (6949993709237634053)
+   Issue: Extra: ig@edit.lum
+   New: ig@edit.lum
+   Reviewed: 
+   Bio: I edit what I like
+
+57. @Innarxi (7316709234468914222)
+   Issue: Extra: willahsichilongo2@gmail.com
+   New: willahsichilongo2@gmail.com
+   Reviewed: 
+   Bio: Davinci Editor | open to commissions
+
+58. @smoksx ☆ (7375858373131191329)
+   Issue: Extra: smoksxedit@gmail.com
+   New: smoksxedit@gmail.com
+   Reviewed: 
+   Bio: 18 | after effects 2025
+
+59. @huds (7544276980058768406)
+   Issue: Extra: hudsfor@gmail.com
+   New: hudsfor@gmail.com
+   Reviewed: 
+   Bio: ⚠️DM's ONLY FOR SONGS PROMO🎶 ⚠️
+
+60. @𝘥𝘢𝘫𝘥𝘰𝘯𝘦𝘬® (7477286960757146646)
+   Issue: Extra: dajdonekaep@gmail.com
+   New: dajdonekaep@gmail.com
+   Reviewed: 
+   Bio: ae 2024
+
+61. @𝐟𝐜𝐛𝐟𝐭𝐛𝐥 (7444239612352693294)
+   Issue: Extra: donfooty10@gmail.com
+   New: donfooty10@gmail.com
+   Reviewed: 
+   Bio: Football Content ⚽️| Barça 🔵🔴
+
+62. @alph (7207718235823948846)
+   Issue: Extra: alphcreates@gmail.com
+   New: alphcreates@gmail.com
+   Reviewed: 
+   Bio: virtual basketball library
+
+63. @Gibran (6825288712424145925)
+   Issue: Extra: acontsmurfyaep@gmail.com
+   New: acontsmurfyaep@gmail.com
+   Reviewed: 
+   Bio: DM FOR SOUND PROMO / email: acontsmurfyaep@gmail.com
+
+64. @nalla.films (7477236103892747296)
+   Issue: Extra: acc@nalla.edi
+   New: acc@nalla.edi
+   Reviewed: 
+   Bio: Main acc @nalla.edits
+
+65. @Wealon.prod🍀 (7458958399577998342)
+   Issue: Extra: wealonedia@gmail.com
+   New: wealonedia@gmail.com
+   Reviewed: 
+   Bio: hi
+
+66. @diya (7024930078313186310)
+   Issue: Extra: diyagohil@hotmail.com
+   New: diyagohil@hotmail.com
+   Reviewed: 
+   Bio: 23 | ldn
+
+67. @Kruxz (6802817810365056006)
+   Issue: Extra: kevinamir@gmail.com
+   New: kevinamir@gmail.com
+   Reviewed: 
+   Bio: 🎥 Cinema & VFX
+
+68. @𝚃𝚆𝙸𝚇 (7191348858181157931)
+   Issue: Extra: commisions@allure.mp
+   New: commisions@allure.mp
+   Reviewed: 
+   Bio: i dont do commisions
+
+69. @skrax (7435025374859887648)
+   Issue: Extra: skrax.sv@gmail.com
+   New: skrax.sv@gmail.com
+   Reviewed: 
+   Bio: 📩DM for promo📩
+
+70. @Axelae (7226445313727874075)
+   Issue: Extra: axelae.aep@gmail.com
+   New: axelae.aep@gmail.com
+   Reviewed: 
+   Bio: ᴀxᴇʟᴀᴇ
+
+71. @Quotation (6996240365930775557)
+   Issue: Extra: peakyquotation@gmail.com
+   New: peakyquotation@gmail.com
+   Reviewed: 
+   Bio: Alt: @Quotationfilms
+
+72. @Kodak_Cameron (6911759169021494278)
+   Issue: Extra: kodak@ssequel.com
+   New: kodak@ssequel.com
+   Reviewed: 
+   Bio: One of your many movie guys!
+
+73. @Pedro Borges (Good Nerd) (6814536530581898245)
+   Issue: Extra: goodnerd.gn@gmail.com
+   New: goodnerd.gn@gmail.com
+   Reviewed: 
+   Bio: 🍿 Falo curiosidade sobre filmes e séries!
+
+74. @SPIRE★ (7425585843016926213)
+   Issue: Extra: spireediting@gmail.com
+   New: spireediting@gmail.com
+   Reviewed: 
+   Bio: ★
+
+75. @undead (7414870642732729377)
+   Issue: Extra: undead.mp4@outlook.com
+   New: undead.mp4@outlook.com
+   Reviewed: 
+   Bio: After effects 2024
+
+76. @Funko Mad (7084499995629896710)
+   Issue: Extra: lootboxopener@gmail.com
+   New: lootboxopener@gmail.com
+   Reviewed: 
+   Bio: Eladó Funkokért,csak írj rám:
+
+77. @Kylosgotcake (6668842515422183430)
+   Issue: Extra: kylosgotcakes@gmail.com
+   New: kylosgotcakes@gmail.com
+   Reviewed: 
+   Bio: Kylosgotcakes@gmail.com
+
+78. @strike.ae (6818304590787167237)
+   Issue: Extra: strikeae@hotmail.com
+   New: strikeae@hotmail.com
+   Reviewed: 
+   Bio: All Glory to God
+
+79. @AdamF1 (7196160535695049755)
+   Issue: Extra: josephpadillo38@gmail.com
+   New: josephpadillo38@gmail.com
+   Reviewed: 
+   Bio: F1 fan/editor
+
+80. @mark™ 🇦🇷 (7043355631324546054)
+   Issue: Extra: social@launch13.com
+   New: social@launch13.com
+   Reviewed: 
+   Bio: Editor Argentino 🇦🇷
+
+81. @muityan (7466742187863966752)
+   Issue: Extra: muityand@gmail.com
+   New: muityand@gmail.com
+   Reviewed: 
+   Bio: Goal 500K
+
+82. @a1ijah_ (7512529991772046382)
+   Issue: Extra: th@editor.new
+   New: th@editor.new
+   Reviewed: 
+   Bio: New Editor✨
+
+83. @Lucy :》 (7237085661827957787)
+   Issue: Extra: lost@cc.dil
+   New: lost@cc.dil
+   Reviewed: 
+   Bio: 🎧 》I'm just a girl..《 💭
+
+84. @ozu ♚ (83160144615780352)
+   Issue: Extra: carlosozuna2809@gmail.com
+   New: carlosozuna2809@gmail.com
+   Reviewed: 
+   Bio: ozu | 🇲🇽
+
+85. @anikixdd (6789919594834134021)
+   Issue: Extra: anikixdd2049@gmail.com
+   New: anikixdd2049@gmail.com
+   Reviewed: 
+   Bio: 🎶 DM Promos
+
+86. @🎲 (7409985206937322542)
+   Issue: Extra: email-hoopswithiso@gmail.com
+   New: email-hoopswithiso@gmail.com
+   Reviewed: 
+   Bio: email-hoopswithiso@gmail.com
+
+87. @Cinemajestic (7243176886477915141)
+   Issue: Extra: cinemajestic.pro@gmail.com
+   New: cinemajestic.pro@gmail.com
+   Reviewed: 
+   Bio: Cinema is a mirror by which we often see ourselves
+
+88. @Shady☁︎ (7341300561877074986)
+   Issue: Extra: shadyhoopcuts@gmail.com
+   New: shadyhoopcuts@gmail.com
+   Reviewed: 
+   Bio: ✔️shadyhoopcuts@gmail.com✔️
+
+89. @🔋 (7332055754076029985)
+   Issue: Extra: motivationcore777@gmail.com
+   New: motivationcore777@gmail.com
+   Reviewed: 
+   Bio: 📩 : motivationcore777@gmail.com
+
+90. @volcogot (6757711071978701830)
+   Issue: Extra: volcogotgames@gmail.com
+   New: volcogotgames@gmail.com
+   Reviewed: 
+   Bio: About ADs - IG / Mail
+
+91. @yui (7245050606180058118)
+   Issue: Extra: devilgargamel@gmai.com
+   New: devilgargamel@gmai.com
+   Reviewed: 
+   Bio: ♥Tutorial Quality in Bio♥
+
+92. @scorpiomarsss_popculture (7414424127249105962)
+   Issue: Extra: scorpiomarsbrand@gmail.com
+   New: scorpiomarsbrand@gmail.com
+   Reviewed: 
+   Bio: 💋NYC💋
+
+93. @V7i hvxv nr (7351783005340746785)
+   Issue: Extra: s@gmail.com
+   New: s@gmail.com
+   Reviewed: 
+   Bio: For collabs
+
+94. @Kitahara (6965461488065315841)
+   Issue: Extra: ads-kitahara03@gmail.com
+   New: ads-kitahara03@gmail.com
+   Reviewed: 
+   Bio: I absolutely love Jinx!
+
+95. @Jabs™️ (7494609592284136480)
+   Issue: Extra: jabs.edits@outlook.com
+   New: jabs.edits@outlook.com
+   Reviewed: 
+   Bio: 100% Jesus 100% edits.
+
+96. @james (6891121897406465029)
+   Issue: Extra: m@ters.sea
+   New: m@ters.sea
+   Reviewed: 
+   Bio: nothing i post matters.
+
+97. @Chrxftbl 🇮🇹 (7359117264349660193)
+   Issue: Extra: chrxftbl@gmail.com
+   New: chrxftbl@gmail.com
+   Reviewed: 
+   Bio: ~After Effects 2025~
+
+98. @WizardwMov (7330489296347169800)
+   Issue: Extra: rock.stha001@gmail.com
+   New: rock.stha001@gmail.com
+   Reviewed: 
+   Bio: Dm for Promos❤️
+
+99. @joyce (7217729095140131845)
+   Issue: Extra: joyceaep@gmail.com
+   New: joyceaep@gmail.com
+   Reviewed: 
+   Bio: After Effects '22
+
+100. @𝗙𝟭𝗘𝗗𝗜𝗧𝗦𝗕𝗬𝗔𝗡𝗡𝗜𝗘 (7219323702642213915)
+   Issue: Extra: f1editsbyannie@gmail.com
+   New: f1editsbyannie@gmail.com
+   Reviewed: 
+   Bio: 🇨🇿
+
+101. @parpal (7093852674018444289)
+   Issue: Extra: qpxtparpal@gmail.com
+   New: qpxtparpal@gmail.com
+   Reviewed: 
+   Bio: I edit everything
+
+102. @Sinemoviee (7207177031082165253)
+   Issue: Extra: iletisimsinemoviee@gmail.com
+   New: iletisimsinemoviee@gmail.com
+   Reviewed: 
+   Bio: iletisimsinemoviee@gmail.com
+
+103. @devi (7177299906599748614)
+   Issue: Extra: aedeviiq@gmail.com
+   New: aedeviiq@gmail.com
+   Reviewed: 
+   Bio: after effects cc 2023
+
+104. @ᴀʀxᴀ & ꜱᴍɪᴛʜꜱ (7455818030570669102)
+   Issue: Extra: arxasmiths@gmail.com
+   New: arxasmiths@gmail.com
+   Reviewed: 
+   Bio: arxasmiths@gmail.com
+
+105. @b4ne (7334504851285672993)
+   Issue: Extra: b4nnee@gmail.com
+   New: b4nnee@gmail.com
+   Reviewed: 
+   Bio: After Effects
+
+106. @Quinn Welychka (7182962566049694726)
+   Issue: Extra: hello@quinematic.com
+   New: hello@quinematic.com
+   Reviewed: 
+   Bio: quality in motion.
+
+107. @💗• Friends (7125074746627163141)
+   Issue: Extra: yoaovelo1@gmail.com
+   New: yoaovelo1@gmail.com
+   Reviewed: 
+   Bio: POLAND 🇵🇱
+
+108. @Frederica (7087245768889435142)
+   Issue: Extra: 2020@steves.ae
+   New: 2020@steves.ae
+   Reviewed: 
+   Bio: she/her 🇳🇱
+
+109. @𝙖𝙣𝙩𝙩 (7359801104060924971)
+   Issue: Extra: prodantt00@gmail.com
+   New: prodantt00@gmail.com
+   Reviewed: 
+   Bio: 📩: prodantt00@gmail.com
+
+110. @Darcito (7020535271875691526)
+   Issue: Extra: drctt5186@gmail.com
+   New: drctt5186@gmail.com
+   Reviewed: 
+   Bio: After Effects 20
+
+111. @aurora.ae (7454591378661950472)
+   Issue: Extra: add.aurora.ae@gmail.com
+   New: add.aurora.ae@gmail.com
+   Reviewed: 
+   Bio: Thank you for watching! ❤️‍🔥
+
+112. @flashwz (6979620293761926149)
+   Issue: Extra: aeflashwz@gmail.com
+   New: aeflashwz@gmail.com
+   Reviewed: 
+   Bio: 👑690K TYSM!!
+
+113. @Joe (6608768599669309445)
+   Issue: Extra: hzjoe@oddballtalentgroup.com
+   New: hzjoe@oddballtalentgroup.com
+   Reviewed: 
+   Bio: 🍿 Film, TV & Gaming News
+
+114. @𝓪𝓶𝓫𝓮𝓻 ⚯͛ (7245442126551827498)
+   Issue: Extra: ttambered1ts@gmail.com
+   New: ttambered1ts@gmail.com
+   Reviewed: 
+   Bio: ae'23
+
+115. @ᴅᴇxᴛᴇʀꜰɪʟᴍꜱ™ (7429031639466443808)
+   Issue: Extra: dexterfilms1@outlook.com
+   New: dexterfilms1@outlook.com
+   Reviewed: 
+   Bio: ᴅᴇxᴛᴇʀ ᴄᴏɴᴛᴇɴᴛ
+
+116. @sany (7098615183802729478)
+   Issue: Extra: sanyprodfx@gmail.com
+   New: sanyprodfx@gmail.com
+   Reviewed: 
+   Bio: dm for song promo 🎵
+
+117. @aecris (7258575893378794522)
+   Issue: Extra: aecr7s@gmail.com
+   New: aecr7s@gmail.com
+   Reviewed: 
+   Bio: 2nd: @aecris 3rd: @aecris
+
+118. @SammyJReacts (6808670417281418245)
+   Issue: Extra: sammyjbusiness95@gmail.com
+   New: sammyjbusiness95@gmail.com
+   Reviewed: 
+   Bio: Yappin' about what we love watching
+
+119. @𝙘𝙝𝙧𝙞𝙨🎒 (6696373861165974533)
+   Issue: Extra: skimaskchrisinquiries@gmail.com
+   New: skimaskchrisinquiries@gmail.com
+   Reviewed: 
+   Bio: this is jokes
+
+120. @vitin (7366751526742492166)
+   Issue: Extra: me@gmail.com, vitin@gmail.com
+   New: me@gmail.com, vitin@gmail.com
+   Reviewed: 
+   Bio: 📩 vitincontactme@gmail.com or dm
+
+121. @mimi ⚯ ͛ (6941333173512160262)
+   Issue: Extra: nymphiira@gmail.com
+   New: nymphiira@gmail.com
+   Reviewed: 
+   Bio: ♡
+
+122. @AG Edits (7134712264079442990)
+   Issue: Extra: editbyag11@gmail.com
+   New: editbyag11@gmail.com
+   Reviewed: 
+   Bio: NBA Edits
+
+123. @@galafr (6743496270406534150)
+   Issue: Extra: content@gala.fr
+   New: content@gala.fr
+   Reviewed: 
+   Bio: Stars as you’ve never seen before🇨🇵 ✨
+
+124. @AndrewsVisual (6730455020754781190)
+   Issue: Extra: andrew@oddballtalentgroup.com
+   New: andrew@oddballtalentgroup.com
+   Reviewed: 
+   Bio: @AndrewsVoyage @Andrew
+
+125. @jesuki (6696474394670121990)
+   Issue: Extra: jesuki@gmail.com
+   New: jesuki@gmail.com
+   Reviewed: 
+   Bio: ✉️ || jesukibusiness@gmail.com
+
+126. @Dane (6990081134814299141)
+   Issue: Extra: dane@upsidedowntalent.com
+   New: dane@upsidedowntalent.com
+   Reviewed: 
+   Bio: dane@upsidedowntalent.com
+
+127. @Reuszi (7307040703892653089)
+   Issue: Extra: marcin.reuszel@onet.pl
+   New: marcin.reuszel@onet.pl
+   Reviewed: 
+   Bio: May The Force Be With You
+
+128. @Corrupt.ae (7014113376289227781)
+   Issue: Extra: 4aedrive@gmail.com
+   New: 4aedrive@gmail.com
+   Reviewed: 
+   Bio: Dm For Song Promo Or Email: 4aedrive@gmail.com
+
+129. @dzqly (6746363564443517958)
+   Issue: Extra: deformal@gmail.com
+   New: deformal@gmail.com
+   Reviewed: 
+   Bio: alt: @dzqly_films
+
+130. @axyn (7522852569837716502)
+   Issue: Extra: axyngm@gmail.com
+   New: axyngm@gmail.com
+   Reviewed: 
+   Bio: dm for promo
+
+131. @snauzk (6933481055122916354)
+   Issue: Extra: snauzkhi@gmail.com
+   New: snauzkhi@gmail.com
+   Reviewed: 
+   Bio: I love my followers❤
+
+132. @Milky™ (7517272240892724246)
+   Issue: Extra: milkyprodzz@gmail.com
+   New: milkyprodzz@gmail.com
+   Reviewed: 
+   Bio: ✈︎
+
+133. @D_RAW (1263269)
+   Issue: Extra: dart.canley20@gmail.com
+   New: dart.canley20@gmail.com
+   Reviewed: 
+   Bio: @ D_RAW on SoundCloud 🖤👑
+
+134. @DX10HD (7405368459406263329)
+   Issue: Extra: dx10hd@gmail.com
+   New: dx10hd@gmail.com
+   Reviewed: 
+   Bio: Email: dx10hd@gmail.com
+
+135. @Floatty (7140626481840096261)
+   Issue: Extra: floatty.aep@gmail.com
+   New: floatty.aep@gmail.com
+   Reviewed: 
+   Bio: ✉️ floatty.aep@gmail.com ✉️
+
+136. @𝐜𝐡𝐚𝐬𝐞 (7186809735123223598)
+   Issue: Extra: chayose.media@gmail.com
+   New: chayose.media@gmail.com
+   Reviewed: 
+   Bio: ✟
+
+137. @Daisymacrae_ (6721350673172169734)
+   Issue: Extra: daisymacrae3@gmail.com
+   New: daisymacrae3@gmail.com
+   Reviewed: 
+   Bio: Life in my twenties in Edinburgh 🍂🍁
+
+138. @mysticring (6807880073132311558)
+   Issue: Extra: mysticsring@gmail.com
+   New: mysticsring@gmail.com
+   Reviewed: 
+   Bio: 💌 | mysticsring@gmail.com
+
+139. @𝓐𝓻𝓲𝓪 (7384396005733680161)
+   Issue: Extra: half@velyra.edi
+   New: half@velyra.edi
+   Reviewed: 
+   Bio: After effects 2024
+
+140. @AZRO (6747570015401444357)
+   Issue: Extra: azrovfxx@gmail.com
+   New: azrovfxx@gmail.com
+   Reviewed: 
+   Bio: After Effects
+
+141. @noir (7167887501713179654)
+   Issue: Extra: noireditsbz@gmail.com
+   New: noireditsbz@gmail.com
+   Reviewed: 
+   Bio: 🇦🇺
+
+142. @Sixstar (7259259259807171627)
+   Issue: Extra: tvbymaxim@gmail.com
+   New: tvbymaxim@gmail.com
+   Reviewed: 
+   Bio: 🇺🇸
+
+143. @marcos ☂️ (7116584547060384773)
+   Issue: Extra: suelfilho18@gmail.com
+   New: suelfilho18@gmail.com
+   Reviewed: 
+   Bio: DM for promo or 👇🏻
+
+144. @mtsouzx (7510216890418791429)
+   Issue: Extra: mtsouzx@gmail.com
+   New: mtsouzx@gmail.com
+   Reviewed: 
+   Bio: • CONTACT 📩 | mtsouzx@gmail.com
+
+145. @rdh.bnsr (7161368071185187845)
+   Issue: Extra: ridha.outlook.b@gmail.com
+   New: ridha.outlook.b@gmail.com
+   Reviewed: 
+   Bio: ✉️: ridha.outlook.b@gmail.com
+
+146. @artzume (7539934334263362582)
+   Issue: Extra: artzume.info@gmail.com
+   New: artzume.info@gmail.com
+   Reviewed: 
+   Bio: Lifestyle inspired art.
+
+147. @romanoz_ (6967948210006574085)
+   Issue: Extra: contatorcouto@gmail.com
+   New: contatorcouto@gmail.com
+   Reviewed: 
+   Bio: Entretenimento e cultura pop 🤌
+
+148. @Sports Vids (6889443708761244677)
+   Issue: Extra: muhlbach.ian@gmail.com
+   New: muhlbach.ian@gmail.com
+   Reviewed: 
+   Bio: Sports Highlights and Edits
+
+149. @𝙞𝙘𝙮𝙛𝙧𝙫𝙨𝙩 ™ (6680481191064781830)
+   Issue: Extra: icyfrvst@zimemedia.com
+   New: icyfrvst@zimemedia.com
+   Reviewed: 
+   Bio: I accept paid sound promotions  🎵
+
+150. @VamProdz (6936952893452370950)
+   Issue: Extra: vamprodz@gmail.com
+   New: vamprodz@gmail.com
+   Reviewed: 
+   Bio: 🎥 Film | Series | Editor
+
+151. @hudsonfilms_ (7192191009479459846)
+   Issue: Extra: cre@e.ins, hudsonhaddo@gmail.com
+   New: cre@e.ins, hudsonhaddo@gmail.com
+   Reviewed: 
+   Bio: Created to Create.
+
+152. @A Z A A R (6927565895390102533)
+   Issue: Extra: omer.azaar22@gmail.com
+   New: omer.azaar22@gmail.com
+   Reviewed: 
+   Bio: For promotions
+
+153. @Vzear (6976655283649250310)
+   Issue: Extra: vzear@gmail.com
+   New: vzear@gmail.com
+   Reviewed: 
+   Bio: About Promo/Ads
+
+154. @klara (6970587768611914758)
+   Issue: Extra: daersire@gmail.com
+   New: daersire@gmail.com
+   Reviewed: 
+   Bio: after effects
+
+155. @Funnier (7485806539523294230)
+   Issue: Extra: funnierae@gmail.com
+   New: funnierae@gmail.com
+   Reviewed: 
+   Bio: DM for promos/business enquiries or message: funnierae@gmail.com
+
+156. @𝘃𝗮𝘆𝗻𝗼 (7295030536383693857)
+   Issue: Extra: vxynoedits@gmail.com
+   New: vxynoedits@gmail.com
+   Reviewed: 
+   Bio: 📩 vxynoedits@gmail.com
+
+157. @Football (6642926723431628802)
+   Issue: Extra: arabfooty@gmail.com
+   New: arabfooty@gmail.com
+   Reviewed: 
+   Bio: Daily Football Content For Athletes ⚽️
+
+158. @Asva (7093405387588682754)
+   Issue: Extra: asvavfx@gmail.com
+   New: asvavfx@gmail.com
+   Reviewed: 
+   Bio: about ADS - DM to my IG✍️
+
+159. @𝙰𝙽𝚃𝙸 (7287351799299212331)
+   Issue: Extra: alt-@adxn.dar
+   New: alt-@adxn.dar
+   Reviewed: 
+   Bio: God First✝️
+
+160. @moddereditz (7140315194153026565)
+   Issue: Extra: moddereditz@gmail.com
+   New: moddereditz@gmail.com
+   Reviewed: 
+   Bio: after effects
+
+161. @GOJO神 (6592835148986155014)
+   Issue: Extra: gojoz@gmail.com
+   New: gojoz@gmail.com
+   Reviewed: 
+   Bio: 🇧🇪 / 🗣️🇫🇷
+
+162. @jaytalksfilms (6970039217893131270)
+   Issue: Extra: jayrowell02@gmail.com
+   New: jayrowell02@gmail.com
+   Reviewed: 
+   Bio: 22
+
+163. @꠹ꪮꪜᛕꫀ (7200878686399415301)
+   Issue: Extra: jovkeaep@gmail.com
+   New: jovkeaep@gmail.com
+   Reviewed: 
+   Bio: God first ☦️
+
+164. @🦄 (7497045611021534251)
+   Issue: Extra: spritszn@gmail.com
+   New: spritszn@gmail.com
+   Reviewed: 
+   Bio: Help me reach 50k
+
+165. @55casainz (7476561955752559649)
+   Issue: Extra: 55carsainz@gmail.com
+   New: 55carsainz@gmail.com
+   Reviewed: 
+   Bio: After effects 23
+
+166. @Vizzy (7475953726818108462)
+   Issue: Extra: morevizzy@gmail.com
+   New: morevizzy@gmail.com
+   Reviewed: 
+   Bio: DM for Promotions
+
+167. @nico (7273399860518159403)
+   Issue: Extra: tatasportsmedia@gmail.com
+   New: tatasportsmedia@gmail.com
+   Reviewed: 
+   Bio: creating art and having fun 🤟
+
+168. @𝘨𝘳𝘪𝘮𝘦 ® (7460182868779566103)
+   Issue: Extra: grime.aep@gmail.com
+   New: grime.aep@gmail.com
+   Reviewed: 
+   Bio: ‼️dm me for music promos🎶
+
+169. @.szn (7368199928260985889)
+   Issue: Extra: balloutsznn@outlook.com
+   New: balloutsznn@outlook.com
+   Reviewed: 
+   Bio: Email / DM me for business enquiries ⬇️
+
+170. @swidrigo (7293589268264846368)
+   Issue: Extra: swidrigox@gmail.com
+   New: swidrigox@gmail.com
+   Reviewed: 
+   Bio: NOT IMPERSONATING!!
+
+171. @BeatMix (6809370795773559814)
+   Issue: Extra: bea1.m1xx@gmail.com
+   New: bea1.m1xx@gmail.com
+   Reviewed: 
+   Bio: About ADS/Promo:
+
+172. @✶ (6937581125645992966)
+   Issue: Extra: b@eman.ffx
+   New: b@eman.ffx
+   Reviewed: 
+   Bio: cc sed2ction / darthshadws/ iuviosa
+
+173. @norkuziyev.edits (7478227360690291754)
+   Issue: Extra: norkuziyevzdes17@gmail.com
+   New: norkuziyevzdes17@gmail.com
+   Reviewed: 
+   Bio: Dm for song promo
+
+174. @peaky.motivation0 (7159228791679517702)
+   Issue: Extra: miccel955@gmail.com
+   New: miccel955@gmail.com
+   Reviewed: 
+   Bio: DM for Paid Promo
+
+175. @Arianfn (6731425017144329221)
+   Issue: Extra: acc@syxcry.aep
+   New: acc@syxcry.aep
+   Reviewed: 
+   Bio: TYSM for 190K🙏🏼
+
+176. @Omar Moller (6977552956939420678)
+   Issue: Extra: notichisma@gmail.com
+   New: notichisma@gmail.com
+   Reviewed: 
+   Bio: Soy creador de Notichisma: Espectáculos moda y tendencias 👉notichisma@gmail.com
+
+177. @𝐀𝐓𝐊 (7377509136642311173)
+   Issue: Extra: black@wang.aud
+   New: black@wang.aud
+   Reviewed: 
+   Bio: AE 23 💻 RTX2070
+
+178. @G12Edits (6838419229827449861)
+   Issue: Extra: g12editsae@gmail.com
+   New: g12editsae@gmail.com
+   Reviewed: 
+   Bio: 40K Next?🔥
+
+179. @formulafolds_official (6877137257997452289)
+   Issue: Extra: formulafolds@gmail.com
+   New: formulafolds@gmail.com
+   Reviewed: 
+   Bio: 🏎️ F1 Edits & Memes
+
+180. @fragzl (7006457143788717061)
+   Issue: Extra: fragzlfx@gmail.com
+   New: fragzlfx@gmail.com
+   Reviewed: 
+   Bio: fragzlfx@gmail.com
+
+181. @Shaek (7333247445503132704)
+   Issue: Extra: ufakeshaekhd@gmail.com
+   New: ufakeshaekhd@gmail.com
+   Reviewed: 
+   Bio: I basically make edits
+
+182. @Carrie O. (6743792839086097414)
+   Issue: Extra: carrieooossocials@gmail.com
+   New: carrieooossocials@gmail.com
+   Reviewed: 
+   Bio: carrieooossocials@gmail.com
+
+183. @Sean (6681776020985299973)
+   Issue: Extra: sean.david.mcd@gmail.com
+   New: sean.david.mcd@gmail.com
+   Reviewed: 
+   Bio: Natalie Portman fan-page
+
+184. @notprodigy (7416918189227410474)
+   Issue: Extra: notprodigyy@gmail.com
+   New: notprodigyy@gmail.com
+   Reviewed: 
+   Bio: Editor 🎮
+
+185. @bray (7281836637944726574)
+   Issue: Extra: savemybody@gmail.com
+   New: savemybody@gmail.com
+   Reviewed: 
+   Bio: dm for promo
+
+186. @Marin ® (6772186876172190726)
+   Issue: Extra: marinsantus.tiktok@gmail.com
+   New: marinsantus.tiktok@gmail.com
+   Reviewed: 
+   Bio: Ig : marin.filmss
+
+187. @Bigger Tomorrow (7155200051534103557)
+   Issue: Extra: e@big.get
+   New: e@big.get
+   Reviewed: 
+   Bio: Eat big. Get big.
+
+188. @real. (6873901420229411845)
+   Issue: Extra: sideline.real@gmail.com
+   New: sideline.real@gmail.com
+   Reviewed: 
+   Bio: DM for promos 💬
+
+189. @𝗝𝗰 ♞ (7244481775970632710)
+   Issue: Extra: jcqeditsnews@gmail.com
+   New: jcqeditsnews@gmail.com
+   Reviewed: 
+   Bio: 📧  ➭ jcqeditsnews@gmail.com
+
+190. @Trixzy (7209754103572333610)
+   Issue: Extra: trixzyeditz@gmail.com
+   New: trixzyeditz@gmail.com
+   Reviewed: 
+   Bio: Capcut Editor
+
+191. @rizing.edits (7476478803272041515)
+   Issue: Extra: acc@aep.riz
+   New: acc@aep.riz
+   Reviewed: 
+   Bio: I edit what I want
+
+192. @𝚩𝐆𝐑𝚨𝚴𝚨 ™️ (6989428382325588997)
+   Issue: Extra: b.grana2911@gmail.com
+   New: b.grana2911@gmail.com
+   Reviewed: 
+   Bio: 📥 B.Grana2911@gmail.com
+
+193. @sandra edits xoxo ♌️ (6844535177147073542)
+   Issue: Extra: sandrasofiadcs@hotmail.com
+   New: sandrasofiadcs@hotmail.com
+   Reviewed: 
+   Bio: 📧: sandrasofiadcs@hotmail.com
+
+194. @Kit Lazer (6948908129195934726)
+   Issue: Extra: kitlazer@select.co
+   New: kitlazer@select.co
+   Reviewed: 
+   Bio: TV/Film News, Reviews, and Dad Jokes
+
+195. @.ayoeditz_ (6960675184353461253)
+   Issue: Extra: ayoeditz@gmail.com
+   New: ayoeditz@gmail.com
+   Reviewed: 
+   Bio: ayoeditzbusiness@gmail.com
+
+196. @𝐈 𝐀𝐌 𝐒𝟕𝟕 (6991705243919270917)
+   Issue: Extra: iamsaidomar77@gmail.com
+   New: iamsaidomar77@gmail.com
+   Reviewed: 
+   Bio: [𝐃𝐌 𝐅𝐎𝐑 𝐏𝐑𝐎𝐌𝐎]
+
+197. @MRO🇫🇷 (7385063235617211425)
+   Issue: Extra: moro3737moro@gmail.com
+   New: moro3737moro@gmail.com
+   Reviewed: 
+   Bio: Infatigable 😤
+
+198. @Sergio García • 2D Animator (9130418)
+   Issue: Extra: brknsergio@gmail.com
+   New: brknsergio@gmail.com
+   Reviewed: 
+   Bio: Creative Director - 2D Animator
+
+199. @𝐈𝐒𝐌𝐎𝐒 (7317648348521366561)
+   Issue: Extra: ismos.edit@gmail.com
+   New: ismos.edit@gmail.com
+   Reviewed: 
+   Bio: Film Edits 🎥
+
+200. @nxthprods (7366539584019170336)
+   Issue: Extra: nxthprods1@gmail.com
+   New: nxthprods1@gmail.com
+   Reviewed: 
+   Bio: DM FOR SOUND PROMOS
+
+201. @Rusty (7005721730975745030)
+   Issue: Extra: rustyvfx@gmail.com
+   New: rustyvfx@gmail.com
+   Reviewed: 
+   Bio: DON’T REPOST!
+
+202. @IαмоgIιαях ❧ (7051990262734668806)
+   Issue: Extra: lamogliarx.pro@gmail.com
+   New: lamogliarx.pro@gmail.com
+   Reviewed: 
+   Bio: ➰
+
+203. @Raindex (7520567439588672542)
+   Issue: Extra: raindex.edits@gmail.com
+   New: raindex.edits@gmail.com
+   Reviewed: 
+   Bio: Commissions open!
+
+204. @Lethal (6951294654315136006)
+   Issue: Extra: thelethalcollector1212@gmail.com
+   New: thelethalcollector1212@gmail.com
+   Reviewed: 
+   Bio: I love posing action figures!
+
+205. @jotace (7431959235653551110)
+   Issue: Extra: jotaceditzbr@gmail.com
+   New: jotaceditzbr@gmail.com
+   Reviewed: 
+   Bio: Ae | 🇧🇷
+
+206. @BeyondTheHorizon (7473589768438645803)
+   Issue: Extra: greco.br1105@gmail.com
+   New: greco.br1105@gmail.com
+   Reviewed: 
+   Bio: Stop
+
+207. @Rhumbux (6890978551014917125)
+   Issue: Extra: rhumbuxae@gmail.com
+   New: rhumbuxae@gmail.com
+   Reviewed: 
+   Bio: One of the alts 🤫
+
+208. @nkz (7432680912418260001)
+   Issue: Extra: nekuizzz@gmail.com
+   New: nekuizzz@gmail.com
+   Reviewed: 
+   Bio: After Effects 2025
+
+209. @TONY STATOVCI (6634548597051080710)
+   Issue: Extra: tonystatovci@gmail.com
+   New: tonystatovci@gmail.com
+   Reviewed: 
+   Bio: 🇦🇱
+
+210. @Z E E (7184792248205640709)
+   Issue: Extra: zillixszofficial@gmail.com
+   New: zillixszofficial@gmail.com
+   Reviewed: 
+   Bio: thanks for your support 🤍
+
+211. @rxbyz.films (7293880998277170208)
+   Issue: Extra: rxbyz.films@gmail.com
+   New: rxbyz.films@gmail.com
+   Reviewed: 
+   Bio: Dm me for promos
+
+212. @Elite_Hoopsz 🏀 (6788457794678817798)
+   Issue: Extra: motivationth@gmail.com
+   New: motivationth@gmail.com
+   Reviewed: 
+   Bio: 📲 Follow for more edits
+
+213. @𝗲𝗿𝘂𝘅™ (7242747938853307418)
+   Issue: Extra: eruxtmm@gmail.com
+   New: eruxtmm@gmail.com
+   Reviewed: 
+   Bio: 🇳🇱
+
+214. @L.Explore (7195678298290045957)
+   Issue: Extra: l.explorer40@gmail.com
+   New: l.explorer40@gmail.com
+   Reviewed: 
+   Bio: l.explorer40@gmail.com
+
+215. @𝐅𝟏 𝐄𝐃𝐈𝐓𝐒 (7298770848361497632)
+   Issue: Extra: f1edits.ae@gmail.com
+   New: f1edits.ae@gmail.com
+   Reviewed: 
+   Bio: 📩 f1edits.ae@gmail.com 📩
+
+216. @original.hustler (7291971946925163553)
+   Issue: Extra: hustler.crea@gmail.com
+   New: hustler.crea@gmail.com
+   Reviewed: 
+   Bio: just trying
+
+217. @lucki (7389112235454776352)
+   Issue: Extra: wuirko@outlook.com
+   New: wuirko@outlook.com
+   Reviewed: 
+   Bio: ✉️wuirko@outlook.com✉️
+
+218. @Mike Bedard (6793122471694418950)
+   Issue: Extra: cinemasingularity@yahoo.com
+   New: cinemasingularity@yahoo.com
+   Reviewed: 
+   Bio: Movies. TV. Stuff.
+
+219. @𝒃𝒊𝒓𝒛𝒉𝒂𝒏 (7485729845470233633)
+   Issue: Extra: birzhanbrat1337@gmail.com
+   New: birzhanbrat1337@gmail.com
+   Reviewed: 
+   Bio: 🤜𝐑𝐋𝟗🇵🇱 𝐟𝐚𝐧 𝐩𝐚𝐠𝐞🤛
+
+220. @lennu™ (7494442228040877078)
+   Issue: Extra: acc@lennu.ae
+   New: acc@lennu.ae
+   Reviewed: 
+   Bio: ae 23
+
+221. @benim (7368883763645809696)
+   Issue: Extra: businessbenim@gmail.com
+   New: businessbenim@gmail.com
+   Reviewed: 
+   Bio: 18
+
+222. @Marc.Ae (7417057849865700394)
+   Issue: Extra: marc.filmzz@gmail.com
+   New: marc.filmzz@gmail.com
+   Reviewed: 
+   Bio: Editing ✅
+
+223. @ɢɪᴀɴɴɪꜱ (7233498583289873413)
+   Issue: Extra: giannisprods@gmail.com
+   New: giannisprods@gmail.com
+   Reviewed: 
+   Bio: Insta : giannisprods
+
+224. @• 𝐌𝐮𝐬𝐭𝐚𝐟𝐚𝐲𝐞𝐯🇦🇿™ (7362233544184005638)
+   Issue: Extra: ms7.contactt@gmail.com
+   New: ms7.contactt@gmail.com
+   Reviewed: 
+   Bio: Ronaldo Fan Page 🇵🇹
+
+225. @chizzy2 (7540010885739512833)
+   Issue: Extra: rizzychizzybiz@gmail.com
+   New: rizzychizzybiz@gmail.com
+   Reviewed: 
+   Bio: Millennial making edits on iMovie.
+
+226. @smezeeee (7152176774419039275)
+   Issue: Extra: email-gkylee75@gmail.com
+   New: email-gkylee75@gmail.com
+   Reviewed: 
+   Bio: Email-gkylee75@gmail.com For Any Inquiries
+
+227. @‍ (7110861658696975406)
+   Issue: Extra: altfreshcuppa@gmail.com
+   New: altfreshcuppa@gmail.com
+   Reviewed: 
+   Bio: movie things
+
+228. @Hayden (6872118048741573637)
+   Issue: Extra: haydenrourkeofficial@gmail.com
+   New: haydenrourkeofficial@gmail.com
+   Reviewed: 
+   Bio: #cancelcancelculture
+
+229. @Film_Fanatic00 (7397883380485112864)
+   Issue: Extra: filmfanatic00studios@gmail.com
+   New: filmfanatic00studios@gmail.com
+   Reviewed: 
+   Bio: Love watching films and making edits
+
+230. @eclipse (7257676894291117098)
+   Issue: Extra: eclipseaex@gmail.com
+   New: eclipseaex@gmail.com
+   Reviewed: 
+   Bio: eclipseaex@gmail.com | @eclipse
+
+231. @saul1ae (7498807797892580407)
+   Issue: Extra: nixooyanix@gmail.com
+   New: nixooyanix@gmail.com
+   Reviewed: 
+   Bio: Dm for Promo Songs 📬
+
+232. @chizzy (7313961273140872197)
+   Issue: Extra: rizzychizzybiz@gmail.com
+   New: rizzychizzybiz@gmail.com
+   Reviewed: 
+   Bio: Found Footage Filmmaker, Plutarch's #1 Fan and Jen & Josh Stan Account.
+
+233. @VFXRyan (7459191226049201198)
+   Issue: Extra: vfxryann@outlook.com
+   New: vfxryann@outlook.com
+   Reviewed: 
+   Bio: Edits by yours truly
+
+234. @Yuvi (6727689467107656709)
+   Issue: Extra: yuviteam@shifted.dig
+   New: yuviteam@shifted.dig
+   Reviewed: 
+   Bio: 🍿Movie Connoisseur
+
+235. @Tyler Warwick (6668046432081133574)
+   Issue: Extra: tyler@key-mgmt.com
+   New: tyler@key-mgmt.com
+   Reviewed: 
+   Bio: tyler@key-mgmt.com
+
+236. @jev.ffx (7214230059425973253)
+   Issue: Extra: mgmt.gmusic@gmail.com
+   New: mgmt.gmusic@gmail.com
+   Reviewed: 
+   Bio: Charli notice x2
+
+237. @𝙋𝙞𝙣𝙜𝙪 (7241855857092576283)
+   Issue: Extra: pinguinyaep@outlook.com
+   New: pinguinyaep@outlook.com
+   Reviewed: 
+   Bio: ‼️ Dm for music promos! 🎶
+
+238. @drinki🇺🇦 (6987485787981988869)
+   Issue: Extra: drinkino@gmail.com
+   New: drinkino@gmail.com
+   Reviewed: 
+   Bio: she/her
+
+239. @Meester_edits (7325457907763037216)
+   Issue: Extra: info@sociable.nl
+   New: info@sociable.nl
+   Reviewed: 
+   Bio: 📩 Collabs: info@sociable.nl
+
+240. @wnd_ftbl (7491282206881956910)
+   Issue: Extra: saintpierrewandy3@gmail.com
+   New: saintpierrewandy3@gmail.com
+   Reviewed: 
+   Bio: GOD first🧎🏻
+
+241. @x10.edits (7501815157762081814)
+   Issue: Extra: sweezyjr2@gmail.com
+   New: sweezyjr2@gmail.com
+   Reviewed: 
+   Bio: ⚽ Football Editor | 12K Family
+
+242. @𝐅𝐥𝐮𝐟𝐟𝐲 (7477885050337641480)
+   Issue: Extra: vhitwrld@gmail.com
+   New: vhitwrld@gmail.com
+   Reviewed: 
+   Bio: ac:fluffyfx
+
+243. @nada (6831889817338807301)
+   Issue: Extra: nadaxharlis@gmail.com
+   New: nadaxharlis@gmail.com
+   Reviewed: 
+   Bio: 💌- nadaxharlis@gmail.com
+
+244. @Blxxm00nvsp (7051829514364044294)
+   Issue: Extra: of@drooly.aud
+   New: of@drooly.aud
+   Reviewed: 
+   Bio: Drooly editor
+
+245. @jacob.krier (122282122882473984)
+   Issue: Extra: jacobkrier20@gmail.com
+   New: jacobkrier20@gmail.com
+   Reviewed: 
+   Bio: ✞
+
+246. @.hugos.aep (7260094551280272410)
+   Issue: Extra: hugossaep@gmail.com
+   New: hugossaep@gmail.com
+   Reviewed: 
+   Bio: I wont give up
+
+247. @¿DS7ZZZ? (7363412464817505326)
+   Issue: Extra: and@zivfo.aef
+   New: and@zivfo.aef
+   Reviewed: 
+   Bio: 1,000 FOLLOWERS!!!
+
+248. @baldnews_ (6607912291760111622)
+   Issue: Extra: cikker@hotmail.com
+   New: cikker@hotmail.com
+   Reviewed: 
+   Bio: Movies, Tv, Gaming, Streamers, Drama😱
+
+249. @sehqt (7108202591622251566)
+   Issue: Extra: sehqtae@gmail.com
+   New: sehqtae@gmail.com
+   Reviewed: 
+   Bio: DM FOR PROMO
+
+250. @POWER (6978939606730703878)
+   Issue: Extra: power.sama@gmail.com
+   New: power.sama@gmail.com
+   Reviewed: 
+   Bio: 🇨🇱
+
+251. @3D1TS (6647967792204398598)
+   Issue: Extra: 3d1tssssss@gmail.com
+   New: 3d1tssssss@gmail.com
+   Reviewed: 
+   Bio: #1 Jalen Brunson Fan🏀
+
+252. @.Felk (6907388096695993349)
+   Issue: Extra: felkvfx@gmail.com
+   New: felkvfx@gmail.com
+   Reviewed: 
+   Bio: ADS/PROMO👇🏻
+
+253. @Ako (7121558410911859717)
+   Issue: Extra: akoae18@gmail.com
+   New: akoae18@gmail.com
+   Reviewed: 
+   Bio: ADS- Write to insta:
+
+254. @новак (7012785599217255426)
+   Issue: Extra: novak1712m@hotmail.com
+   New: novak1712m@hotmail.com
+   Reviewed: 
+   Bio: 🇷🇸
+
+255. @Novy Recate (6941765861146657793)
+   Issue: Extra: novyrecate@gmail.com
+   New: novyrecate@gmail.com
+   Reviewed: 
+   Bio: Constantly learning
+
+256. @Kronos (7158190795760141318)
+   Issue: Extra: kronosae1224@gmail.com
+   New: kronosae1224@gmail.com
+   Reviewed: 
+   Bio: AE 2020
+
+257. @hannia (6909701908602602501)
+   Issue: Extra: hanniagod23@gmail.com
+   New: hanniagod23@gmail.com
+   Reviewed: 
+   Bio: multifandom, she/her, 24, aquarius, 🇲🇽
+
+258. @Elijah Forcier (6796436125394191366)
+   Issue: Extra: elijah@elijahforcier.com
+   New: elijah@elijahforcier.com
+   Reviewed: 
+   Bio: 📈Self Improvement
+
+259. @nothalftime ✰ (7397647167388255278)
+   Issue: Extra: with@halftime.pro
+   New: with@halftime.pro
+   Reviewed: 
+   Bio: God First 🙌
+
+260. @neighboredspidey (7024645629973365766)
+   Issue: Extra: neighboredspidey@gmail.com
+   New: neighboredspidey@gmail.com
+   Reviewed: 
+   Bio: 📩 neighboredspidey@gmail.com
+
+261. @gronya (7160665062524421146)
+   Issue: Extra: zloomyxgronya@gmail.com
+   New: zloomyxgronya@gmail.com
+   Reviewed: 
+   Bio: oh, hello. 🧚‍♀️
+
+262. @🄲aitlin ᖭི༏ᖫྀ (7339317321116501024)
+   Issue: Extra: chzrliesvoidbus@gmail.com
+   New: chzrliesvoidbus@gmail.com
+   Reviewed: 
+   Bio: ae 2020 | multi
+
+263. @Friss.aep (7402234749270246442)
+   Issue: Extra: friss.aepa@gmail.com
+   New: friss.aepa@gmail.com
+   Reviewed: 
+   Bio: 🟪After effects🟪
+
+264. @hecompsyt2 (7394635308895159339)
+   Issue: Extra: hecomps@gmail.com
+   New: hecomps@gmail.com
+   Reviewed: 
+   Bio: Football in High Quality
+
+265. @Tayyib Mahmood (6748990802167251973)
+   Issue: Extra: tsreeltalk@gmail.com
+   New: tsreeltalk@gmail.com
+   Reviewed: 
+   Bio: Filmmaker & Content Creator
+
+266. @ZNXKAY (6999941554187584518)
+   Issue: Extra: znxkay@gmail.com
+   New: znxkay@gmail.com
+   Reviewed: 
+   Bio: i'm ZNXKAY
+
+267. @bodyofanedit (7517678506500703246)
+   Issue: Extra: bodyofanedit@gmail.com
+   New: bodyofanedit@gmail.com
+   Reviewed: 
+   Bio: 🎥 The #1 Film Edits
+
+268. @SHEILA (7007803870555898906)
+   Issue: Extra: sheilasxha@gmail.com
+   New: sheilasxha@gmail.com
+   Reviewed: 
+   Bio: For promo/ ADS--> DM📩
+
+269. @Cykl0psFilm() (7317487611872887851)
+   Issue: Extra: cyklopsfilm@gmail.com
+   New: cyklopsfilm@gmail.com
+   Reviewed: 
+   Bio: i try and edit some stuff ✌️
+
+270. @jp7 (7155489939969639430)
+   Issue: Extra: jp7ftbll@gmail.com
+   New: jp7ftbll@gmail.com
+   Reviewed: 
+   Bio: ae editor 🦆
+
+271. @possiblysly (7360599902643405857)
+   Issue: Extra: sly@gmail.com
+   New: sly@gmail.com
+   Reviewed: 
+   Bio: ✉️ slyaftereffects@gmail.com ✉️
+
+272. @nschmity (6993156936120632326)
+   Issue: Extra: nschmitymedia@outlook.com
+   New: nschmitymedia@outlook.com
+   Reviewed: 
+   Bio: biz: nschmitymedia@outlook.com
+
+273. @lxrsen.ae (7407107561478276129)
+   Issue: Extra: lxrsenyt@gmail.com
+   New: lxrsenyt@gmail.com
+   Reviewed: 
+   Bio: 🇳🇴
+
+274. @BG🥉 (6834672132082615301)
+   Issue: Extra: aacoustiic@gmail.com
+   New: aacoustiic@gmail.com
+   Reviewed: 
+   Bio: 🎯 150k 🎯
+
+275. @kio (7069647937689535493)
+   Issue: Extra: kioxq1@gmail.com
+   New: kioxq1@gmail.com
+   Reviewed: 
+   Bio: He/his
+
+276. @yanis.2y (7318440049196074016)
+   Issue: Extra: yanis.2yasmaster@gmail.com
+   New: yanis.2yasmaster@gmail.com
+   Reviewed: 
+   Bio: yanis.2yasmaster@gmail.com
+
+277. @Rayto (6809633062856524805)
+   Issue: Extra: raytoga1@gmail.com
+   New: raytoga1@gmail.com
+   Reviewed: 
+   Bio: ‼️DM FOR ADS/PROMO‼️
+
+278. @shamelessistherapy (7043930681445073925)
+   Issue: Extra: shamelessistherapy@gmail.com
+   New: shamelessistherapy@gmail.com
+   Reviewed: 
+   Bio: NOT IMPERSONATING
+
+279. @Beyond The Apex (7390005268514718752)
+   Issue: Extra: abtaedit@outlook.com
+   New: abtaedit@outlook.com
+   Reviewed: 
+   Bio: Contact: abtaedit@outlook.com
+
+280. @km7.edt (7377846835794314273)
+   Issue: Extra: km7.edt@gmail.com
+   New: km7.edt@gmail.com
+   Reviewed: 
+   Bio: Dm for song promo
+
+281. @Ntobeko Walaza 🐦‍🔥 (7162225159687029765)
+   Issue: Extra: ntobekowalaza@outlook.com
+   New: ntobekowalaza@outlook.com
+   Reviewed: 
+   Bio: 🐦‍🔥
+
+282. @Kevin Ramirez (6792948914296783878)
+   Issue: Extra: kevinramirez79@gmail.com
+   New: kevinramirez79@gmail.com
+   Reviewed: 
+   Bio: Creator
+
+283. @Przemek filmy i seriale (6938149465161843717)
+   Issue: Extra: przemekfilmyiseriale@gmail.com
+   New: przemekfilmyiseriale@gmail.com
+   Reviewed: 
+   Bio: "Zostawiam tu swoją miłość do filmu"
+
+284. @realhighlights (7410706426580403246)
+   Issue: Extra: ronaldisabellahx440@gmail.com
+   New: ronaldisabellahx440@gmail.com
+   Reviewed: 
+   Bio: Football Edit.500K🏆🏆🏆
+
+285. @nalla.edits (7257387808938279962)
+   Issue: Extra: nallaae04@gmail.com
+   New: nallaae04@gmail.com
+   Reviewed: 
+   Bio: Mail pro : nallaae04@gmail.com
+
+286. @kylliaep (7244445154886616091)
+   Issue: Extra: kylliaepteam@gmail.com
+   New: kylliaepteam@gmail.com
+   Reviewed: 
+   Bio: Æ(25) | ig/kylli4ep (+200k)
+
+287. @maple ❀ (7320585926404080673)
+   Issue: Extra: map1editz@outlook.com
+   New: map1editz@outlook.com
+   Reviewed: 
+   Bio: 📩map1editz@outlook.com
+
+288. @yaruzi (7266340730632094753)
+   Issue: Extra: yaruziaep@gmail.com
+   New: yaruziaep@gmail.com
+   Reviewed: 
+   Bio: after effects 2022
+
+289. @doombreaker (6588085668210556934)
+   Issue: Extra: dooombreaker03@gmail.com
+   New: dooombreaker03@gmail.com
+   Reviewed: 
+   Bio: cooperation: dooombreaker03@gmail.com
+
+290. @𝖆𝖉𝖗𝖎𝖆𝖓𝖆 (6958889670642025478)
+   Issue: Extra: -mbarbieeilish@gmail.com, mbarbieeilish@gmail.com
+   New: -mbarbieeilish@gmail.com, mbarbieeilish@gmail.com
+   Reviewed: 
+   Bio: FAN PAGE
+
+291. @Izzybn art (6873393661594878977)
+   Issue: Extra: izbnart@gmail.com
+   New: izbnart@gmail.com
+   Reviewed: 
+   Bio: I make animations yayy 🌟😼🙌🧙‍♂️
+
+292. @avilo.ae (6911180624231810054)
+   Issue: Extra: acc@avilo.ae
+   New: acc@avilo.ae
+   Reviewed: 
+   Bio: Editor
+
+293. @jespersoendergaard (6814042965808366598)
+   Issue: Extra: contact@jespersoendergaard.com
+   New: contact@jespersoendergaard.com
+   Reviewed: 
+   Bio: 🇩🇰 DK
+
+294. @rezlebronrayjames (7129556720498246702)
+   Issue: Extra: rezeatingpez@gmail.com
+   New: rezeatingpez@gmail.com
+   Reviewed: 
+   Bio: 150k? ❤️🙏Mixtape Sports Editor
+
+295. @Đ₳₦Ɏ (7418670786707817505)
+   Issue: Extra: aedanyss@gmail.com
+   New: aedanyss@gmail.com
+   Reviewed: 
+   Bio: aedanyss@gmail.com
+
+296. @nicol4s_de_castro (7050673727427773442)
+   Issue: Extra: comercial.nicolasdcastro@gmail.com
+   New: comercial.nicolasdcastro@gmail.com
+   Reviewed: 
+   Bio: 📩Contato:comercial.nicolasdcastro@gmail.com
+
+297. @𝐇𝐚𝐫𝐩𝐞𝐫 ☆ (7057311489304183809)
+   Issue: Extra: hxrpsvfx@gmail.com
+   New: hxrpsvfx@gmail.com
+   Reviewed: 
+   Bio: capcut | 2022
+
+298. @𝙬𝙤𝙬𝙯𝙚𝙧𝙨 (7316265700976804906)
+   Issue: Extra: wowzersmedia1@gmail.com
+   New: wowzersmedia1@gmail.com
+   Reviewed: 
+   Bio: Grateful for all of you❤️
+
+299. @ᴀᴛᴋ (7159533502815536134)
+   Issue: Extra: artkevinfx@gmail.com
+   New: artkevinfx@gmail.com
+   Reviewed: 
+   Bio: Promo/Ads
+
+300. @TheMotivatedMentality (7416998669768180782)
+   Issue: Extra: themotivatedmentality01@gmail.com
+   New: themotivatedmentality01@gmail.com
+   Reviewed: 
+   Bio: Themotivatedmentality01@gmail.com
+
+301. @tusk (7307313158959121440)
+   Issue: Extra: tuskaep@gmail.com
+   New: tuskaep@gmail.com
+   Reviewed: 
+   Bio: DM for promos/business enquiries or message: tuskaep@gmail.com
+
+302. @aalin (7350825251599680554)
+   Issue: Extra: aalinsayed996@gmail.com
+   New: aalinsayed996@gmail.com
+   Reviewed: 
+   Bio: 15
+
+303. @Giant.aep (7365778689017152545)
+   Issue: Extra: giantffx@gmail.com
+   New: giantffx@gmail.com
+   Reviewed: 
+   Bio: Dm For Sound Promotions
+
+304. @godson (6690221932707529733)
+   Issue: Extra: thegodson410@gmail.com
+   New: thegodson410@gmail.com
+   Reviewed: 
+   Bio: DTX 📍
+
+305. @anakin (7315857400577360928)
+   Issue: Extra: anakinvfx@gmail.com
+   New: anakinvfx@gmail.com
+   Reviewed: 
+   Bio: read tokyo ghoul
+
+306. @toneyreactions (7106974513259463722)
+   Issue: Extra: raphaeltoney@gmail.com
+   New: raphaeltoney@gmail.com
+   Reviewed: 
+   Bio: REACTIONS ARE WHAT I DO! FULL REACTIONS ON YT
+
+307. @maderezs (6721342700376196102)
+   Issue: Extra: maderezs@gmail.com
+   New: maderezs@gmail.com
+   Reviewed: 
+   Bio: ABOUT ADS:
+
+308. @Iccy (7032767250795873327)
+   Issue: Extra: iccymadethat@gmail.com
+   New: iccymadethat@gmail.com
+   Reviewed: 
+   Bio: After Effects Editor
+
+309. @Professorn (7404123471645180960)
+   Issue: Extra: notproffen@gmail.com
+   New: notproffen@gmail.com
+   Reviewed: 
+   Bio: ✞ 🇸🇪 ✞
+
+310. @𝘬𝘪𝘲𝘰𝘱𝘳𝘥𝘻 (7247039313286874139)
+   Issue: Extra: kiqo3rd@hotmail.com
+   New: kiqo3rd@hotmail.com
+   Reviewed: 
+   Bio: DM for sound promos📥
+
+311. @Om (6618362532116725765)
+   Issue: Extra: omsmotive@gmail.com
+   New: omsmotive@gmail.com
+   Reviewed: 
+   Bio: Sports
+
+312. @TJR (7515446563260318742)
+   Issue: Extra: tjr.vfx@gmail.com
+   New: tjr.vfx@gmail.com
+   Reviewed: 
+   Bio: ✝️
+
+313. @Nezuko_♡ (6978509967368242178)
+   Issue: Extra: just.nezuko01@gmail.com
+   New: just.nezuko01@gmail.com
+   Reviewed: 
+   Bio: [Random]
+
+314. @💽 (7288563727757345835)
+   Issue: Extra: tuffcutss@gmail.com
+   New: tuffcutss@gmail.com
+   Reviewed: 
+   Bio: Email: Tuffcutss@gmail.com
+
+315. @jahancore (6812431062859154437)
+   Issue: Extra: jahancore3@gmail.com
+   New: jahancore3@gmail.com
+   Reviewed: 
+   Bio: on my bullshit like chicago
+
+316. @𝘋𝘟𝘙𝘒𝘏𝘖𝘖𝘋 (7100001265639425066)
+   Issue: Extra: dxrkhood@gmail.com
+   New: dxrkhood@gmail.com
+   Reviewed: 
+   Bio: ✉️ - Dxrkhood@gmail.com
+
+317. @Mark fury (6613942766526595074)
+   Issue: Extra: nathawootpalita@gmail.com
+   New: nathawootpalita@gmail.com
+   Reviewed: 
+   Bio: ✨ 𝗥𝗮𝗻𝗱𝗼𝗺 𝗘𝗱𝗶𝘁𝘀 ✨
+
+318. @Flocki (6793380239167996933)
+   Issue: Extra: flockifive@gmail.com
+   New: flockifive@gmail.com
+   Reviewed: 
+   Bio: ‼️About Ads IG - flocki__official
+
+319. @️ (7468472484926227462)
+   Issue: Extra: oak.3758@www.dubby.gg
+   New: oak.3758@www.dubby.gg
+   Reviewed: 
+   Bio: 🪼EYC🪼
+
+320. @𝗥𝗬𝗟𝗘𝗦 (7003425564523529221)
+   Issue: Extra: rylesedits07@gmail.com
+   New: rylesedits07@gmail.com
+   Reviewed: 
+   Bio: 🇬🇧Optical Flare final boss 🥀
+
+321. @Skyz.x (6879971436866782214)
+   Issue: Extra: skyzx.official@gmail.com
+   New: skyzx.official@gmail.com
+   Reviewed: 
+   Bio: Child of God
+
+322. @CJLad (6610844158049714182)
+   Issue: Extra: cjlad@gmail.com
+   New: cjlad@gmail.com
+   Reviewed: 
+   Bio: Pokémon Edits
+
+323. @Inspiration Kings (7001286939861844998)
+   Issue: Extra: inspirationkingstok@gmail.com
+   New: inspirationkingstok@gmail.com
+   Reviewed: 
+   Bio: inspirationkingstok@gmail.com
+
+324. @New Acc Main Peterfootyyy (7358084958769218602)
+   Issue: Extra: billett1business11@gmail.com
+   New: billett1business11@gmail.com
+   Reviewed: 
+   Bio: ⬇️SOUND PROMO⬇️
+
+325. @Authentic (7175043123608257579)
+   Issue: Extra: authentictalk@gmail.com
+   New: authentictalk@gmail.com
+   Reviewed: 
+   Bio: Always Be Authentic.
+
+326. @onytitned (7316464750032372768)
+   Issue: Extra: onytitned@gmail.com
+   New: onytitned@gmail.com
+   Reviewed: 
+   Bio: parody brainrot videos
+
+327. @sav edits (225415695805677568)
+   Issue: Extra: edits@sav.edi
+   New: edits@sav.edi
+   Reviewed: 
+   Bio: Car edits
+
+328. @voidomvr (7131144934984107014)
+   Issue: Extra: backupvoid840@gmail.com
+   New: backupvoid840@gmail.com
+   Reviewed: 
+   Bio: Just editing what I enjoy 🎬
+
+329. @senjuheart (6737573085627712517)
+   Issue: Extra: senjuheartedits@gmail.com
+   New: senjuheartedits@gmail.com
+   Reviewed: 
+   Bio: About ADS:
+
+330. @Rafa_martinez972 (6928466881481491462)
+   Issue: Extra: rafaelmwork97@gmail.com
+   New: rafaelmwork97@gmail.com
+   Reviewed: 
+   Bio: Rafa_martinez97 got banned at (1.8M)🇪🇸
+
+331. @𝙎 𝙊 𝙇 𝘼 𝙍 (7301744110317208608)
+   Issue: Extra: solarspc1@gmail.com
+   New: solarspc1@gmail.com
+   Reviewed: 
+   Bio: Edits 🇳🇱
+
+332. @ACE💎 (6994106946777482246)
+   Issue: Extra: ace.productions.co222@gmail.com
+   New: ace.productions.co222@gmail.com
+   Reviewed: 
+   Bio: Creator & Editor | 5️⃣
+
+333. @hop (6886568724780106753)
+   Issue: Extra: hopth7@gmail.com
+   New: hopth7@gmail.com
+   Reviewed: 
+   Bio: 🇳🇱
+
+334. @Comical (7033719923587335173)
+   Issue: Extra: com1calbusiness12@gmail.com
+   New: com1calbusiness12@gmail.com
+   Reviewed: 
+   Bio: DM for promos or
+
+335. @trav1s (7306635443435947040)
+   Issue: Extra: trav1sedits@zimemedia.com
+   New: trav1sedits@zimemedia.com
+   Reviewed: 
+   Bio: DM for Promos
+
+336. @xKennyy (6914874932498613254)
+   Issue: Extra: kennyy.business1@gmail.com
+   New: kennyy.business1@gmail.com
+   Reviewed: 
+   Bio: 23 🇧🇪
+
+337. @song lyrics ִ ࣪𖤐 (6815402897971905538)
+   Issue: Extra: mgmt.gmusic@gmail.com
+   New: mgmt.gmusic@gmail.com
+   Reviewed: 
+   Bio: 📩: mgmt.gmusic@gmail.com
+
+338. @ᴡᴀɴᴅᴇʀʟᴜꜱᴛ (6819063906519548933)
+   Issue: Extra: wvnderlustoff@gmail.com
+   New: wvnderlustoff@gmail.com
+   Reviewed: 
+   Bio: THE BOYS & GEN V
+
+339. @Racing Incident (7414866654855136289)
+   Issue: Extra: racingincident1@gmail.com
+   New: racingincident1@gmail.com
+   Reviewed: 
+   Bio: late braker video maker 🏎️
+
+340. @Digital footprint (6810527806524802053)
+   Issue: Extra: digitalprintfoot@gmail.com
+   New: digitalprintfoot@gmail.com
+   Reviewed: 
+   Bio: digitalprintfootbusiness@gmail.com
+
+341. @Demir Topcu (6959151241235727365)
+   Issue: Extra: orations@gmail.com
+   New: orations@gmail.com
+   Reviewed: 
+   Bio: CRAZY HORSE BOY ALERT...🐴
+
+342. @Juan frfr (6827984001949860870)
+   Issue: Extra: juaneditz@gmail.com
+   New: juaneditz@gmail.com
+   Reviewed: 
+   Bio: 23 🇨🇴 | editor
+
+343. @quatra (6997363709694034950)
+   Issue: Extra: quatravfx@gmail.com
+   New: quatravfx@gmail.com
+   Reviewed: 
+   Bio: ADS - Write To Inst✒️
+
+344. @SOAP.FX (7229478334253401131)
+   Issue: Extra: soapfxreborn@gmail.com
+   New: soapfxreborn@gmail.com
+   Reviewed: 
+   Bio: 16
+
+345. @ItzDerek (6994715975820739590)
+   Issue: Extra: itzdereek@gmail.com
+   New: itzdereek@gmail.com
+   Reviewed: 
+   Bio: Multi Edits
+
+346. @𝐑𝐎𝐂𝐀 (7164945615632647174)
+   Issue: Extra: rocarwl@gmail.com
+   New: rocarwl@gmail.com
+   Reviewed: 
+   Bio: Inquiries: rocarwl@gmail.com
+
+347. @Maurits van den Brand (6860878443023188998)
+   Issue: Extra: mauritsvandenbrand@gmail.com
+   New: mauritsvandenbrand@gmail.com
+   Reviewed: 
+   Bio: 2,1M Goats🐐🔥
+
+348. @Mehdi Raza (6907453130084238341)
+   Issue: Extra: mehdixraza229@gmail.com
+   New: mehdixraza229@gmail.com
+   Reviewed: 
+   Bio: Your average gym bro 😎
+
+349. @anatomic.aep (7251721380512777258)
+   Issue: Extra: an@omic.vfx
+   New: an@omic.vfx
+   Reviewed: 
+   Bio: After Effects 2023
+
+350. @bra1nooo (6642278403729031174)
+   Issue: Extra: bra1nooojob@gmail.com
+   New: bra1nooojob@gmail.com
+   Reviewed: 
+   Bio: [ABOUT ADS]
+
+351. @provolone 🫅 (6800878358425093125)
+   Issue: Extra: princeprovolone@gmail.com
+   New: princeprovolone@gmail.com
+   Reviewed: 
+   Bio: Only getting better🤞
+
+352. @edit.lumos (6949993709237634053)
+   Issue: Extra: ig@edit.lum
+   New: ig@edit.lum
+   Reviewed: 
+   Bio: I edit what I like
+
+353. @Innarxi (7316709234468914222)
+   Issue: Extra: willahsichilongo2@gmail.com
+   New: willahsichilongo2@gmail.com
+   Reviewed: 
+   Bio: Davinci Editor | open to commissions
+
+354. @smoksx ☆ (7375858373131191329)
+   Issue: Extra: smoksxedit@gmail.com
+   New: smoksxedit@gmail.com
+   Reviewed: 
+   Bio: 18 | after effects 2025
+
+355. @huds (7544276980058768406)
+   Issue: Extra: hudsfor@gmail.com
+   New: hudsfor@gmail.com
+   Reviewed: 
+   Bio: ⚠️DM's ONLY FOR SONGS PROMO🎶 ⚠️
+
+356. @𝘥𝘢𝘫𝘥𝘰𝘯𝘦𝘬® (7477286960757146646)
+   Issue: Extra: dajdonekaep@gmail.com
+   New: dajdonekaep@gmail.com
+   Reviewed: 
+   Bio: ae 2024
+
+357. @𝐟𝐜𝐛𝐟𝐭𝐛𝐥 (7444239612352693294)
+   Issue: Extra: donfooty10@gmail.com
+   New: donfooty10@gmail.com
+   Reviewed: 
+   Bio: Football Content ⚽️| Barça 🔵🔴
+
+358. @alph (7207718235823948846)
+   Issue: Extra: alphcreates@gmail.com
+   New: alphcreates@gmail.com
+   Reviewed: 
+   Bio: virtual basketball library
+
+359. @Gibran (6825288712424145925)
+   Issue: Extra: acontsmurfyaep@gmail.com
+   New: acontsmurfyaep@gmail.com
+   Reviewed: 
+   Bio: DM FOR SOUND PROMO / email: acontsmurfyaep@gmail.com
+
+360. @nalla.films (7477236103892747296)
+   Issue: Extra: acc@nalla.edi
+   New: acc@nalla.edi
+   Reviewed: 
+   Bio: Main acc @nalla.edits
+
+361. @Wealon.prod🍀 (7458958399577998342)
+   Issue: Extra: wealonedia@gmail.com
+   New: wealonedia@gmail.com
+   Reviewed: 
+   Bio: hi
+
+362. @diya (7024930078313186310)
+   Issue: Extra: diyagohil@hotmail.com
+   New: diyagohil@hotmail.com
+   Reviewed: 
+   Bio: 23 | ldn
+
+363. @Kruxz (6802817810365056006)
+   Issue: Extra: kevinamir@gmail.com
+   New: kevinamir@gmail.com
+   Reviewed: 
+   Bio: 🎥 Cinema & VFX
+
+364. @𝚃𝚆𝙸𝚇 (7191348858181157931)
+   Issue: Extra: commisions@allure.mp
+   New: commisions@allure.mp
+   Reviewed: 
+   Bio: i dont do commisions
+
+365. @skrax (7435025374859887648)
+   Issue: Extra: skrax.sv@gmail.com
+   New: skrax.sv@gmail.com
+   Reviewed: 
+   Bio: 📩DM for promo📩
+
+366. @Axelae (7226445313727874075)
+   Issue: Extra: axelae.aep@gmail.com
+   New: axelae.aep@gmail.com
+   Reviewed: 
+   Bio: ᴀxᴇʟᴀᴇ
+
+367. @Quotation (6996240365930775557)
+   Issue: Extra: peakyquotation@gmail.com
+   New: peakyquotation@gmail.com
+   Reviewed: 
+   Bio: Alt: @Quotationfilms
+
+368. @Kodak_Cameron (6911759169021494278)
+   Issue: Extra: kodak@ssequel.com
+   New: kodak@ssequel.com
+   Reviewed: 
+   Bio: One of your many movie guys!
+
+369. @Pedro Borges (Good Nerd) (6814536530581898245)
+   Issue: Extra: goodnerd.gn@gmail.com
+   New: goodnerd.gn@gmail.com
+   Reviewed: 
+   Bio: 🍿 Falo curiosidade sobre filmes e séries!
+
+370. @SPIRE★ (7425585843016926213)
+   Issue: Extra: spireediting@gmail.com
+   New: spireediting@gmail.com
+   Reviewed: 
+   Bio: ★
+
+371. @undead (7414870642732729377)
+   Issue: Extra: undead.mp4@outlook.com
+   New: undead.mp4@outlook.com
+   Reviewed: 
+   Bio: After effects 2024
+
+372. @Funko Mad (7084499995629896710)
+   Issue: Extra: lootboxopener@gmail.com
+   New: lootboxopener@gmail.com
+   Reviewed: 
+   Bio: Eladó Funkokért,csak írj rám:
+
+373. @Kylosgotcake (6668842515422183430)
+   Issue: Extra: kylosgotcakes@gmail.com
+   New: kylosgotcakes@gmail.com
+   Reviewed: 
+   Bio: Kylosgotcakes@gmail.com
+
+374. @strike.ae (6818304590787167237)
+   Issue: Extra: strikeae@hotmail.com
+   New: strikeae@hotmail.com
+   Reviewed: 
+   Bio: All Glory to God
+
+375. @AdamF1 (7196160535695049755)
+   Issue: Extra: josephpadillo38@gmail.com
+   New: josephpadillo38@gmail.com
+   Reviewed: 
+   Bio: F1 fan/editor
+
+376. @mark™ 🇦🇷 (7043355631324546054)
+   Issue: Extra: social@launch13.com
+   New: social@launch13.com
+   Reviewed: 
+   Bio: Editor Argentino 🇦🇷
+
+377. @muityan (7466742187863966752)
+   Issue: Extra: muityand@gmail.com
+   New: muityand@gmail.com
+   Reviewed: 
+   Bio: Goal 500K
+
+378. @a1ijah_ (7512529991772046382)
+   Issue: Extra: th@editor.new
+   New: th@editor.new
+   Reviewed: 
+   Bio: New Editor✨
+
+379. @Lucy :》 (7237085661827957787)
+   Issue: Extra: lost@cc.dil
+   New: lost@cc.dil
+   Reviewed: 
+   Bio: 🎧 》I'm just a girl..《 💭
+
+380. @ozu ♚ (83160144615780352)
+   Issue: Extra: carlosozuna2809@gmail.com
+   New: carlosozuna2809@gmail.com
+   Reviewed: 
+   Bio: ozu | 🇲🇽
+
+381. @anikixdd (6789919594834134021)
+   Issue: Extra: anikixdd2049@gmail.com
+   New: anikixdd2049@gmail.com
+   Reviewed: 
+   Bio: 🎶 DM Promos
+
+382. @🎲 (7409985206937322542)
+   Issue: Extra: email-hoopswithiso@gmail.com
+   New: email-hoopswithiso@gmail.com
+   Reviewed: 
+   Bio: email-hoopswithiso@gmail.com
+
+383. @Cinemajestic (7243176886477915141)
+   Issue: Extra: cinemajestic.pro@gmail.com
+   New: cinemajestic.pro@gmail.com
+   Reviewed: 
+   Bio: Cinema is a mirror by which we often see ourselves
+
+384. @Shady☁︎ (7341300561877074986)
+   Issue: Extra: shadyhoopcuts@gmail.com
+   New: shadyhoopcuts@gmail.com
+   Reviewed: 
+   Bio: ✔️shadyhoopcuts@gmail.com✔️
+
+385. @🔋 (7332055754076029985)
+   Issue: Extra: motivationcore777@gmail.com
+   New: motivationcore777@gmail.com
+   Reviewed: 
+   Bio: 📩 : motivationcore777@gmail.com
+
+386. @volcogot (6757711071978701830)
+   Issue: Extra: volcogotgames@gmail.com
+   New: volcogotgames@gmail.com
+   Reviewed: 
+   Bio: About ADs - IG / Mail
+
+387. @yui (7245050606180058118)
+   Issue: Extra: devilgargamel@gmai.com
+   New: devilgargamel@gmai.com
+   Reviewed: 
+   Bio: ♥Tutorial Quality in Bio♥
+
+388. @scorpiomarsss_popculture (7414424127249105962)
+   Issue: Extra: scorpiomarsbrand@gmail.com
+   New: scorpiomarsbrand@gmail.com
+   Reviewed: 
+   Bio: 💋NYC💋
+
+389. @V7i hvxv nr (7351783005340746785)
+   Issue: Extra: s@gmail.com
+   New: s@gmail.com
+   Reviewed: 
+   Bio: For collabs
+
+390. @Kitahara (6965461488065315841)
+   Issue: Extra: ads-kitahara03@gmail.com
+   New: ads-kitahara03@gmail.com
+   Reviewed: 
+   Bio: I absolutely love Jinx!
+
+391. @Jabs™️ (7494609592284136480)
+   Issue: Extra: jabs.edits@outlook.com
+   New: jabs.edits@outlook.com
+   Reviewed: 
+   Bio: 100% Jesus 100% edits.
+
+392. @james (6891121897406465029)
+   Issue: Extra: m@ters.sea
+   New: m@ters.sea
+   Reviewed: 
+   Bio: nothing i post matters.
+
+393. @Chrxftbl 🇮🇹 (7359117264349660193)
+   Issue: Extra: chrxftbl@gmail.com
+   New: chrxftbl@gmail.com
+   Reviewed: 
+   Bio: ~After Effects 2025~
+
+394. @WizardwMov (7330489296347169800)
+   Issue: Extra: rock.stha001@gmail.com
+   New: rock.stha001@gmail.com
+   Reviewed: 
+   Bio: Dm for Promos❤️
+
+395. @joyce (7217729095140131845)
+   Issue: Extra: joyceaep@gmail.com
+   New: joyceaep@gmail.com
+   Reviewed: 
+   Bio: After Effects '22
+
+396. @𝗙𝟭𝗘𝗗𝗜𝗧𝗦𝗕𝗬𝗔𝗡𝗡𝗜𝗘 (7219323702642213915)
+   Issue: Extra: f1editsbyannie@gmail.com
+   New: f1editsbyannie@gmail.com
+   Reviewed: 
+   Bio: 🇨🇿
+
+397. @parpal (7093852674018444289)
+   Issue: Extra: qpxtparpal@gmail.com
+   New: qpxtparpal@gmail.com
+   Reviewed: 
+   Bio: I edit everything
+
+398. @Sinemoviee (7207177031082165253)
+   Issue: Extra: iletisimsinemoviee@gmail.com
+   New: iletisimsinemoviee@gmail.com
+   Reviewed: 
+   Bio: iletisimsinemoviee@gmail.com
+
+399. @devi (7177299906599748614)
+   Issue: Extra: aedeviiq@gmail.com
+   New: aedeviiq@gmail.com
+   Reviewed: 
+   Bio: after effects cc 2023
+
+400. @ᴀʀxᴀ & ꜱᴍɪᴛʜꜱ (7455818030570669102)
+   Issue: Extra: arxasmiths@gmail.com
+   New: arxasmiths@gmail.com
+   Reviewed: 
+   Bio: arxasmiths@gmail.com
+
+401. @b4ne (7334504851285672993)
+   Issue: Extra: b4nnee@gmail.com
+   New: b4nnee@gmail.com
+   Reviewed: 
+   Bio: After Effects
+
+402. @Quinn Welychka (7182962566049694726)
+   Issue: Extra: hello@quinematic.com
+   New: hello@quinematic.com
+   Reviewed: 
+   Bio: quality in motion.
+
+403. @💗• Friends (7125074746627163141)
+   Issue: Extra: yoaovelo1@gmail.com
+   New: yoaovelo1@gmail.com
+   Reviewed: 
+   Bio: POLAND 🇵🇱
+
+404. @Frederica (7087245768889435142)
+   Issue: Extra: 2020@steves.ae
+   New: 2020@steves.ae
+   Reviewed: 
+   Bio: she/her 🇳🇱
+
+405. @𝙖𝙣𝙩𝙩 (7359801104060924971)
+   Issue: Extra: prodantt00@gmail.com
+   New: prodantt00@gmail.com
+   Reviewed: 
+   Bio: 📩: prodantt00@gmail.com
+
+406. @Darcito (7020535271875691526)
+   Issue: Extra: drctt5186@gmail.com
+   New: drctt5186@gmail.com
+   Reviewed: 
+   Bio: After Effects 20
+
+407. @aurora.ae (7454591378661950472)
+   Issue: Extra: add.aurora.ae@gmail.com
+   New: add.aurora.ae@gmail.com
+   Reviewed: 
+   Bio: Thank you for watching! ❤️‍🔥
+
+408. @flashwz (6979620293761926149)
+   Issue: Extra: aeflashwz@gmail.com
+   New: aeflashwz@gmail.com
+   Reviewed: 
+   Bio: 👑690K TYSM!!
+
+409. @Joe (6608768599669309445)
+   Issue: Extra: hzjoe@oddballtalentgroup.com
+   New: hzjoe@oddballtalentgroup.com
+   Reviewed: 
+   Bio: 🍿 Film, TV & Gaming News
+
+410. @𝓪𝓶𝓫𝓮𝓻 ⚯͛ (7245442126551827498)
+   Issue: Extra: ttambered1ts@gmail.com
+   New: ttambered1ts@gmail.com
+   Reviewed: 
+   Bio: ae'23
+
+411. @ᴅᴇxᴛᴇʀꜰɪʟᴍꜱ™ (7429031639466443808)
+   Issue: Extra: dexterfilms1@outlook.com
+   New: dexterfilms1@outlook.com
+   Reviewed: 
+   Bio: ᴅᴇxᴛᴇʀ ᴄᴏɴᴛᴇɴᴛ
+
+412. @sany (7098615183802729478)
+   Issue: Extra: sanyprodfx@gmail.com
+   New: sanyprodfx@gmail.com
+   Reviewed: 
+   Bio: dm for song promo 🎵
+
+413. @aecris (7258575893378794522)
+   Issue: Extra: aecr7s@gmail.com
+   New: aecr7s@gmail.com
+   Reviewed: 
+   Bio: 2nd: @aecris 3rd: @aecris
+
+414. @SammyJReacts (6808670417281418245)
+   Issue: Extra: sammyjbusiness95@gmail.com
+   New: sammyjbusiness95@gmail.com
+   Reviewed: 
+   Bio: Yappin' about what we love watching
+
+415. @𝙘𝙝𝙧𝙞𝙨🎒 (6696373861165974533)
+   Issue: Extra: skimaskchrisinquiries@gmail.com
+   New: skimaskchrisinquiries@gmail.com
+   Reviewed: 
+   Bio: this is jokes
+
+416. @vitin (7366751526742492166)
+   Issue: Extra: vitin@gmail.com
+   New: vitin@gmail.com
+   Reviewed: 
+   Bio: 📩 vitincontactme@gmail.com or dm
+
+417. @vitin (7366751526742492166)
+   Issue: Extra: me@gmail.com
+   New: me@gmail.com
+   Reviewed: 
+   Bio: 📩 vitincontactme@gmail.com or dm
+
+418. @mimi ⚯ ͛ (6941333173512160262)
+   Issue: Extra: nymphiira@gmail.com
+   New: nymphiira@gmail.com
+   Reviewed: 
+   Bio: ♡
+
+419. @AG Edits (7134712264079442990)
+   Issue: Extra: editbyag11@gmail.com
+   New: editbyag11@gmail.com
+   Reviewed: 
+   Bio: NBA Edits
+
+420. @@galafr (6743496270406534150)
+   Issue: Extra: content@gala.fr
+   New: content@gala.fr
+   Reviewed: 
+   Bio: Stars as you’ve never seen before🇨🇵 ✨
+
+421. @AndrewsVisual (6730455020754781190)
+   Issue: Extra: andrew@oddballtalentgroup.com
+   New: andrew@oddballtalentgroup.com
+   Reviewed: 
+   Bio: @AndrewsVoyage @Andrew
+
+422. @jesuki (6696474394670121990)
+   Issue: Extra: jesuki@gmail.com
+   New: jesuki@gmail.com
+   Reviewed: 
+   Bio: ✉️ || jesukibusiness@gmail.com
+
+423. @Dane (6990081134814299141)
+   Issue: Extra: dane@upsidedowntalent.com
+   New: dane@upsidedowntalent.com
+   Reviewed: 
+   Bio: dane@upsidedowntalent.com
+
+424. @Reuszi (7307040703892653089)
+   Issue: Extra: marcin.reuszel@onet.pl
+   New: marcin.reuszel@onet.pl
+   Reviewed: 
+   Bio: May The Force Be With You
+
+425. @Corrupt.ae (7014113376289227781)
+   Issue: Extra: 4aedrive@gmail.com
+   New: 4aedrive@gmail.com
+   Reviewed: 
+   Bio: Dm For Song Promo Or Email: 4aedrive@gmail.com
+
+426. @dzqly (6746363564443517958)
+   Issue: Extra: deformal@gmail.com
+   New: deformal@gmail.com
+   Reviewed: 
+   Bio: alt: @dzqly_films
+
+427. @axyn (7522852569837716502)
+   Issue: Extra: axyngm@gmail.com
+   New: axyngm@gmail.com
+   Reviewed: 
+   Bio: dm for promo
+
+428. @snauzk (6933481055122916354)
+   Issue: Extra: snauzkhi@gmail.com
+   New: snauzkhi@gmail.com
+   Reviewed: 
+   Bio: I love my followers❤
+
+429. @Milky™ (7517272240892724246)
+   Issue: Extra: milkyprodzz@gmail.com
+   New: milkyprodzz@gmail.com
+   Reviewed: 
+   Bio: ✈︎
+
+430. @D_RAW (1263269)
+   Issue: Extra: dart.canley20@gmail.com
+   New: dart.canley20@gmail.com
+   Reviewed: 
+   Bio: @ D_RAW on SoundCloud 🖤👑
+
+431. @DX10HD (7405368459406263329)
+   Issue: Extra: dx10hd@gmail.com
+   New: dx10hd@gmail.com
+   Reviewed: 
+   Bio: Email: dx10hd@gmail.com
+
+432. @Floatty (7140626481840096261)
+   Issue: Extra: floatty.aep@gmail.com
+   New: floatty.aep@gmail.com
+   Reviewed: 
+   Bio: ✉️ floatty.aep@gmail.com ✉️
+
+433. @𝐜𝐡𝐚𝐬𝐞 (7186809735123223598)
+   Issue: Extra: chayose.media@gmail.com
+   New: chayose.media@gmail.com
+   Reviewed: 
+   Bio: ✟
+
+434. @Daisymacrae_ (6721350673172169734)
+   Issue: Extra: daisymacrae3@gmail.com
+   New: daisymacrae3@gmail.com
+   Reviewed: 
+   Bio: Life in my twenties in Edinburgh 🍂🍁
+
+435. @mysticring (6807880073132311558)
+   Issue: Extra: mysticsring@gmail.com
+   New: mysticsring@gmail.com
+   Reviewed: 
+   Bio: 💌 | mysticsring@gmail.com
+
+436. @𝓐𝓻𝓲𝓪 (7384396005733680161)
+   Issue: Extra: half@velyra.edi
+   New: half@velyra.edi
+   Reviewed: 
+   Bio: After effects 2024
+
+437. @AZRO (6747570015401444357)
+   Issue: Extra: azrovfxx@gmail.com
+   New: azrovfxx@gmail.com
+   Reviewed: 
+   Bio: After Effects
+
+438. @noir (7167887501713179654)
+   Issue: Extra: noireditsbz@gmail.com
+   New: noireditsbz@gmail.com
+   Reviewed: 
+   Bio: 🇦🇺
+
+439. @Sixstar (7259259259807171627)
+   Issue: Extra: tvbymaxim@gmail.com
+   New: tvbymaxim@gmail.com
+   Reviewed: 
+   Bio: 🇺🇸
+
+440. @marcos ☂️ (7116584547060384773)
+   Issue: Extra: suelfilho18@gmail.com
+   New: suelfilho18@gmail.com
+   Reviewed: 
+   Bio: DM for promo or 👇🏻
+
+441. @mtsouzx (7510216890418791429)
+   Issue: Extra: mtsouzx@gmail.com
+   New: mtsouzx@gmail.com
+   Reviewed: 
+   Bio: • CONTACT 📩 | mtsouzx@gmail.com
+
+442. @rdh.bnsr (7161368071185187845)
+   Issue: Extra: ridha.outlook.b@gmail.com
+   New: ridha.outlook.b@gmail.com
+   Reviewed: 
+   Bio: ✉️: ridha.outlook.b@gmail.com
+
+443. @artzume (7539934334263362582)
+   Issue: Extra: artzume.info@gmail.com
+   New: artzume.info@gmail.com
+   Reviewed: 
+   Bio: Lifestyle inspired art.
+
+444. @romanoz_ (6967948210006574085)
+   Issue: Extra: contatorcouto@gmail.com
+   New: contatorcouto@gmail.com
+   Reviewed: 
+   Bio: Entretenimento e cultura pop 🤌
+
+445. @Sports Vids (6889443708761244677)
+   Issue: Extra: muhlbach.ian@gmail.com
+   New: muhlbach.ian@gmail.com
+   Reviewed: 
+   Bio: Sports Highlights and Edits
+
+446. @𝙞𝙘𝙮𝙛𝙧𝙫𝙨𝙩 ™ (6680481191064781830)
+   Issue: Extra: icyfrvst@zimemedia.com
+   New: icyfrvst@zimemedia.com
+   Reviewed: 
+   Bio: I accept paid sound promotions  🎵
+
+447. @VamProdz (6936952893452370950)
+   Issue: Extra: vamprodz@gmail.com
+   New: vamprodz@gmail.com
+   Reviewed: 
+   Bio: 🎥 Film | Series | Editor
+
+448. @hudsonfilms_ (7192191009479459846)
+   Issue: Extra: hudsonhaddo@gmail.com
+   New: hudsonhaddo@gmail.com
+   Reviewed: 
+   Bio: Created to Create.
+
+449. @hudsonfilms_ (7192191009479459846)
+   Issue: Extra: cre@e.ins
+   New: cre@e.ins
+   Reviewed: 
+   Bio: Created to Create.
+
+450. @A Z A A R (6927565895390102533)
+   Issue: Extra: omer.azaar22@gmail.com
+   New: omer.azaar22@gmail.com
+   Reviewed: 
+   Bio: For promotions
+
+451. @Vzear (6976655283649250310)
+   Issue: Extra: vzear@gmail.com
+   New: vzear@gmail.com
+   Reviewed: 
+   Bio: About Promo/Ads
+
+452. @klara (6970587768611914758)
+   Issue: Extra: daersire@gmail.com
+   New: daersire@gmail.com
+   Reviewed: 
+   Bio: after effects
+
+453. @Funnier (7485806539523294230)
+   Issue: Extra: funnierae@gmail.com
+   New: funnierae@gmail.com
+   Reviewed: 
+   Bio: DM for promos/business enquiries or message: funnierae@gmail.com
+
+454. @𝘃𝗮𝘆𝗻𝗼 (7295030536383693857)
+   Issue: Extra: vxynoedits@gmail.com
+   New: vxynoedits@gmail.com
+   Reviewed: 
+   Bio: 📩 vxynoedits@gmail.com
+
+455. @Football (6642926723431628802)
+   Issue: Extra: arabfooty@gmail.com
+   New: arabfooty@gmail.com
+   Reviewed: 
+   Bio: Daily Football Content For Athletes ⚽️
+
+456. @Asva (7093405387588682754)
+   Issue: Extra: asvavfx@gmail.com
+   New: asvavfx@gmail.com
+   Reviewed: 
+   Bio: about ADS - DM to my IG✍️
+
+457. @𝙰𝙽𝚃𝙸 (7287351799299212331)
+   Issue: Extra: alt-@adxn.dar
+   New: alt-@adxn.dar
+   Reviewed: 
+   Bio: God First✝️
+
+458. @moddereditz (7140315194153026565)
+   Issue: Extra: moddereditz@gmail.com
+   New: moddereditz@gmail.com
+   Reviewed: 
+   Bio: after effects
+
+459. @GOJO神 (6592835148986155014)
+   Issue: Extra: gojoz@gmail.com
+   New: gojoz@gmail.com
+   Reviewed: 
+   Bio: 🇧🇪 / 🗣️🇫🇷
+
+460. @jaytalksfilms (6970039217893131270)
+   Issue: Extra: jayrowell02@gmail.com
+   New: jayrowell02@gmail.com
+   Reviewed: 
+   Bio: 22
+
+461. @꠹ꪮꪜᛕꫀ (7200878686399415301)
+   Issue: Extra: jovkeaep@gmail.com
+   New: jovkeaep@gmail.com
+   Reviewed: 
+   Bio: God first ☦️
+
+462. @🦄 (7497045611021534251)
+   Issue: Extra: spritszn@gmail.com
+   New: spritszn@gmail.com
+   Reviewed: 
+   Bio: Help me reach 50k
+
+463. @55casainz (7476561955752559649)
+   Issue: Extra: 55carsainz@gmail.com
+   New: 55carsainz@gmail.com
+   Reviewed: 
+   Bio: After effects 23
+
+464. @Vizzy (7475953726818108462)
+   Issue: Extra: morevizzy@gmail.com
+   New: morevizzy@gmail.com
+   Reviewed: 
+   Bio: DM for Promotions
+
+465. @nico (7273399860518159403)
+   Issue: Extra: tatasportsmedia@gmail.com
+   New: tatasportsmedia@gmail.com
+   Reviewed: 
+   Bio: creating art and having fun 🤟
+
+466. @𝘨𝘳𝘪𝘮𝘦 ® (7460182868779566103)
+   Issue: Extra: grime.aep@gmail.com
+   New: grime.aep@gmail.com
+   Reviewed: 
+   Bio: ‼️dm me for music promos🎶
+
+467. @.szn (7368199928260985889)
+   Issue: Extra: balloutsznn@outlook.com
+   New: balloutsznn@outlook.com
+   Reviewed: 
+   Bio: Email / DM me for business enquiries ⬇️
+
+468. @swidrigo (7293589268264846368)
+   Issue: Extra: swidrigox@gmail.com
+   New: swidrigox@gmail.com
+   Reviewed: 
+   Bio: NOT IMPERSONATING!!
+
+469. @BeatMix (6809370795773559814)
+   Issue: Extra: bea1.m1xx@gmail.com
+   New: bea1.m1xx@gmail.com
+   Reviewed: 
+   Bio: About ADS/Promo:
+
+470. @✶ (6937581125645992966)
+   Issue: Extra: b@eman.ffx
+   New: b@eman.ffx
+   Reviewed: 
+   Bio: cc sed2ction / darthshadws/ iuviosa
+
+471. @norkuziyev.edits (7478227360690291754)
+   Issue: Extra: norkuziyevzdes17@gmail.com
+   New: norkuziyevzdes17@gmail.com
+   Reviewed: 
+   Bio: Dm for song promo
+
+472. @peaky.motivation0 (7159228791679517702)
+   Issue: Extra: miccel955@gmail.com
+   New: miccel955@gmail.com
+   Reviewed: 
+   Bio: DM for Paid Promo
+
+473. @Arianfn (6731425017144329221)
+   Issue: Extra: acc@syxcry.aep
+   New: acc@syxcry.aep
+   Reviewed: 
+   Bio: TYSM for 190K🙏🏼
+
+474. @Omar Moller (6977552956939420678)
+   Issue: Extra: notichisma@gmail.com
+   New: notichisma@gmail.com
+   Reviewed: 
+   Bio: Soy creador de Notichisma: Espectáculos moda y tendencias 👉notichisma@gmail.com
+
+475. @𝐀𝐓𝐊 (7377509136642311173)
+   Issue: Extra: black@wang.aud
+   New: black@wang.aud
+   Reviewed: 
+   Bio: AE 23 💻 RTX2070
+
+476. @G12Edits (6838419229827449861)
+   Issue: Extra: g12editsae@gmail.com
+   New: g12editsae@gmail.com
+   Reviewed: 
+   Bio: 40K Next?🔥
+
+477. @formulafolds_official (6877137257997452289)
+   Issue: Extra: formulafolds@gmail.com
+   New: formulafolds@gmail.com
+   Reviewed: 
+   Bio: 🏎️ F1 Edits & Memes
+
+478. @fragzl (7006457143788717061)
+   Issue: Extra: fragzlfx@gmail.com
+   New: fragzlfx@gmail.com
+   Reviewed: 
+   Bio: fragzlfx@gmail.com
+
+479. @Shaek (7333247445503132704)
+   Issue: Extra: ufakeshaekhd@gmail.com
+   New: ufakeshaekhd@gmail.com
+   Reviewed: 
+   Bio: I basically make edits
+
+480. @Carrie O. (6743792839086097414)
+   Issue: Extra: carrieooossocials@gmail.com
+   New: carrieooossocials@gmail.com
+   Reviewed: 
+   Bio: carrieooossocials@gmail.com
+
+481. @Sean (6681776020985299973)
+   Issue: Extra: sean.david.mcd@gmail.com
+   New: sean.david.mcd@gmail.com
+   Reviewed: 
+   Bio: Natalie Portman fan-page
+
+482. @notprodigy (7416918189227410474)
+   Issue: Extra: notprodigyy@gmail.com
+   New: notprodigyy@gmail.com
+   Reviewed: 
+   Bio: Editor 🎮
+
+483. @bray (7281836637944726574)
+   Issue: Extra: savemybody@gmail.com
+   New: savemybody@gmail.com
+   Reviewed: 
+   Bio: dm for promo
+
+484. @Marin ® (6772186876172190726)
+   Issue: Extra: marinsantus.tiktok@gmail.com
+   New: marinsantus.tiktok@gmail.com
+   Reviewed: 
+   Bio: Ig : marin.filmss
+
+485. @Bigger Tomorrow (7155200051534103557)
+   Issue: Extra: e@big.get
+   New: e@big.get
+   Reviewed: 
+   Bio: Eat big. Get big.
+
+486. @real. (6873901420229411845)
+   Issue: Extra: sideline.real@gmail.com
+   New: sideline.real@gmail.com
+   Reviewed: 
+   Bio: DM for promos 💬
+
+487. @𝗝𝗰 ♞ (7244481775970632710)
+   Issue: Extra: jcqeditsnews@gmail.com
+   New: jcqeditsnews@gmail.com
+   Reviewed: 
+   Bio: 📧  ➭ jcqeditsnews@gmail.com
+
+488. @Trixzy (7209754103572333610)
+   Issue: Extra: trixzyeditz@gmail.com
+   New: trixzyeditz@gmail.com
+   Reviewed: 
+   Bio: Capcut Editor
+
+489. @rizing.edits (7476478803272041515)
+   Issue: Extra: acc@aep.riz
+   New: acc@aep.riz
+   Reviewed: 
+   Bio: I edit what I want
+
+490. @𝚩𝐆𝐑𝚨𝚴𝚨 ™️ (6989428382325588997)
+   Issue: Extra: b.grana2911@gmail.com
+   New: b.grana2911@gmail.com
+   Reviewed: 
+   Bio: 📥 B.Grana2911@gmail.com
+
+491. @sandra edits xoxo ♌️ (6844535177147073542)
+   Issue: Extra: sandrasofiadcs@hotmail.com
+   New: sandrasofiadcs@hotmail.com
+   Reviewed: 
+   Bio: 📧: sandrasofiadcs@hotmail.com
+
+492. @Kit Lazer (6948908129195934726)
+   Issue: Extra: kitlazer@select.co
+   New: kitlazer@select.co
+   Reviewed: 
+   Bio: TV/Film News, Reviews, and Dad Jokes
+
+493. @.ayoeditz_ (6960675184353461253)
+   Issue: Extra: ayoeditz@gmail.com
+   New: ayoeditz@gmail.com
+   Reviewed: 
+   Bio: ayoeditzbusiness@gmail.com
+
+494. @𝐈 𝐀𝐌 𝐒𝟕𝟕 (6991705243919270917)
+   Issue: Extra: iamsaidomar77@gmail.com
+   New: iamsaidomar77@gmail.com
+   Reviewed: 
+   Bio: [𝐃𝐌 𝐅𝐎𝐑 𝐏𝐑𝐎𝐌𝐎]
+
+495. @MRO🇫🇷 (7385063235617211425)
+   Issue: Extra: moro3737moro@gmail.com
+   New: moro3737moro@gmail.com
+   Reviewed: 
+   Bio: Infatigable 😤
+
+496. @Sergio García • 2D Animator (9130418)
+   Issue: Extra: brknsergio@gmail.com
+   New: brknsergio@gmail.com
+   Reviewed: 
+   Bio: Creative Director - 2D Animator
+
+497. @𝐈𝐒𝐌𝐎𝐒 (7317648348521366561)
+   Issue: Extra: ismos.edit@gmail.com
+   New: ismos.edit@gmail.com
+   Reviewed: 
+   Bio: Film Edits 🎥
+
+498. @nxthprods (7366539584019170336)
+   Issue: Extra: nxthprods1@gmail.com
+   New: nxthprods1@gmail.com
+   Reviewed: 
+   Bio: DM FOR SOUND PROMOS
+
+499. @Rusty (7005721730975745030)
+   Issue: Extra: rustyvfx@gmail.com
+   New: rustyvfx@gmail.com
+   Reviewed: 
+   Bio: DON’T REPOST!
+
+500. @IαмоgIιαях ❧ (7051990262734668806)
+   Issue: Extra: lamogliarx.pro@gmail.com
+   New: lamogliarx.pro@gmail.com
+   Reviewed: 
+   Bio: ➰
+
+501. @Raindex (7520567439588672542)
+   Issue: Extra: raindex.edits@gmail.com
+   New: raindex.edits@gmail.com
+   Reviewed: 
+   Bio: Commissions open!
+
+502. @Lethal (6951294654315136006)
+   Issue: Extra: thelethalcollector1212@gmail.com
+   New: thelethalcollector1212@gmail.com
+   Reviewed: 
+   Bio: I love posing action figures!
+
+503. @jotace (7431959235653551110)
+   Issue: Extra: jotaceditzbr@gmail.com
+   New: jotaceditzbr@gmail.com
+   Reviewed: 
+   Bio: Ae | 🇧🇷
+
+504. @BeyondTheHorizon (7473589768438645803)
+   Issue: Extra: greco.br1105@gmail.com
+   New: greco.br1105@gmail.com
+   Reviewed: 
+   Bio: Stop
+
+505. @Rhumbux (6890978551014917125)
+   Issue: Extra: rhumbuxae@gmail.com
+   New: rhumbuxae@gmail.com
+   Reviewed: 
+   Bio: One of the alts 🤫
+
+506. @nkz (7432680912418260001)
+   Issue: Extra: nekuizzz@gmail.com
+   New: nekuizzz@gmail.com
+   Reviewed: 
+   Bio: After Effects 2025
+
+507. @TONY STATOVCI (6634548597051080710)
+   Issue: Extra: tonystatovci@gmail.com
+   New: tonystatovci@gmail.com
+   Reviewed: 
+   Bio: 🇦🇱
+
+508. @Z E E (7184792248205640709)
+   Issue: Extra: zillixszofficial@gmail.com
+   New: zillixszofficial@gmail.com
+   Reviewed: 
+   Bio: thanks for your support 🤍
+
+509. @rxbyz.films (7293880998277170208)
+   Issue: Extra: rxbyz.films@gmail.com
+   New: rxbyz.films@gmail.com
+   Reviewed: 
+   Bio: Dm me for promos
+
+510. @Elite_Hoopsz 🏀 (6788457794678817798)
+   Issue: Extra: motivationth@gmail.com
+   New: motivationth@gmail.com
+   Reviewed: 
+   Bio: 📲 Follow for more edits
+
+511. @𝗲𝗿𝘂𝘅™ (7242747938853307418)
+   Issue: Extra: eruxtmm@gmail.com
+   New: eruxtmm@gmail.com
+   Reviewed: 
+   Bio: 🇳🇱
+
+512. @L.Explore (7195678298290045957)
+   Issue: Extra: l.explorer40@gmail.com
+   New: l.explorer40@gmail.com
+   Reviewed: 
+   Bio: l.explorer40@gmail.com
+
+513. @𝐅𝟏 𝐄𝐃𝐈𝐓𝐒 (7298770848361497632)
+   Issue: Extra: f1edits.ae@gmail.com
+   New: f1edits.ae@gmail.com
+   Reviewed: 
+   Bio: 📩 f1edits.ae@gmail.com 📩
+
+514. @original.hustler (7291971946925163553)
+   Issue: Extra: hustler.crea@gmail.com
+   New: hustler.crea@gmail.com
+   Reviewed: 
+   Bio: just trying
+
+515. @lucki (7389112235454776352)
+   Issue: Extra: wuirko@outlook.com
+   New: wuirko@outlook.com
+   Reviewed: 
+   Bio: ✉️wuirko@outlook.com✉️
+
+516. @Mike Bedard (6793122471694418950)
+   Issue: Extra: cinemasingularity@yahoo.com
+   New: cinemasingularity@yahoo.com
+   Reviewed: 
+   Bio: Movies. TV. Stuff.
+
+517. @𝒃𝒊𝒓𝒛𝒉𝒂𝒏 (7485729845470233633)
+   Issue: Extra: birzhanbrat1337@gmail.com
+   New: birzhanbrat1337@gmail.com
+   Reviewed: 
+   Bio: 🤜𝐑𝐋𝟗🇵🇱 𝐟𝐚𝐧 𝐩𝐚𝐠𝐞🤛
+
+518. @lennu™ (7494442228040877078)
+   Issue: Extra: acc@lennu.ae
+   New: acc@lennu.ae
+   Reviewed: 
+   Bio: ae 23
+
+519. @benim (7368883763645809696)
+   Issue: Extra: businessbenim@gmail.com
+   New: businessbenim@gmail.com
+   Reviewed: 
+   Bio: 18
+
+520. @Marc.Ae (7417057849865700394)
+   Issue: Extra: marc.filmzz@gmail.com
+   New: marc.filmzz@gmail.com
+   Reviewed: 
+   Bio: Editing ✅
+
+521. @ɢɪᴀɴɴɪꜱ (7233498583289873413)
+   Issue: Extra: giannisprods@gmail.com
+   New: giannisprods@gmail.com
+   Reviewed: 
+   Bio: Insta : giannisprods
+
+522. @• 𝐌𝐮𝐬𝐭𝐚𝐟𝐚𝐲𝐞𝐯🇦🇿™ (7362233544184005638)
+   Issue: Extra: ms7.contactt@gmail.com
+   New: ms7.contactt@gmail.com
+   Reviewed: 
+   Bio: Ronaldo Fan Page 🇵🇹
+
+523. @chizzy2 (7540010885739512833)
+   Issue: Extra: rizzychizzybiz@gmail.com
+   New: rizzychizzybiz@gmail.com
+   Reviewed: 
+   Bio: Millennial making edits on iMovie.
+
+524. @smezeeee (7152176774419039275)
+   Issue: Extra: email-gkylee75@gmail.com
+   New: email-gkylee75@gmail.com
+   Reviewed: 
+   Bio: Email-gkylee75@gmail.com For Any Inquiries
+
+525. @‍ (7110861658696975406)
+   Issue: Extra: altfreshcuppa@gmail.com
+   New: altfreshcuppa@gmail.com
+   Reviewed: 
+   Bio: movie things
+
+526. @Hayden (6872118048741573637)
+   Issue: Extra: haydenrourkeofficial@gmail.com
+   New: haydenrourkeofficial@gmail.com
+   Reviewed: 
+   Bio: #cancelcancelculture
+
+527. @Film_Fanatic00 (7397883380485112864)
+   Issue: Extra: filmfanatic00studios@gmail.com
+   New: filmfanatic00studios@gmail.com
+   Reviewed: 
+   Bio: Love watching films and making edits
+
+528. @eclipse (7257676894291117098)
+   Issue: Extra: eclipseaex@gmail.com
+   New: eclipseaex@gmail.com
+   Reviewed: 
+   Bio: eclipseaex@gmail.com | @eclipse
+
+529. @saul1ae (7498807797892580407)
+   Issue: Extra: nixooyanix@gmail.com
+   New: nixooyanix@gmail.com
+   Reviewed: 
+   Bio: Dm for Promo Songs 📬
+
+530. @chizzy (7313961273140872197)
+   Issue: Extra: rizzychizzybiz@gmail.com
+   New: rizzychizzybiz@gmail.com
+   Reviewed: 
+   Bio: Found Footage Filmmaker, Plutarch's #1 Fan and Jen & Josh Stan Account.
+
+531. @VFXRyan (7459191226049201198)
+   Issue: Extra: vfxryann@outlook.com
+   New: vfxryann@outlook.com
+   Reviewed: 
+   Bio: Edits by yours truly
+
+532. @Yuvi (6727689467107656709)
+   Issue: Extra: yuviteam@shifted.dig
+   New: yuviteam@shifted.dig
+   Reviewed: 
+   Bio: 🍿Movie Connoisseur
+
+533. @Tyler Warwick (6668046432081133574)
+   Issue: Extra: tyler@key-mgmt.com
+   New: tyler@key-mgmt.com
+   Reviewed: 
+   Bio: tyler@key-mgmt.com
+
+534. @jev.ffx (7214230059425973253)
+   Issue: Extra: mgmt.gmusic@gmail.com
+   New: mgmt.gmusic@gmail.com
+   Reviewed: 
+   Bio: Charli notice x2
+
+535. @𝙋𝙞𝙣𝙜𝙪 (7241855857092576283)
+   Issue: Extra: pinguinyaep@outlook.com
+   New: pinguinyaep@outlook.com
+   Reviewed: 
+   Bio: ‼️ Dm for music promos! 🎶
+
+536. @drinki🇺🇦 (6987485787981988869)
+   Issue: Extra: drinkino@gmail.com
+   New: drinkino@gmail.com
+   Reviewed: 
+   Bio: she/her
+
+537. @Meester_edits (7325457907763037216)
+   Issue: Extra: info@sociable.nl
+   New: info@sociable.nl
+   Reviewed: 
+   Bio: 📩 Collabs: info@sociable.nl
+
+538. @wnd_ftbl (7491282206881956910)
+   Issue: Extra: saintpierrewandy3@gmail.com
+   New: saintpierrewandy3@gmail.com
+   Reviewed: 
+   Bio: GOD first🧎🏻
+
+539. @x10.edits (7501815157762081814)
+   Issue: Extra: sweezyjr2@gmail.com
+   New: sweezyjr2@gmail.com
+   Reviewed: 
+   Bio: ⚽ Football Editor | 12K Family
+
+540. @𝐅𝐥𝐮𝐟𝐟𝐲 (7477885050337641480)
+   Issue: Extra: vhitwrld@gmail.com
+   New: vhitwrld@gmail.com
+   Reviewed: 
+   Bio: ac:fluffyfx
+
+541. @nada (6831889817338807301)
+   Issue: Extra: nadaxharlis@gmail.com
+   New: nadaxharlis@gmail.com
+   Reviewed: 
+   Bio: 💌- nadaxharlis@gmail.com
+
+542. @Blxxm00nvsp (7051829514364044294)
+   Issue: Extra: of@drooly.aud
+   New: of@drooly.aud
+   Reviewed: 
+   Bio: Drooly editor
+
+543. @jacob.krier (122282122882473984)
+   Issue: Extra: jacobkrier20@gmail.com
+   New: jacobkrier20@gmail.com
+   Reviewed: 
+   Bio: ✞
+
+544. @.hugos.aep (7260094551280272410)
+   Issue: Extra: hugossaep@gmail.com
+   New: hugossaep@gmail.com
+   Reviewed: 
+   Bio: I wont give up
+
+545. @¿DS7ZZZ? (7363412464817505326)
+   Issue: Extra: and@zivfo.aef
+   New: and@zivfo.aef
+   Reviewed: 
+   Bio: 1,000 FOLLOWERS!!!
+
+546. @baldnews_ (6607912291760111622)
+   Issue: Extra: cikker@hotmail.com
+   New: cikker@hotmail.com
+   Reviewed: 
+   Bio: Movies, Tv, Gaming, Streamers, Drama😱
+
+547. @sehqt (7108202591622251566)
+   Issue: Extra: sehqtae@gmail.com
+   New: sehqtae@gmail.com
+   Reviewed: 
+   Bio: DM FOR PROMO
+
+548. @POWER (6978939606730703878)
+   Issue: Extra: power.sama@gmail.com
+   New: power.sama@gmail.com
+   Reviewed: 
+   Bio: 🇨🇱
+
+549. @3D1TS (6647967792204398598)
+   Issue: Extra: 3d1tssssss@gmail.com
+   New: 3d1tssssss@gmail.com
+   Reviewed: 
+   Bio: #1 Jalen Brunson Fan🏀
+
+550. @.Felk (6907388096695993349)
+   Issue: Extra: felkvfx@gmail.com
+   New: felkvfx@gmail.com
+   Reviewed: 
+   Bio: ADS/PROMO👇🏻
+
+551. @Ako (7121558410911859717)
+   Issue: Extra: akoae18@gmail.com
+   New: akoae18@gmail.com
+   Reviewed: 
+   Bio: ADS- Write to insta:
+
+552. @новак (7012785599217255426)
+   Issue: Extra: novak1712m@hotmail.com
+   New: novak1712m@hotmail.com
+   Reviewed: 
+   Bio: 🇷🇸
+
+553. @Novy Recate (6941765861146657793)
+   Issue: Extra: novyrecate@gmail.com
+   New: novyrecate@gmail.com
+   Reviewed: 
+   Bio: Constantly learning
+
+554. @Kronos (7158190795760141318)
+   Issue: Extra: kronosae1224@gmail.com
+   New: kronosae1224@gmail.com
+   Reviewed: 
+   Bio: AE 2020
+
+555. @hannia (6909701908602602501)
+   Issue: Extra: hanniagod23@gmail.com
+   New: hanniagod23@gmail.com
+   Reviewed: 
+   Bio: multifandom, she/her, 24, aquarius, 🇲🇽
+
+556. @Elijah Forcier (6796436125394191366)
+   Issue: Extra: elijah@elijahforcier.com
+   New: elijah@elijahforcier.com
+   Reviewed: 
+   Bio: 📈Self Improvement
+
+557. @nothalftime ✰ (7397647167388255278)
+   Issue: Extra: with@halftime.pro
+   New: with@halftime.pro
+   Reviewed: 
+   Bio: God First 🙌
+
+558. @neighboredspidey (7024645629973365766)
+   Issue: Extra: neighboredspidey@gmail.com
+   New: neighboredspidey@gmail.com
+   Reviewed: 
+   Bio: 📩 neighboredspidey@gmail.com
+
+559. @gronya (7160665062524421146)
+   Issue: Extra: zloomyxgronya@gmail.com
+   New: zloomyxgronya@gmail.com
+   Reviewed: 
+   Bio: oh, hello. 🧚‍♀️
+
+560. @🄲aitlin ᖭི༏ᖫྀ (7339317321116501024)
+   Issue: Extra: chzrliesvoidbus@gmail.com
+   New: chzrliesvoidbus@gmail.com
+   Reviewed: 
+   Bio: ae 2020 | multi
+
+561. @Friss.aep (7402234749270246442)
+   Issue: Extra: friss.aepa@gmail.com
+   New: friss.aepa@gmail.com
+   Reviewed: 
+   Bio: 🟪After effects🟪
+
+562. @hecompsyt2 (7394635308895159339)
+   Issue: Extra: hecomps@gmail.com
+   New: hecomps@gmail.com
+   Reviewed: 
+   Bio: Football in High Quality
+
+563. @Tayyib Mahmood (6748990802167251973)
+   Issue: Extra: tsreeltalk@gmail.com
+   New: tsreeltalk@gmail.com
+   Reviewed: 
+   Bio: Filmmaker & Content Creator
+
+564. @ZNXKAY (6999941554187584518)
+   Issue: Extra: znxkay@gmail.com
+   New: znxkay@gmail.com
+   Reviewed: 
+   Bio: i'm ZNXKAY
+
+565. @bodyofanedit (7517678506500703246)
+   Issue: Extra: bodyofanedit@gmail.com
+   New: bodyofanedit@gmail.com
+   Reviewed: 
+   Bio: 🎥 The #1 Film Edits
+
+566. @SHEILA (7007803870555898906)
+   Issue: Extra: sheilasxha@gmail.com
+   New: sheilasxha@gmail.com
+   Reviewed: 
+   Bio: For promo/ ADS--> DM📩
+
+567. @Cykl0psFilm() (7317487611872887851)
+   Issue: Extra: cyklopsfilm@gmail.com
+   New: cyklopsfilm@gmail.com
+   Reviewed: 
+   Bio: i try and edit some stuff ✌️
+
+568. @jp7 (7155489939969639430)
+   Issue: Extra: jp7ftbll@gmail.com
+   New: jp7ftbll@gmail.com
+   Reviewed: 
+   Bio: ae editor 🦆
+
+569. @possiblysly (7360599902643405857)
+   Issue: Extra: sly@gmail.com
+   New: sly@gmail.com
+   Reviewed: 
+   Bio: ✉️ slyaftereffects@gmail.com ✉️
+
+570. @nschmity (6993156936120632326)
+   Issue: Extra: nschmitymedia@outlook.com
+   New: nschmitymedia@outlook.com
+   Reviewed: 
+   Bio: biz: nschmitymedia@outlook.com
+
+571. @lxrsen.ae (7407107561478276129)
+   Issue: Extra: lxrsenyt@gmail.com
+   New: lxrsenyt@gmail.com
+   Reviewed: 
+   Bio: 🇳🇴
+
+572. @BG🥉 (6834672132082615301)
+   Issue: Extra: aacoustiic@gmail.com
+   New: aacoustiic@gmail.com
+   Reviewed: 
+   Bio: 🎯 150k 🎯
+
+573. @kio (7069647937689535493)
+   Issue: Extra: kioxq1@gmail.com
+   New: kioxq1@gmail.com
+   Reviewed: 
+   Bio: He/his
+
+574. @yanis.2y (7318440049196074016)
+   Issue: Extra: yanis.2yasmaster@gmail.com
+   New: yanis.2yasmaster@gmail.com
+   Reviewed: 
+   Bio: yanis.2yasmaster@gmail.com
+
+575. @Rayto (6809633062856524805)
+   Issue: Extra: raytoga1@gmail.com
+   New: raytoga1@gmail.com
+   Reviewed: 
+   Bio: ‼️DM FOR ADS/PROMO‼️
+
+576. @shamelessistherapy (7043930681445073925)
+   Issue: Extra: shamelessistherapy@gmail.com
+   New: shamelessistherapy@gmail.com
+   Reviewed: 
+   Bio: NOT IMPERSONATING
+
+577. @Beyond The Apex (7390005268514718752)
+   Issue: Extra: abtaedit@outlook.com
+   New: abtaedit@outlook.com
+   Reviewed: 
+   Bio: Contact: abtaedit@outlook.com
+
+578. @km7.edt (7377846835794314273)
+   Issue: Extra: km7.edt@gmail.com
+   New: km7.edt@gmail.com
+   Reviewed: 
+   Bio: Dm for song promo
+
+579. @Ntobeko Walaza 🐦‍🔥 (7162225159687029765)
+   Issue: Extra: ntobekowalaza@outlook.com
+   New: ntobekowalaza@outlook.com
+   Reviewed: 
+   Bio: 🐦‍🔥
+
+580. @Kevin Ramirez (6792948914296783878)
+   Issue: Extra: kevinramirez79@gmail.com
+   New: kevinramirez79@gmail.com
+   Reviewed: 
+   Bio: Creator
+
+581. @Przemek filmy i seriale (6938149465161843717)
+   Issue: Extra: przemekfilmyiseriale@gmail.com
+   New: przemekfilmyiseriale@gmail.com
+   Reviewed: 
+   Bio: "Zostawiam tu swoją miłość do filmu"
+
+582. @realhighlights (7410706426580403246)
+   Issue: Extra: ronaldisabellahx440@gmail.com
+   New: ronaldisabellahx440@gmail.com
+   Reviewed: 
+   Bio: Football Edit.500K🏆🏆🏆
+
+583. @nalla.edits (7257387808938279962)
+   Issue: Extra: nallaae04@gmail.com
+   New: nallaae04@gmail.com
+   Reviewed: 
+   Bio: Mail pro : nallaae04@gmail.com
+
+584. @kylliaep (7244445154886616091)
+   Issue: Extra: kylliaepteam@gmail.com
+   New: kylliaepteam@gmail.com
+   Reviewed: 
+   Bio: Æ(25) | ig/kylli4ep (+200k)
+
+585. @maple ❀ (7320585926404080673)
+   Issue: Extra: map1editz@outlook.com
+   New: map1editz@outlook.com
+   Reviewed: 
+   Bio: 📩map1editz@outlook.com
+
+586. @yaruzi (7266340730632094753)
+   Issue: Extra: yaruziaep@gmail.com
+   New: yaruziaep@gmail.com
+   Reviewed: 
+   Bio: after effects 2022
+
+587. @doombreaker (6588085668210556934)
+   Issue: Extra: dooombreaker03@gmail.com
+   New: dooombreaker03@gmail.com
+   Reviewed: 
+   Bio: cooperation: dooombreaker03@gmail.com
+
+588. @𝖆𝖉𝖗𝖎𝖆𝖓𝖆 (6958889670642025478)
+   Issue: Extra: -mbarbieeilish@gmail.com
+   New: -mbarbieeilish@gmail.com
+   Reviewed: 
+   Bio: FAN PAGE
+
+589. @𝖆𝖉𝖗𝖎𝖆𝖓𝖆 (6958889670642025478)
+   Issue: Extra: mbarbieeilish@gmail.com
+   New: mbarbieeilish@gmail.com
+   Reviewed: 
+   Bio: FAN PAGE
+
+590. @Izzybn art (6873393661594878977)
+   Issue: Extra: izbnart@gmail.com
+   New: izbnart@gmail.com
+   Reviewed: 
+   Bio: I make animations yayy 🌟😼🙌🧙‍♂️
+
+591. @avilo.ae (6911180624231810054)
+   Issue: Extra: acc@avilo.ae
+   New: acc@avilo.ae
+   Reviewed: 
+   Bio: Editor
+
+592. @jespersoendergaard (6814042965808366598)
+   Issue: Extra: contact@jespersoendergaard.com
+   New: contact@jespersoendergaard.com
+   Reviewed: 
+   Bio: 🇩🇰 DK
+
+593. @rezlebronrayjames (7129556720498246702)
+   Issue: Extra: rezeatingpez@gmail.com
+   New: rezeatingpez@gmail.com
+   Reviewed: 
+   Bio: 150k? ❤️🙏Mixtape Sports Editor
+
+594. @Đ₳₦Ɏ (7418670786707817505)
+   Issue: Extra: aedanyss@gmail.com
+   New: aedanyss@gmail.com
+   Reviewed: 
+   Bio: aedanyss@gmail.com
+
+595. @nicol4s_de_castro (7050673727427773442)
+   Issue: Extra: comercial.nicolasdcastro@gmail.com
+   New: comercial.nicolasdcastro@gmail.com
+   Reviewed: 
+   Bio: 📩Contato:comercial.nicolasdcastro@gmail.com

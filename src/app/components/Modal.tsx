@@ -8,6 +8,7 @@ interface ModalProps {
   onClose: () => void;
   title?: string;
   className?: string;
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
 }
 
 /**
@@ -24,32 +25,62 @@ export function Modal({
   isOpen, 
   onClose, 
   title,
-  className = '' 
+  className = '',
+  maxWidth = 'lg'
 }: ModalProps) {
+  const maxWidthClasses = {
+    sm: 'max-w-sm',
+    md: 'max-w-md',
+    lg: 'max-w-lg',
+    xl: 'max-w-xl',
+    '2xl': 'max-w-2xl',
+    '3xl': 'max-w-3xl',
+    '4xl': 'max-w-4xl',
+  };
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
+  const scrollYRef = useRef<number>(0);
 
   useEffect(() => {
     if (isOpen) {
+      // Save current scroll position
+      scrollYRef.current = window.scrollY;
+      
       // Save current focus
       previousActiveElement.current = document.activeElement as HTMLElement;
+      
+      // Prevent body scroll while maintaining scroll position
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollYRef.current}px`;
+      document.body.style.width = '100%';
       
       // Focus first focusable element in modal
       const firstFocusable = modalRef.current?.querySelector(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
       ) as HTMLElement;
       firstFocusable?.focus();
-
-      // Prevent body scroll
-      document.body.style.overflow = 'hidden';
     } else {
-      // Restore focus
-      previousActiveElement.current?.focus();
+      // Restore scroll position
+      const scrollY = scrollYRef.current;
       document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, scrollY);
+      
+      // Restore focus without scrolling
+      if (previousActiveElement.current) {
+        previousActiveElement.current.focus({ preventScroll: true });
+      }
     }
 
     return () => {
+      // Cleanup on unmount
       document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
     };
   }, [isOpen]);
 
@@ -90,7 +121,7 @@ export function Modal({
           bg-[var(--color-surface)]
           rounded-[var(--radius-lg)]
           shadow-xl
-          max-w-lg
+          ${maxWidthClasses[maxWidth]}
           w-full
           max-h-[90vh]
           overflow-y-auto

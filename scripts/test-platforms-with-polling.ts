@@ -39,6 +39,9 @@ async function createTestUser() {
     password: 'test-password-123',
     email_confirm: true,
   });
+  if (!newUser?.user) {
+    throw new Error('Failed to create user');
+  }
   await supabaseAdmin.from('profiles').insert({
     id: newUser.user.id,
     email: testEmail,

@@ -1285,8 +1285,7 @@ export async function POST(request: NextRequest) {
       delete hashtagUpdateData.brightdata_response;
       console.log('[Contest Webhook] Skipping brightdata_response in hashtag update (already saved in stats update)');
     } else if (!hashtagUpdateData.brightdata_response) {
-      // Try to add it if it wasn't in the update data
-      const originalBrightDataRecord = Array.isArray(data) && data.length > 0 ? data[0] : (record || processedRecord);
+      // Try to add it if it wasn't in the update data (reuse already declared originalBrightDataRecord)
       if (originalBrightDataRecord && typeof originalBrightDataRecord === 'object') {
         try {
           hashtagUpdateData.brightdata_response = JSON.parse(JSON.stringify(originalBrightDataRecord));

@@ -2,12 +2,13 @@
  * User API routes for connected social accounts
  * GET: List user's connected accounts
  * POST: Add connected account (generate verification code)
+ * DELETE: Remove connected account
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, handleAuthError, AuthError } from '@/lib/auth-utils';
 import { supabaseAdmin } from '@/lib/supabase';
 import { associateAccountWithPendingAssets } from '@/lib/raw-video-assets';
-import { generateVerificationCode } from '@/lib/social-account-helpers';
+import { generateVerificationCode, normalizeProfileUrl } from '@/lib/social-account-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,32 +69,70 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate verification code (6 alphanumeric characters)
-    const verificationCode = generateVerificationCode();
+    // Normalize profile URL for comparison
+    const normalizedUrl = normalizeProfileUrl(profile_url);
 
-    // Check for duplicate
-    const { data: existing } = await supabaseAdmin
+    // Check for duplicate - check ALL accounts (not just same user) with same profile_url and platform
+    const { data: existingAccount } = await supabaseAdmin
       .from('social_accounts')
-      .select('id')
-      .eq('user_id', user.id)
+      .select('id, user_id, verification_status')
       .eq('platform', platform)
-      .eq('profile_url', profile_url)
+      .eq('profile_url', normalizedUrl)
       .maybeSingle();
 
-    if (existing) {
+    if (existingAccount) {
+      // If it's the same user, return error about already connected
+      if (existingAccount.user_id === user.id) {
+        return NextResponse.json(
+          { error: 'This account is already connected to your profile' },
+          { status: 400 }
+        );
+      }
+      // If it's a different user, return error about account already in use
       return NextResponse.json(
-        { error: 'This account is already connected' },
-        { status: 400 }
+        { error: 'This social account is already connected to another user' },
+        { status: 409 }
       );
     }
 
+    // Check for duplicate username if provided
+    if (username) {
+      const { data: existingUsername } = await supabaseAdmin
+        .from('social_accounts')
+        .select('id, user_id, verification_status')
+        .eq('platform', platform)
+        .eq('username', username.toLowerCase())
+        .maybeSingle();
+
+      if (existingUsername) {
+        // If it's verified by another user, reject
+        if (existingUsername.user_id !== user.id && existingUsername.verification_status === 'VERIFIED') {
+          return NextResponse.json(
+            { error: 'This handle is already verified by another user' },
+            { status: 409 }
+          );
+        }
+      }
+    }
+
+    // All checks passed - now generate verification code
+    const verificationCode = generateVerificationCode();
+
     // Create account
+    console.log('[Create Account] Creating account:', {
+      user_id: user.id,
+      platform,
+      profile_url: normalizedUrl,
+      username: username || null,
+      verification_code: verificationCode,
+    });
+
     const { data: account, error: createError } = await supabaseAdmin
       .from('social_accounts')
       .insert({
         user_id: user.id,
         platform,
-        profile_url,
+        profile_url: normalizedUrl,
         username: username || null,
         verification_code: verificationCode,
         verification_status: 'PENDING',
@@ -101,7 +140,20 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (createError) throw createError;
+    if (createError) {
+      console.error('[Create Account] Error creating account:', {
+        error: createError.message,
+        code: createError.code,
+        details: createError.details,
+        hint: createError.hint,
+      });
+      throw createError;
+    }
+
+    console.log('[Create Account] Account created successfully:', {
+      account_id: account.id,
+      verification_code: account.verification_code,
+    });
 
     await associateAccountWithPendingAssets(account.id);
 
@@ -116,6 +168,77 @@ export async function POST(request: NextRequest) {
     console.error('Error creating connected account:', error);
     return NextResponse.json(
       { error: 'Failed to create account' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/settings/connected-accounts?id={accountId}
+ * Delete a connected social account
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await requireAuth(request);
+
+    // Get account ID from query params
+    const { searchParams } = new URL(request.url);
+    const accountId = searchParams.get('id');
+
+    if (!accountId) {
+      return NextResponse.json(
+        { error: 'Account ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Verify account belongs to user
+    const { data: account, error: fetchError } = await supabaseAdmin
+      .from('social_accounts')
+      .select('id, user_id')
+      .eq('id', accountId)
+      .single();
+
+    if (fetchError || !account) {
+      return NextResponse.json(
+        { error: 'Account not found' },
+        { status: 404 }
+      );
+    }
+
+    if (account.user_id !== user.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 403 }
+      );
+    }
+
+    // Delete account
+    const { error: deleteError } = await supabaseAdmin
+      .from('social_accounts')
+      .delete()
+      .eq('id', accountId);
+
+    if (deleteError) {
+      console.error('Error deleting social account:', deleteError);
+      return NextResponse.json(
+        { error: 'Failed to delete account' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(
+      { message: 'Account deleted successfully' },
+      { status: 200 }
+    );
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return handleAuthError(error);
+    }
+
+    console.error('Error deleting connected account:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete account' },
       { status: 500 }
     );
   }

@@ -66,8 +66,48 @@ export async function GET(request: NextRequest) {
 
             console.log('[Status Check] Snapshot status:', status);
 
-            // If snapshot is ready/completed, download the data
-            if (status === 'ready' || status === 'completed' || status === 'done' || status === 'success') {
+            // Check if data is directly in the status response (some BrightData APIs return data directly)
+            // Instagram may have nested account object, TikTok/YouTube have top-level fields
+            let profileData: any = null;
+            const hasProfileData = 
+              snapshotData.account_id || 
+              snapshotData.biography || 
+              snapshotData.nickname ||
+              snapshotData.account || // Instagram nested structure
+              snapshotData.url || // YouTube
+              snapshotData.handle || // YouTube/TikTok
+              snapshotData.Description || // YouTube
+              snapshotData.description || // YouTube
+              snapshotData.followers !== undefined; // Social media indicator
+            
+            if (hasProfileData) {
+              console.log('[Status Check] Data found directly in status response');
+              profileData = snapshotData;
+            } else if (snapshotData.data) {
+              // Check if data is in a data field
+              const data = Array.isArray(snapshotData.data) && snapshotData.data.length > 0 
+                ? snapshotData.data[0] 
+                : snapshotData.data;
+              const hasDataProfileData = 
+                data && (
+                  data.account_id || 
+                  data.biography || 
+                  data.nickname ||
+                  data.account || // Instagram nested structure
+                  data.url ||
+                  data.handle ||
+                  data.Description ||
+                  data.description ||
+                  data.followers !== undefined
+                );
+              if (hasDataProfileData) {
+                console.log('[Status Check] Data found in status response data field');
+                profileData = data;
+              }
+            }
+
+            // If snapshot is ready/completed, download the data (if not already found above)
+            if (!profileData && (status === 'ready' || status === 'completed' || status === 'done' || status === 'success')) {
               console.log('[Status Check] Snapshot ready, downloading data...');
               
               const dataResponse = await fetch(
@@ -81,64 +121,78 @@ export async function GET(request: NextRequest) {
 
               if (dataResponse.ok) {
                 const dataPayload = await dataResponse.json();
-                const profileData = Array.isArray(dataPayload) && dataPayload.length > 0 
+                profileData = Array.isArray(dataPayload) && dataPayload.length > 0 
                   ? dataPayload[0] 
                   : dataPayload;
-
-                if (profileData) {
-                  console.log('[Status Check] Profile data received, processing verification...');
-                  
-                  // Extract bio and verify code
-                  const bioText = extractBioFromProfileData(profileData, account.platform);
-                  const codeFound = verifyCodeInBio(bioText, account.verification_code);
-
-                  console.log('[Status Check] Bio text:', bioText);
-                  console.log('[Status Check] Verification code:', account.verification_code);
-                  console.log('[Status Check] Code found:', codeFound);
-
-                  // Update account with results
-                  const updateData: any = {
-                    profile_data: profileData,
-                    webhook_status: 'COMPLETED',
-                    last_verification_attempt_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                  };
-
-                  if (codeFound) {
-                    updateData.verification_status = 'VERIFIED';
-                    updateData.verification_attempts = 0;
-                  } else {
-                    updateData.verification_status = 'FAILED';
-                    updateData.verification_attempts = (account.verification_attempts || 0) + 1;
-                  }
-
-                  await supabaseAdmin
-                    .from('social_accounts')
-                    .update(updateData)
-                    .eq('id', account.id);
-
-                  console.log('[Status Check] Account updated:', {
-                    verification_status: updateData.verification_status,
-                    codeFound,
-                  });
-
-                  // Return updated status
-                  return NextResponse.json({
-                    data: {
-                      verification_status: updateData.verification_status,
-                      webhook_status: 'COMPLETED',
-                      verification_code: account.verification_code,
-                      last_verification_attempt_at: updateData.last_verification_attempt_at,
-                      snapshot_id: account.snapshot_id,
-                    },
-                  });
-                }
               } else {
                 console.log('[Status Check] Data not ready yet, status:', dataResponse.status);
               }
+            }
+
+            if (profileData) {
+              console.log('[Status Check] Profile data received, processing verification...');
+                  
+              // Extract bio and verify code
+              const bioText = extractBioFromProfileData(profileData, account.platform);
+              const codeFound = verifyCodeInBio(bioText, account.verification_code);
+
+              console.log('[Status Check] Bio text:', bioText);
+              console.log('[Status Check] Verification code:', account.verification_code);
+              console.log('[Status Check] Code found:', codeFound);
+
+              // Update account with results
+              const updateData: any = {
+                profile_data: profileData,
+                webhook_status: 'COMPLETED',
+                last_verification_attempt_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              };
+
+              if (codeFound) {
+                updateData.verification_status = 'VERIFIED';
+                updateData.verification_attempts = 0;
+              } else {
+                updateData.verification_status = 'FAILED';
+                updateData.verification_attempts = (account.verification_attempts || 0) + 1;
+              }
+
+              const { data: updatedAccount, error: updateError } = await supabaseAdmin
+                .from('social_accounts')
+                .update(updateData)
+                .eq('id', account.id)
+                .select('id, verification_code, verification_status, webhook_status, profile_data')
+                .single();
+
+              if (updateError) {
+                console.error('[Status Check] Error updating account:', {
+                  error: updateError.message,
+                  code: updateError.code,
+                  details: updateError.details,
+                  accountId: account.id,
+                });
+                // Continue to return current status if update fails
+              } else {
+                console.log('[Status Check] Account updated successfully:', {
+                  accountId: updatedAccount?.id,
+                  verification_status: updateData.verification_status,
+                  codeFound,
+                  hasProfileData: !!updatedAccount?.profile_data,
+                });
+              }
+
+              // Return updated status
+              return NextResponse.json({
+                data: {
+                  verification_status: updateData.verification_status,
+                  webhook_status: 'COMPLETED',
+                  verification_code: account.verification_code,
+                  last_verification_attempt_at: updateData.last_verification_attempt_at,
+                  snapshot_id: account.snapshot_id,
+                },
+              });
             } else if (status === 'failed' || status === 'error') {
               // Snapshot failed
-              await supabaseAdmin
+              const { error: updateError } = await supabaseAdmin
                 .from('social_accounts')
                 .update({
                   webhook_status: 'FAILED',
@@ -148,6 +202,14 @@ export async function GET(request: NextRequest) {
                   updated_at: new Date().toISOString(),
                 })
                 .eq('id', account.id);
+
+              if (updateError) {
+                console.error('[Status Check] Error updating account on failure:', {
+                  error: updateError.message,
+                  code: updateError.code,
+                  accountId: account.id,
+                });
+              }
 
               return NextResponse.json({
                 data: {

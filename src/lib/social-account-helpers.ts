@@ -107,6 +107,49 @@ export function validateProfileUrl(url: string, platform: SocialPlatform): boole
 }
 
 /**
+ * Parse a URL and identify the platform
+ * Returns the platform and username if detected
+ */
+export function parseProfileUrl(url: string): {
+  platform: SocialPlatform | null
+  username: string | null
+} {
+  try {
+    // Add https if missing for parsing
+    let urlToParse = url.trim()
+    if (!urlToParse.startsWith('http://') && !urlToParse.startsWith('https://')) {
+      urlToParse = `https://${urlToParse}`
+    }
+
+    const urlObj = new URL(urlToParse)
+    const hostname = urlObj.hostname.toLowerCase()
+
+    // Check for TikTok
+    if (hostname.includes('tiktok.com')) {
+      const username = extractUsernameFromUrl(urlToParse, 'tiktok')
+      return { platform: 'tiktok', username }
+    }
+
+    // Check for Instagram
+    if (hostname.includes('instagram.com')) {
+      const username = extractUsernameFromUrl(urlToParse, 'instagram')
+      return { platform: 'instagram', username }
+    }
+
+    // Check for YouTube
+    if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) {
+      const username = extractUsernameFromUrl(urlToParse, 'youtube')
+      return { platform: 'youtube', username }
+    }
+
+    // Not a supported platform
+    return { platform: null, username: null }
+  } catch {
+    return { platform: null, username: null }
+  }
+}
+
+/**
  * Normalize a profile URL (ensure https, remove trailing slashes)
  */
 export function normalizeProfileUrl(url: string): string {
@@ -153,10 +196,21 @@ export function extractBioFromProfileData(
         ''
       )
     case 'instagram':
-      // Instagram uses biography as primary field
+      // Instagram may have biography at top level or nested in account object
+      // Check top level first
       if (profileData.biography && typeof profileData.biography === 'string') {
         return profileData.biography
       }
+      // Check nested account.biography (BrightData sometimes nests Instagram data)
+      if (profileData.account && typeof profileData.account === 'object') {
+        if (profileData.account.biography && typeof profileData.account.biography === 'string') {
+          return profileData.account.biography
+        }
+        if (profileData.account.bio && typeof profileData.account.bio === 'string') {
+          return profileData.account.bio
+        }
+      }
+      // Fallback to other top-level fields
       return (
         profileData.bio ||
         profileData.bio_text ||

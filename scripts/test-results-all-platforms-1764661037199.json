@@ -1,0 +1,94 @@
+{
+  "tiktok": {
+    "platform": "tiktok",
+    "success": true,
+    "webhookReceived": false,
+    "hasProfileData": true,
+    "errors": [
+      "Attempt 1: Data not stored in database"
+    ],
+    "retries": 1,
+    "accountId": "3e1c50d3-ef0a-4a7c-9f27-d8223fa78b49",
+    "snapshotId": "sd_mio8vs9f2k22txm7j8",
+    "verificationStatus": "FAILED",
+    "profileDataKeys": [
+      "id",
+      "url",
+      "input",
+      "likes",
+      "secu_id",
+      "nickname",
+      "biography",
+      "followers",
+      "following",
+      "signature",
+      "timestamp",
+      "account_id",
+      "digg_count",
+      "is_private",
+      "like_count",
+      "top_videos",
+      "create_time",
+      "is_verified",
+      "videos_count",
+      "is_ad_virtual",
+      "open_favorite",
+      "predicted_lang",
+      "top_posts_data",
+      "profile_pic_url",
+      "is_commerce_user",
+      "profile_pic_url_hd",
+      "awg_engagement_rate",
+      "like_engagement_rate",
+      "comment_engagement_rate"
+    ]
+  },
+  "instagram": {
+    "platform": "instagram",
+    "success": false,
+    "webhookReceived": false,
+    "hasProfileData": false,
+    "errors": [
+      "Attempt 1: Data not stored in database",
+      "Attempt 2: Data not stored in database",
+      "Attempt 3: Data not stored in database"
+    ],
+    "retries": 2,
+    "accountId": "fd9bfece-ff32-48ef-b666-28495bfd115c",
+    "snapshotId": "sd_mio992x82mfv8g9xcj"
+  },
+  "youtube": {
+    "platform": "youtube",
+    "success": true,
+    "webhookReceived": true,
+    "hasProfileData": true,
+    "errors": [
+      "Attempt 1: Data not stored in database"
+    ],
+    "retries": 1,
+    "accountId": "176d400b-4228-45ff-a09d-f46fa48a6922",
+    "snapshotId": "sd_mio9m2os22tn4wo9fx",
+    "verificationStatus": "FAILED",
+    "profileDataKeys": [
+      "id",
+      "url",
+      "name",
+      "Links",
+      "input",
+      "views",
+      "handle",
+      "Details",
+      "timestamp",
+      "banner_img",
+      "handle_md5",
+      "identifier",
+      "top_videos",
+      "Description",
+      "has_podcast",
+      "subscribers",
+      "created_date",
+      "videos_count",
+      "profile_image"
+    ]
+  }
+}

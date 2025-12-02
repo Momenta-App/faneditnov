@@ -308,14 +308,15 @@ export function VerifyAccountDialog({
         return;
       }
 
-      // If account verification failed, show error
+      // If account verification failed, show error but allow retry
+      // User can click "Verify Account" button to retry the entire process
       if (account.verification_status === 'FAILED') {
         setVerificationStatus('idle');
         setLoading(false);
         if (account.webhook_status === 'COMPLETED') {
-          setError('Verification failed. The code was not found in your bio. Please make sure the verification code is in your profile bio and try again.');
+          setError('Verification failed. The code was not found in your bio. Make sure the verification code is in your profile bio, then click "Verify Account" to retry.');
         } else {
-          setError('Verification failed. Please try again.');
+          setError('Verification failed. Click "Verify Account" to retry the verification process.');
         }
         return;
       }
@@ -363,11 +364,18 @@ export function VerifyAccountDialog({
   }, []);
 
   const handleVerify = async () => {
+    // Reset all state for a fresh verification attempt
     setError(null);
     setLoading(true);
     setVerificationStatus('verifying');
     setStatusMessage('Starting verification...');
     verificationStartTimeRef.current = Date.now();
+    
+    // Clear any existing polling
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
 
     try {
       if (!session?.access_token) {
@@ -411,6 +419,11 @@ export function VerifyAccountDialog({
       // Verification is pending, start polling
       setVerificationStatus('pending');
       setStatusMessage('Verification is processing. This may take a few minutes...');
+      
+      // Refresh account data to get updated snapshot_id and status
+      // This ensures the dialog shows the latest state after retry
+      onAccountVerified();
+      
       // Polling will be handled by useEffect
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Verification failed';
@@ -590,29 +603,29 @@ export function VerifyAccountDialog({
                     size="md"
                     onClick={handleVerify}
                     disabled={loading || verificationStatus === 'pending'}
-                    isLoading={loading || verificationStatus === 'pending'}
+                    isLoading={loading}
                     className="w-full sm:w-auto min-w-[140px]"
                   >
-                    {loading || verificationStatus === 'pending'
-                      ? verificationStatus === 'pending'
-                        ? (
-                          <span className="flex items-center gap-1.5">
-                            <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Processing...
-                          </span>
-                        )
-                        : 'Verifying...'
-                      : (
+                    {verificationStatus === 'pending'
+                      ? (
                         <span className="flex items-center gap-1.5">
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
-                          Verify Account
+                          Pending
                         </span>
-                      )}
+                      )
+                      : loading
+                        ? 'Verifying...'
+                        : (
+                          <span className="flex items-center gap-1.5">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Verify Account
+                          </span>
+                        )}
                   </Button>
                   {statusMessage && (
                     <div className="flex items-start gap-1 p-1.5 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
@@ -623,28 +636,11 @@ export function VerifyAccountDialog({
                     </div>
                   )}
                   {error && (
-                    <div className="space-y-1">
-                      <div className="flex items-start gap-1 p-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                        <svg className="w-3 h-3 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <p className="text-xs text-red-800 dark:text-red-200 flex-1 leading-tight">{error}</p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="primary"
-                        size="sm"
-                        onClick={handleVerify}
-                        disabled={loading || verificationStatus === 'pending'}
-                        className="w-full sm:w-auto"
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                          Try Again
-                        </span>
-                      </Button>
+                    <div className="flex items-start gap-1 p-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                      <svg className="w-3 h-3 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-xs text-red-800 dark:text-red-200 flex-1 leading-tight">{error}</p>
                     </div>
                   )}
                 </div>

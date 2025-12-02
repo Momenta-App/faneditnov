@@ -19,7 +19,7 @@ import { authFetch } from '@/lib/auth-fetch';
 import { detectPlatform } from '@/lib/url-utils';
 import type { Platform } from '@/lib/url-utils';
 import { Video } from '../types/data';
-import { VerifyAccountDialog } from '../components/VerifyAccountDialog';
+import { ConnectedAccountsSection } from '../components/ConnectedAccountsSection';
 
 // Helper function to format numbers with abbreviations
 const formatNumber = (num: number | null | undefined): string => {
@@ -36,8 +36,9 @@ export default function SettingsPage() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
   
-  // Determine initial tab from URL param: 0=Profile, 1=Search Results, 2=Contests
+  // Determine initial tab from URL param: 0=Profile, 1=Search Results, 2=Contests, 3=Social Accounts
   const getInitialTab = () => {
+    if (tabParam === 'social-accounts') return 3;
     if (tabParam === 'contests') return 2;
     if (tabParam === 'search-results') return 1;
     return 0;
@@ -54,7 +55,9 @@ export default function SettingsPage() {
 
   // Sync with URL param
   useEffect(() => {
-    if (tabParam === 'contests') {
+    if (tabParam === 'social-accounts') {
+      setActiveTab(3);
+    } else if (tabParam === 'contests') {
       setActiveTab(2);
     } else if (tabParam === 'search-results') {
       setActiveTab(1);
@@ -66,7 +69,9 @@ export default function SettingsPage() {
   const handleTabChange = (tabIndex: number) => {
     setActiveTab(tabIndex);
     // Update URL without causing a full page reload
-    if (tabIndex === 2) {
+    if (tabIndex === 3) {
+      router.replace('/settings?tab=social-accounts', { scroll: false });
+    } else if (tabIndex === 2) {
       router.replace('/settings?tab=contests', { scroll: false });
     } else if (tabIndex === 1) {
       router.replace('/settings?tab=search-results', { scroll: false });
@@ -106,13 +111,13 @@ export default function SettingsPage() {
               <Tab isActive={activeTab === 2} onClick={() => handleTabChange(2)}>
                 Contests
               </Tab>
+              <Tab isActive={activeTab === 3} onClick={() => handleTabChange(3)}>
+                Social Accounts
+              </Tab>
             </TabList>
             <TabPanels className="mt-6">
               <TabPanel className={activeTab === 0 ? 'block' : 'hidden'}>
                 <ProfileSection />
-                <div id="connected-accounts-section">
-                  <ConnectedAccountsSection />
-                </div>
               </TabPanel>
               <TabPanel className={activeTab === 1 ? 'block' : 'hidden'}>
                 <SavedCampaignsSection />
@@ -120,16 +125,13 @@ export default function SettingsPage() {
               <TabPanel className={activeTab === 2 ? 'block' : 'hidden'}>
                 <ContestsSection 
                   onNavigateToOwnership={() => {
-                    setActiveTab(0);
-                    router.replace('/settings', { scroll: false });
-                    setTimeout(() => {
-                      const element = document.getElementById('connected-accounts-section');
-                      if (element) {
-                        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }
-                    }, 100);
+                    setActiveTab(3);
+                    router.replace('/settings?tab=social-accounts', { scroll: false });
                   }}
                 />
+              </TabPanel>
+              <TabPanel className={activeTab === 3 ? 'block' : 'hidden'}>
+                <ConnectedAccountsSection />
               </TabPanel>
             </TabPanels>
           </Tabs>
@@ -328,346 +330,6 @@ function ProfileSection() {
   );
 }
 
-function ConnectedAccountsSection() {
-  const { session } = useAuth();
-  const [accounts, setAccounts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [addingAccount, setAddingAccount] = useState(false);
-  const [verifyingId, setVerifyingId] = useState<string | null>(null);
-  const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
-  const [selectedAccount, setSelectedAccount] = useState<any | null>(null);
-  const [newAccountPlatform, setNewAccountPlatform] = useState<'tiktok' | 'instagram' | 'youtube' | null>(null);
-  const [newAccountUrl, setNewAccountUrl] = useState('');
-  const [newAccountUsername, setNewAccountUsername] = useState('');
-
-  const fetchAccounts = useCallback(async (silent = false) => {
-    try {
-      if (!silent) {
-        setLoading(true);
-      }
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-      }
-      const response = await fetch('/api/settings/connected-accounts', {
-        headers,
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch accounts');
-      }
-      const data = await response.json();
-      setAccounts(data.data || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load accounts');
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
-    }
-  }, [session?.access_token]);
-
-  // Initial fetch
-  useEffect(() => {
-    fetchAccounts();
-  }, [fetchAccounts]);
-
-  // Poll verification status for pending accounts
-  useEffect(() => {
-    const hasPending = accounts.some(
-      (acc) => acc.verification_status === 'PENDING' && acc.webhook_status === 'PENDING'
-    );
-    
-    if (!hasPending) {
-      return;
-    }
-
-    // BrightData can take 5+ minutes, so poll every 15 seconds
-    const interval = setInterval(() => {
-      fetchAccounts(true); // Silent refresh to avoid scroll jumps
-    }, 15000);
-    
-    return () => clearInterval(interval);
-  }, [accounts, fetchAccounts]);
-
-  const handleAddAccount = async () => {
-    if (!newAccountPlatform || !newAccountUrl) {
-      setError('Please select a platform and enter a profile URL');
-      return;
-    }
-
-    try {
-      setAddingAccount(true);
-      setError(null);
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-      }
-      const response = await fetch('/api/settings/connected-accounts', {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify({
-          platform: newAccountPlatform,
-          profile_url: newAccountUrl,
-          username: newAccountUsername || null,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to add account');
-      }
-
-      const data = await response.json();
-      setAccounts([...accounts, data.data]);
-      setNewAccountPlatform(null);
-      setNewAccountUrl('');
-      setNewAccountUsername('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add account');
-    } finally {
-      setAddingAccount(false);
-    }
-  };
-
-  const handleVerifyClick = (account: any) => {
-    setSelectedAccount(account);
-    setVerifyDialogOpen(true);
-  };
-
-  const handleAccountVerified = useCallback(() => {
-    fetchAccounts(true); // Silent refresh to avoid scroll jumps
-  }, [fetchAccounts]);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'VERIFIED':
-        return 'bg-green-500/10 text-green-500 border-green-500/20';
-      case 'FAILED':
-        return 'bg-red-500/10 text-red-500 border-red-500/20';
-      case 'PENDING':
-        return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
-      default:
-        return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
-    }
-  };
-
-  const getPlatformLabel = (platform: string) => {
-    switch (platform) {
-      case 'tiktok':
-        return 'TikTok';
-      case 'instagram':
-        return 'Instagram';
-      case 'youtube':
-        return 'YouTube';
-      default:
-        return platform;
-    }
-  };
-
-  // Always render the card structure to prevent layout shifts
-  if (loading) {
-    return (
-      <Card>
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-1">
-              Connected Social Accounts
-            </h2>
-            <p className="text-sm text-[var(--color-text-muted)]">
-              Connect and verify your social media accounts to submit to contests
-            </p>
-          </div>
-          <div className="space-y-4">
-            {[...Array(2)].map((_, i) => (
-              <Skeleton key={i} className="h-24" />
-            ))}
-          </div>
-        </div>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-1">
-            Connected Social Accounts
-          </h2>
-          <p className="text-sm text-[var(--color-text-muted)]">
-            Connect and verify your social media accounts to submit to contests
-          </p>
-        </div>
-
-        {error && (
-          <div className="p-4 border border-red-500/20 bg-red-500/5 rounded-lg">
-            <p className="text-red-500 text-sm">{error}</p>
-          </div>
-        )}
-
-        {/* Add Account Form */}
-        <div className="p-4 border border-[var(--color-border)] rounded-lg">
-          <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-3">
-            Add New Account
-          </h3>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-2">
-                Platform
-              </label>
-              <select
-                value={newAccountPlatform || ''}
-                onChange={(e) => setNewAccountPlatform(e.target.value as any)}
-                className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)]"
-              >
-                <option value="">Select platform</option>
-                <option value="tiktok">TikTok</option>
-                <option value="instagram">Instagram</option>
-                <option value="youtube">YouTube</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-2">
-                Profile URL
-              </label>
-              <input
-                type="url"
-                value={newAccountUrl}
-                onChange={(e) => setNewAccountUrl(e.target.value)}
-                placeholder="https://www.tiktok.com/@username"
-                className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)]"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-2">
-                Username (optional)
-              </label>
-              <input
-                type="text"
-                value={newAccountUsername}
-                onChange={(e) => setNewAccountUsername(e.target.value)}
-                placeholder="@username"
-                className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)]"
-              />
-            </div>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleAddAccount}
-              disabled={addingAccount || !newAccountPlatform || !newAccountUrl}
-            >
-              {addingAccount ? 'Adding...' : 'Add Account'}
-            </Button>
-          </div>
-        </div>
-
-        {/* Accounts List */}
-        {accounts.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-sm text-[var(--color-text-muted)]">
-              No connected accounts yet. Add one above to get started.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {accounts.map((account) => (
-              <div
-                key={account.id}
-                className="p-4 border border-[var(--color-border)] rounded-lg"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-semibold text-[var(--color-text-primary)]">
-                        {getPlatformLabel(account.platform)}
-                      </span>
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(
-                          account.verification_status
-                        )}`}
-                      >
-                        {account.verification_status}
-                      </span>
-                    </div>
-                    <a
-                      href={account.profile_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-[var(--color-primary)] hover:underline"
-                    >
-                      {account.profile_url}
-                    </a>
-                    {account.username && (
-                      <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                        @{account.username}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Verification Code Display */}
-                {account.verification_status === 'PENDING' && account.verification_code && (
-                  <div className="mb-3 p-3 rounded-lg border border-yellow-500/20 bg-yellow-500/5">
-                    <p className="text-sm font-medium text-yellow-600 mb-1">
-                      Verification Code: <code className="font-mono bg-yellow-100 px-2 py-1 rounded">{account.verification_code}</code>
-                    </p>
-                    <p className="text-xs text-yellow-700">
-                      Add this code to your {getPlatformLabel(account.platform)} bio/description, then click "Verify Account" below.
-                    </p>
-                  </div>
-                )}
-
-                {/* Verification Failed Message */}
-                {account.verification_status === 'FAILED' && (
-                  <div className="mb-3 p-3 rounded-lg border border-red-500/20 bg-red-500/5">
-                    <p className="text-sm text-red-600">
-                      Verification failed. Make sure the code is in your bio and try again.
-                    </p>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="flex gap-2">
-                  {account.verification_status !== 'VERIFIED' && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleVerifyClick(account)}
-                    >
-                      Verify Account
-                    </Button>
-                  )}
-                  {account.verification_status === 'VERIFIED' && (
-                    <span className="text-sm text-green-600 font-medium">
-                      ✓ Verified
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Verify Account Dialog */}
-      {selectedAccount && (
-        <VerifyAccountDialog
-          open={verifyDialogOpen}
-          onOpenChange={setVerifyDialogOpen}
-          account={selectedAccount}
-          onAccountVerified={handleAccountVerified}
-        />
-      )}
-    </Card>
-  );
-}
 
 // Status helper functions
 function getStatusConfig(status: string, type: 'processing' | 'review' | 'ownership' = 'review') {
